@@ -1,8 +1,10 @@
 package com.example.taskflow.security;
 
-import org.springframework.stereotype.Component;
-import com.example.taskflow.domain.Role;
+import com.example.taskflow.domain.Organization;
+import com.example.taskflow.domain.OrganizationMembership;
 import com.example.taskflow.domain.User;
+import com.example.taskflow.repository.OrganizationMembershipRepository;
+import org.springframework.stereotype.Component;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -10,36 +12,67 @@ import java.util.stream.Collectors;
 public class RoleStrategyFactory {
 
     private final EmployeeStrategy employeeStrategy;
-    private final ManagerStrategy managerStrategy;
-    private final DirectorStrategy directorStrategy;
+    private final SuperAdminStrategy superAdminStrategy;
+    private final OrganizationMembershipRepository membershipRepository;
 
     public RoleStrategyFactory(EmployeeStrategy employeeStrategy,
-                               ManagerStrategy managerStrategy,
-                               DirectorStrategy directorStrategy) {
+            SuperAdminStrategy superAdminStrategy,
+            OrganizationMembershipRepository membershipRepository) {
         this.employeeStrategy = employeeStrategy;
-        this.managerStrategy = managerStrategy;
-        this.directorStrategy = directorStrategy;
+        this.superAdminStrategy = superAdminStrategy;
+        this.membershipRepository = membershipRepository;
     }
 
+    /**
+     * Returns the strategy for a user.
+     * SUPER_ADMIN is the ONLY global role. All other access is determined
+     * by org-scoped membership roles.
+     */
     public RoleStrategy getStrategy(User user) {
-        // 1. Get all role names from the user's role set
+        if (user == null) return employeeStrategy;
+
+        // SUPER_ADMIN — the only global privileged role (platform owner)
         Set<String> roleNames = user.getRoles().stream()
-                .map(Role::getName)
+                .map(role -> {
+                    String name = role.getName();
+                    if (name.startsWith("ROLE_")) return name.substring(5);
+                    return name;
+                })
                 .collect(Collectors.toSet());
 
-        // 2. Check for roles in order of hierarchy (Highest -> Lowest)
-        
-        // If they are a DIRECTOR (or have ROLE_DIRECTOR)
-        if (roleNames.contains("DIRECTOR") || roleNames.contains("ROLE_DIRECTOR")) {
-            return directorStrategy;
+        if (roleNames.contains("SUPER_ADMIN")) {
+            return superAdminStrategy;
         }
 
-        // If they are a MANAGER
-        if (roleNames.contains("MANAGER") || roleNames.contains("ROLE_MANAGER")) {
-            return managerStrategy;
-        }
-
-        // Default to EMPLOYEE
+        // Everyone else uses the same base strategy.
+        // Actual permissions are determined by org membership (ADMIN/DIRECTOR/MANAGER/EMPLOYEE)
+        // checked inside the strategy methods.
         return employeeStrategy;
+    }
+
+    /** Get the org-scoped role for a user within a specific organization */
+    public OrganizationMembership getMembership(User user, Organization org) {
+        if (user == null || org == null) return null;
+        return membershipRepository.findByUserAndOrganization(user, org).orElse(null);
+    }
+
+    /** Check if user has a specific org-role in any organization */
+    public boolean hasOrgRole(User user, com.example.taskflow.domain.OrgRole role) {
+        if (user == null) return false;
+        return membershipRepository.findByUserId(user.getId()).stream()
+                .anyMatch(m -> m.getOrgRole() == role);
+    }
+
+    /** Returns the user's organization membership, or null if independent */
+    public OrganizationMembership getUserMembership(User user) {
+        if (user == null) return null;
+        var memberships = membershipRepository.findByUserId(user.getId());
+        return memberships.isEmpty() ? null : memberships.get(0);
+    }
+
+    /** Checks whether a user belongs to any organization */
+    public boolean isOrgMember(User user) {
+        if (user == null) return false;
+        return !membershipRepository.findByUserId(user.getId()).isEmpty();
     }
 }

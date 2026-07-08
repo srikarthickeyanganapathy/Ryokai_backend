@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>New Task Assigned</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+    <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px;">
+        <h2 style="color: #2c3e50;">New Task Assigned</h2>
+        <p>Hello <span th:text="${assigneeName}">User</span>,</p>
+        <p><span th:text="${assignerName}">Someone</span> has assigned a new task to you.</p>
+        <p><strong>Task:</strong> <span th:text="${taskTitle}">Task Title</span></p>
+        <p th:if="${dueDate != null}"><strong>Due Date:</strong> <span th:text="${#temporals.format(dueDate, 'yyyy-MM-dd HH:mm:ss')}"></span></p>
+        <div style="text-align: center; margin: 30px 0;">
+            <a th:href="${taskUrl}" style="background-color: #2ecc71; color: white; padding: 12px 25px; text-decoration: none; border-radius: 4px; display: inline-block; font-weight: bold;">View Task</a>
+        </div>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+        <p style="font-size: 12px; color: #7f8c8d; text-align: center;">TaskFlow Team</p>
+    </div>
+</body>
+</html>

@@ -8,5 +8,6 @@ import com.example.taskflow.domain.ChecklistItem;
 
 public interface ChecklistItemRepository extends JpaRepository<ChecklistItem, Long> {
     // Find all items for a specific task
-    List<ChecklistItem> findByTaskId(Long taskId);
+    List<ChecklistItem> findByTaskIdOrderByDisplayOrderAsc(Long taskId);
+    void deleteByTaskId(Long taskId);
 }

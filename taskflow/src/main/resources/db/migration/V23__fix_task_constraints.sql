@@ -1,0 +1,6 @@
+ALTER TABLE tasks DROP CONSTRAINT IF EXISTS chk_task_status;
+ALTER TABLE tasks ADD CONSTRAINT chk_task_status
+  CHECK (current_status IN ('TODO','COMPLETED','ASSIGNED','SUBMITTED','APPROVED','REJECTED'));
+
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS is_personal BOOLEAN NOT NULL DEFAULT FALSE;
+CREATE INDEX IF NOT EXISTS idx_tasks_is_personal ON tasks(is_personal);

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket / STOMP Test (DEV ONLY)</title>
+    <!-- DEV ONLY — DO NOT DEPLOY TO PROD -->
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7.0.0/bundles/stomp.umd.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        #log { border: 1px solid #ccc; height: 300px; overflow-y: scroll; padding: 10px; background: #f9f9f9; }
+        input, button { margin: 5px 0; padding: 5px; }
+        .error { color: red; }
+        .info { color: blue; }
+        .message { color: green; }
+    </style>
+</head>
+<body>
+    <h2>WebSocket / STOMP Test (DEV ONLY)</h2>
+    <div>
+        <label>JWT Token:</label><br>
+        <input type="text" id="jwtToken" placeholder="eyJ..." style="width: 400px;"><br>
+        <button id="connectBtn" onclick="connect()">Connect</button>
+        <button id="disconnectBtn" onclick="disconnect()" disabled>Disconnect</button>
+    </div>
+    
+    <h3>Log</h3>
+    <div id="log"></div>
+
+    <script>
+        let stompClient = null;
+
+        function connect() {
+            const token = document.getElementById('jwtToken').value;
+            if (!token) {
+                log('Please enter a JWT token', 'error');
+                return;
+            }
+
+            // Using pure StompJs with WebSocket directly (since SockJS doesn't support custom headers on handshake)
+            // But we will send the token in the CONNECT frame, so we could use SockJS too.
+            // Let's configure StompJs to use SockJS and send token in connect headers.
+            
+            stompClient = new StompJs.Client({
+                webSocketFactory: function () {
+                    // Handshake interceptor will fast-fail if no token is provided.
+                    // Unfortunately, SockJS in browser cannot send custom headers.
+                    // So we must use raw WebSocket for the handshake if we rely on headers, 
+                    // or append the token as a query param for the SockJS URL JUST to pass the fast-fail.
+                    // But per review C1, we don't want JWT in query params!
+                    // So we MUST use raw WebSocket here instead of SockJS, because raw WebSocket allows 
+                    // passing protocols or we just rely on STOMP CONNECT.
+                    // Wait, raw WebSocket ALSO can't send custom headers in browser!
+                    // Actually, browser WebSockets cannot send custom HTTP headers. 
+                    // This is why STOMP CONNECT is used. 
+                    // If our handshake interceptor fast-fails without a token, browser WS will fail!
+                    // Wait, C1 said: "Handshake phase: Only verify that a token EXISTS... (fast-fail for SockJS transports that DO send headers)."
+                    // Browsers don't send headers on WS handshake. So we should NOT fast fail if header is missing in Handshake interceptor?
+                    // Ah, the HandshakeInterceptor code I wrote checks: 
+                    // if (authHeader != null && authHeader.startsWith("Bearer ")) { validate... return false if invalid }
+                    // If authHeader is null, it just returns true. So it allows it to proceed to CONNECT! Perfect.
+                    return new SockJS('http://localhost:8080/ws');
+                },
+                connectHeaders: {
+                    'Authorization': 'Bearer ' + token
+                },
+                debug: function (str) {
+                    console.log(str);
+                },
+                reconnectDelay: 5000,
+                heartbeatIncoming: 10000,
+                heartbeatOutgoing: 10000,
+            });
+
+            stompClient.onConnect = function (frame) {
+                document.getElementById('connectBtn').disabled = true;
+                document.getElementById('disconnectBtn').disabled = false;
+                log('Connected: ' + frame, 'info');
+
+                stompClient.subscribe('/user/queue/notifications', function (message) {
+                    log('Notification: ' + message.body, 'message');
+                });
+                
+                stompClient.subscribe('/user/queue/unread-count', function (message) {
+                    log('Unread Count: ' + message.body, 'message');
+                });
+
+                stompClient.subscribe('/user/queue/force-disconnect', function (message) {
+                    log('Force disconnect received: ' + message.body, 'error');
+                    disconnect();
+                });
+            };
+
+            stompClient.onStompError = function (frame) {
+                log('STOMP Error: ' + frame.headers['message'], 'error');
+                log('Additional details: ' + frame.body, 'error');
+            };
+
+            stompClient.activate();
+        }
+
+        function disconnect() {
+            if (stompClient !== null) {
+                stompClient.deactivate();
+            }
+            document.getElementById('connectBtn').disabled = false;
+            document.getElementById('disconnectBtn').disabled = true;
+            log('Disconnected', 'info');
+        }
+
+        function log(message, className) {
+            const logDiv = document.getElementById('log');
+            const p = document.createElement('p');
+            p.className = className;
+            p.appendChild(document.createTextNode(new Date().toLocaleTimeString() + ' - ' + message));
+            logDiv.appendChild(p);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <springProfile name="dev">
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>%cyan(%d{HH:mm:ss.SSS}) %highlight(%-5level) %yellow([%thread]) %blue(%logger{36}) - %msg%n</pattern>
+            </encoder>
+        </appender>
+        <root level="INFO"><appender-ref ref="CONSOLE"/></root>
+    </springProfile>
+
+    <springProfile name="prod">
+        <appender name="JSON" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+                <includeMdcKeyName>correlationId</includeMdcKeyName>
+                <includeMdcKeyName>userId</includeMdcKeyName>
+                <includeMdcKeyName>requestId</includeMdcKeyName>
+                <customFields>{"app":"taskflow","env":"prod"}</customFields>
+            </encoder>
+        </appender>
+        <!-- Ensure container stdout receives JSON format -->
+        <root level="INFO">
+            <appender-ref ref="JSON"/>
+        </root>
+    </springProfile>
+</configuration>

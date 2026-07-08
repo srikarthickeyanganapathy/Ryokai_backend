@@ -28,6 +28,10 @@ public class ChecklistItem {
     @JsonIgnore
     private Task task;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by_id")
+    private User createdBy;
+
     @Column(nullable = false)
     private String text;
 

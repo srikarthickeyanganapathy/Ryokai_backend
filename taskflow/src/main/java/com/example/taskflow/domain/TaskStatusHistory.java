@@ -41,4 +41,28 @@ public class TaskStatusHistory {
 
     @Column(name = "changed_at")
     private LocalDateTime changedAt;
+
+    @Column(name = "from_status", length = 30)
+    private String fromStatus;
+
+    @Column(name = "to_status", length = 30)
+    private String toStatus;
+
+    @Column(columnDefinition = "TEXT")
+    private String reason;
+
+    @Column(name = "event_type", nullable = false, length = 30)
+    private String eventType = "STATUS_CHANGE";
+
+    @Column(name = "task_title_snapshot")
+    private String taskTitleSnapshot;
+
+    @Column(name = "actor_username_snapshot", length = 50)
+    private String actorUsernameSnapshot;
+
+    @Column(name = "assignee_username_snapshot", length = 50)
+    private String assigneeUsernameSnapshot;
+
+    @Column(name = "creator_username_snapshot", length = 50)
+    private String creatorUsernameSnapshot;
 }

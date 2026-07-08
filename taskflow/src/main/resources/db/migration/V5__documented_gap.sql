@@ -1,0 +1,2 @@
+-- Documenting gap between V4 and V6 migrations.
+-- This file exists solely to satisfy Flyway's consecutive versioning requirement.
