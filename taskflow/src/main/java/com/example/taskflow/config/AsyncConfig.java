@@ -63,6 +63,24 @@ public class AsyncConfig {
         exec.initialize();
         return exec;
     }
+
+    @Bean(name = "auditExecutor")
+    public Executor auditExecutor() {
+        ThreadPoolTaskExecutor exec = new ThreadPoolTaskExecutor();
+        exec.setCorePoolSize(2);
+        exec.setMaxPoolSize(4);
+        exec.setQueueCapacity(1000);
+        exec.setThreadNamePrefix("audit-");
+        
+        exec.setRejectedExecutionHandler(new ThreadPoolExecutor.DiscardOldestPolicy());
+        
+        exec.setWaitForTasksToCompleteOnShutdown(true);
+        exec.setAwaitTerminationSeconds(30);
+        exec.setTaskDecorator(new MdcTaskDecorator());
+
+        exec.initialize();
+        return exec;
+    }
     
     static class MdcTaskDecorator implements TaskDecorator {
         @Override

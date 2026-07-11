@@ -24,9 +24,11 @@ public class OrganizationMembership {
     @JoinColumn(name = "organization_id", nullable = false)
     private Organization organization;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "org_role", nullable = false, length = 20)
-    private OrgRole orgRole;
+    // EAGER because orgRole is always accessed during @PreAuthorize permission checks
+    // which run outside @Transactional — LAZY would cause LazyInitializationException
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "org_role_id", nullable = false)
+    private Role orgRole;
 
     @CreationTimestamp
     @Column(name = "joined_at", updatable = false)

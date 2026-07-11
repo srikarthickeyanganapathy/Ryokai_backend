@@ -46,9 +46,12 @@ public class OrganizationInvite {
     @Column(name = "invitee_email")
     private String inviteeEmail;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "org_role", nullable = false, length = 20)
-    private OrgRole orgRole = OrgRole.EMPLOYEE;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "org_role_id", nullable = false)
+    private Role orgRole;
+
+    @Column(name = "token", length = 64, unique = true)
+    private String token;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

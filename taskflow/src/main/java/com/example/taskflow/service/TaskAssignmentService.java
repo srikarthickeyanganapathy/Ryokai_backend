@@ -109,6 +109,14 @@ public class TaskAssignmentService {
                     throw new IllegalArgumentException("Assignee must be a member of your organization");
                 }
             }
+            
+            if (creator.getId().equals(assignee.getId())) {
+                throw new IllegalArgumentException("Org tasks cannot be self-assigned. Use a personal task instead, or assign to another member.");
+            }
+        } else {
+            if (assignee != null && !assignee.getId().equals(creator.getId())) {
+                throw new IllegalArgumentException("Personal tasks must be assigned to the creator");
+            }
         }
 
         Task task = new Task();
@@ -121,6 +129,19 @@ public class TaskAssignmentService {
         if (teamId != null) {
             Team team = teamRepository.findById(teamId)
                     .orElseThrow(() -> new IllegalArgumentException("Team not found: " + teamId));
+                    
+            boolean isSuperAdmin = creator.getRoles() != null && creator.getRoles().stream()
+                    .anyMatch(r -> r.getName().contains("SUPER_ADMIN"));
+            if (isSuperAdmin) {
+                var creatorMembership = membershipRepository.findByUserId(creator.getId());
+                if (!creatorMembership.isEmpty()) {
+                    Long creatorOrgId = creatorMembership.get(0).getOrganization().getId();
+                    if (!team.getOrganization().getId().equals(creatorOrgId)) {
+                        throw new IllegalArgumentException("Super Admins cannot assign tasks to teams outside their organization");
+                    }
+                }
+            }
+            
             // Validate assignee is a member of this team
             boolean isTeamMember = team.getMembers().stream()
                     .anyMatch(m -> m.getId().equals(assignee.getId()));
@@ -176,7 +197,8 @@ public class TaskAssignmentService {
             "You have a new task: " + title,
             description,
             savedTask,
-            null
+            null,
+            creator
         );
 
         return mapToTaskResponseDTO(savedTask);
@@ -205,14 +227,29 @@ public class TaskAssignmentService {
             throw new IllegalArgumentException("Task title is required");
         }
 
-        // Since this is @Transactional, if one userService.getCurrentUser fails, the entire batch rolls back.
-        // This gives us the "all-or-nothing" behavior requested by the client.
-        
+        // Mode 1: teamId provided → auto-resolve all team members as assignees
+        List<String> resolvedUsernames = assigneeUsernames;
+        if (teamId != null && (assigneeUsernames == null || assigneeUsernames.isEmpty())) {
+            Team team = teamRepository.findById(teamId)
+                    .orElseThrow(() -> new IllegalArgumentException("Team not found: " + teamId));
+            resolvedUsernames = team.getMembers().stream()
+                    .filter(member -> !member.getId().equals(creator.getId())) // exclude creator (can't self-assign org tasks)
+                    .map(User::getUsername)
+                    .collect(Collectors.toList());
+            if (resolvedUsernames.isEmpty()) {
+                throw new IllegalArgumentException("Team has no other members to assign tasks to");
+            }
+        }
+
+        if (resolvedUsernames == null || resolvedUsernames.isEmpty()) {
+            throw new IllegalArgumentException("No assignees resolved — provide teamId or assigneeUsernames");
+        }
+
         final String t = finalTitle;
         final String d = finalDescription;
         final TaskPriority p = finalPriority;
 
-        return assigneeUsernames.stream().map(username -> {
+        return resolvedUsernames.stream().map(username -> {
             User assignee = userService.getCurrentUser(username);
 
             return assignTask(

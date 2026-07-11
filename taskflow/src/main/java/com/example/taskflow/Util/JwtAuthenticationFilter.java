@@ -54,9 +54,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                         if (userDetails instanceof CustomUserDetailsService.CustomUserDetails customUser) {
                             Integer jwtVersion = jwtUtil.extractTokenVersion(token);
-                            if (jwtVersion != null && !jwtVersion.equals(customUser.getTokenVersion())) {
+                            if (jwtVersion == null || !jwtVersion.equals(customUser.getTokenVersion())) {
                                 SecurityContextHolder.clearContext();
-                                sendUnauthorizedResponse(response, "Token invalidated due to password reset");
+                                sendUnauthorizedResponse(response, "Token invalidated: missing or mismatched version");
                                 return;
                             }
                         }

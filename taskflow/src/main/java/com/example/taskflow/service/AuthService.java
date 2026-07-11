@@ -31,17 +31,20 @@ public class AuthService {
     private final EmailService emailService;
     private final JwtUtil jwtUtil;
     private final RefreshTokenService refreshTokenService;
+    private final SecurityAuditService securityAuditService;
 
     @Value("${app.email.send-welcome:true}")
     private boolean sendWelcomeEmail;
 
     public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder,
-                       EmailService emailService, JwtUtil jwtUtil, RefreshTokenService refreshTokenService) {
+                       EmailService emailService, JwtUtil jwtUtil, RefreshTokenService refreshTokenService,
+                       SecurityAuditService securityAuditService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.emailService = emailService;
         this.jwtUtil = jwtUtil;
         this.refreshTokenService = refreshTokenService;
+        this.securityAuditService = securityAuditService;
     }
 
     @Transactional
@@ -69,6 +72,8 @@ public class AuthService {
         String tokenId = UUID.randomUUID().toString();
         String accessToken = jwtUtil.generateAccessToken(savedUser, tokenId);
         String refreshToken = refreshTokenService.createRefreshChain(savedUser.getId(), deviceInfo, tokenId);
+        
+        securityAuditService.record("REGISTER", savedUser.getId(), savedUser.getUsername(), null, deviceInfo, null, true);
 
         return new JwtResponseDTO(
             accessToken,

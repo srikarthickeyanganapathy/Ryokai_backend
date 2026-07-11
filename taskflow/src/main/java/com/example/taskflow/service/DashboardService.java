@@ -73,15 +73,9 @@ public class DashboardService {
                 });
 
         if (isSuperAdmin) {
-            // Super Admin: platform-wide stats
-            long totalTasks = taskRepository.countByArchivedFalse();
-            long todoCount = taskRepository.countByCurrentStatusAndArchivedFalse(TaskStatus.ASSIGNED);
-            long inReviewCount = taskRepository.countByCurrentStatusAndArchivedFalse(TaskStatus.SUBMITTED);
-            long doneCount = taskRepository.countByCurrentStatusAndArchivedFalse(TaskStatus.APPROVED);
-            long revisionsCount = taskRepository.countByCurrentStatusAndArchivedFalse(TaskStatus.REJECTED);
-            long overdueCount = taskRepository.countByDueDateBeforeAndCurrentStatusNotInAndArchivedFalse(now, notApproved);
-            long assignedToMeCount = taskRepository.countByAssignedToIdAndArchivedFalse(user.getId());
-            return createDto(totalTasks, todoCount, inReviewCount, doneCount, revisionsCount, overdueCount, assignedToMeCount);
+            // Super Admin: privacy boundary — show only own personal task stats
+            // Platform-level metadata (orgs, users) is available via /api/admin endpoints
+            return buildStatsForEmployee(user);
         }
 
         // Director/Admin: scope to their own org

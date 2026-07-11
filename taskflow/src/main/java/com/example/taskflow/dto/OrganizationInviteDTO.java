@@ -10,6 +10,7 @@ public record OrganizationInviteDTO(
     String inviteeUsername,
     String orgRole,
     String status,
+    String token,
     LocalDateTime expiresAt,
     LocalDateTime createdAt
 ) {}

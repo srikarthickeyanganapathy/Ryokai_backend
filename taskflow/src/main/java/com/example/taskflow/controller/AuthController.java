@@ -47,6 +47,7 @@ public class AuthController {
     private final EmailService emailService;
     private final com.example.taskflow.service.RealtimeBroadcaster realtimeBroadcaster;
     private final com.example.taskflow.service.AuthService authService;
+    private final com.example.taskflow.service.SecurityAuditService securityAuditService;
 
     @Value("${app.email.send-welcome:true}")
     private boolean sendWelcomeEmail;
@@ -56,7 +57,8 @@ public class AuthController {
                           PasswordEncoder passwordEncoder, RefreshTokenService refreshTokenService,
                           UserProfileService userProfileService, EmailService emailService,
                           com.example.taskflow.service.RealtimeBroadcaster realtimeBroadcaster,
-                          com.example.taskflow.service.AuthService authService) {
+                          com.example.taskflow.service.AuthService authService,
+                          com.example.taskflow.service.SecurityAuditService securityAuditService) {
         this.authenticationManager = authenticationManager;
         this.jwtUtil = jwtUtil;
         this.userRepository = userRepository;
@@ -67,6 +69,7 @@ public class AuthController {
         this.emailService = emailService;
         this.realtimeBroadcaster = realtimeBroadcaster;
         this.authService = authService;
+        this.securityAuditService = securityAuditService;
     }
 
     private final com.github.benmanes.caffeine.cache.Cache<String, io.github.bucket4j.Bucket> loginBuckets = com.github.benmanes.caffeine.cache.Caffeine.newBuilder()
@@ -98,8 +101,17 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequestDTO request, HttpServletRequest httpRequest) {
+        String deviceInfo = httpRequest.getHeader("User-Agent");
+        String ip = httpRequest.getHeader("X-Forwarded-For");
+        if (ip == null || ip.isEmpty()) {
+            ip = httpRequest.getRemoteAddr();
+        } else {
+            ip = ip.split(",")[0].trim();
+        }
+
         io.github.bucket4j.Bucket bucket = loginBuckets.get(request.getUsername(), k -> createLoginBucket());
         if (!bucket.tryConsume(1)) {
+            securityAuditService.record("LOGIN_FAILED", null, request.getUsername(), ip, deviceInfo, "Too many login attempts", false);
             return ResponseEntity.status(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS)
                 .body(new com.example.taskflow.dto.MessageResponseDTO("Too many login attempts for this user. Please try again later."));
         }
@@ -109,6 +121,7 @@ public class AuthController {
                     new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
             );
         } catch (Exception e) {
+            securityAuditService.record("LOGIN_FAILED", null, request.getUsername(), ip, deviceInfo, "Invalid credentials", false);
             throw new com.example.taskflow.exception.InvalidCredentialsException("Invalid username or password");
         }
 
@@ -117,15 +130,9 @@ public class AuthController {
         String tokenId = java.util.UUID.randomUUID().toString();
         String accessToken = jwtUtil.generateAccessToken(user, tokenId);
         
-        String deviceInfo = httpRequest.getHeader("User-Agent");
-        String ip = httpRequest.getHeader("X-Forwarded-For");
-        if (ip == null || ip.isEmpty()) {
-            ip = httpRequest.getRemoteAddr();
-        } else {
-            ip = ip.split(",")[0].trim();
-        }
-
         String refreshToken = refreshTokenService.createRefreshChain(user.getId(), deviceInfo, tokenId);
+        
+        securityAuditService.record("LOGIN_SUCCESS", user.getId(), user.getUsername(), ip, deviceInfo, null, true);
         
         try {
             userProfileService.recordLoginTime(user.getUsername(), ip, deviceInfo);
@@ -194,7 +201,16 @@ public class AuthController {
         String tokenId = java.util.UUID.randomUUID().toString();
         String newAccessToken = jwtUtil.generateAccessToken(user, tokenId);
         String deviceInfo = httpRequest.getHeader("User-Agent");
+        String ip = httpRequest.getHeader("X-Forwarded-For");
+        if (ip == null || ip.isEmpty()) {
+            ip = httpRequest.getRemoteAddr();
+        } else {
+            ip = ip.split(",")[0].trim();
+        }
+        
         String newRefreshToken = refreshTokenService.createRefreshChain(user.getId(), deviceInfo, tokenId);
+        
+        securityAuditService.record("TOKEN_REFRESH", user.getId(), user.getUsername(), ip, deviceInfo, null, true);
         
         return ResponseEntity.ok(new JwtResponseDTO(
             newAccessToken, 
@@ -206,10 +222,23 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<?> logoutUser(@Valid @RequestBody TokenRefreshRequestDTO request) {
+    public ResponseEntity<?> logoutUser(@Valid @RequestBody TokenRefreshRequestDTO request, HttpServletRequest httpRequest) {
         String username = refreshTokenService.findUsernameByRawToken(request.getRefreshToken());
+        
+        String deviceInfo = httpRequest.getHeader("User-Agent");
+        String ip = httpRequest.getHeader("X-Forwarded-For");
+        if (ip == null || ip.isEmpty()) {
+            ip = httpRequest.getRemoteAddr();
+        } else {
+            ip = ip.split(",")[0].trim();
+        }
+        
         if (username != null) {
             realtimeBroadcaster.forceDisconnect(username);
+            // Optional: get user id if needed, but username is enough
+            User user = userRepository.findByUsername(username).orElse(null);
+            Long userId = user != null ? user.getId() : null;
+            securityAuditService.record("LOGOUT", userId, username, ip, deviceInfo, null, true);
         }
         
         // We delete the specific token using its raw value

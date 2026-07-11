@@ -3,16 +3,20 @@ package com.example.taskflow.service;
 import com.example.taskflow.domain.LeaveRequest;
 import com.example.taskflow.domain.Organization;
 import com.example.taskflow.domain.OrganizationMembership;
-import com.example.taskflow.domain.OrgRole;
+import com.example.taskflow.domain.Task;
+import com.example.taskflow.domain.Role;
+import com.example.taskflow.domain.RoleCategory;
 import com.example.taskflow.domain.User;
 import com.example.taskflow.dto.LeaveRequestDTO;
 import com.example.taskflow.dto.MembershipResponseDTO;
 import com.example.taskflow.dto.OrganizationResponseDTO;
+import com.example.taskflow.exception.OrganizationSuspendedException;
 import com.example.taskflow.exception.UnauthorizedActionException;
 import com.example.taskflow.exception.UserNotFoundException;
 import com.example.taskflow.repository.LeaveRequestRepository;
 import com.example.taskflow.repository.OrganizationMembershipRepository;
 import com.example.taskflow.repository.OrganizationRepository;
+import com.example.taskflow.repository.RoleRepository;
 import com.example.taskflow.repository.TaskRepository;
 import com.example.taskflow.repository.TeamRepository;
 import com.example.taskflow.repository.UserRepository;
@@ -33,6 +37,10 @@ public class OrganizationService {
     private final TaskRepository taskRepository;
     private final TeamRepository teamRepository;
     private final NotificationService notificationService;
+    private final TaskAuditService taskAuditService;
+    private final AuditService auditService;
+    private final RoleRepository roleRepository;
+    private final RoleService roleService;
 
     public OrganizationService(OrganizationRepository organizationRepository,
             OrganizationMembershipRepository membershipRepository,
@@ -40,7 +48,11 @@ public class OrganizationService {
             UserRepository userRepository,
             TaskRepository taskRepository,
             TeamRepository teamRepository,
-            NotificationService notificationService) {
+            NotificationService notificationService,
+            TaskAuditService taskAuditService,
+            AuditService auditService,
+            RoleRepository roleRepository,
+            RoleService roleService) {
         this.organizationRepository = organizationRepository;
         this.membershipRepository = membershipRepository;
         this.leaveRequestRepository = leaveRequestRepository;
@@ -48,6 +60,10 @@ public class OrganizationService {
         this.taskRepository = taskRepository;
         this.teamRepository = teamRepository;
         this.notificationService = notificationService;
+        this.taskAuditService = taskAuditService;
+        this.auditService = auditService;
+        this.roleRepository = roleRepository;
+        this.roleService = roleService;
     }
 
     // ========================================================================
@@ -78,18 +94,30 @@ public class OrganizationService {
             return null; // Super Admin bypasses
         OrganizationMembership membership = membershipRepository.findByUserAndOrganization(user, org)
                 .orElseThrow(() -> new UnauthorizedActionException("You are not a member of this organization"));
-        if (membership.getOrgRole() != OrgRole.ADMIN) {
+        if (membership.getOrgRole().getCategory() != RoleCategory.BUILTIN_ADMIN) {
             throw new UnauthorizedActionException("Only the Organization Admin can perform this action");
         }
         return membership;
     }
 
+    /**
+     * Rejects the operation if the organization is not ACTIVE (i.e. SUSPENDED or DELETED).
+     * This guards direct-call paths that are not covered by CustomPermissionEvaluator.
+     */
+    private void requireActiveOrganization(Organization org) {
+        if (org.getStatus() != Organization.OrgStatus.ACTIVE) {
+            throw new OrganizationSuspendedException(
+                    "Organization '" + org.getName() + "' is " + org.getStatus().name().toLowerCase()
+                    + ". All operations are restricted until it is reactivated.");
+        }
+    }
+
     private void ensureNotLastAdmin(Organization org, User userBeingRemoved) {
         long adminCount = membershipRepository.findByOrganizationId(org.getId()).stream()
-                .filter(m -> m.getOrgRole() == OrgRole.ADMIN)
+                .filter(m -> m.getOrgRole() != null && m.getOrgRole().getCategory() == RoleCategory.BUILTIN_ADMIN)
                 .count();
         boolean isAdmin = membershipRepository.findByUserAndOrganization(userBeingRemoved, org)
-                .map(m -> m.getOrgRole() == OrgRole.ADMIN)
+                .map(m -> m.getOrgRole() != null && m.getOrgRole().getCategory() == RoleCategory.BUILTIN_ADMIN)
                 .orElse(false);
         if (isAdmin && adminCount <= 1) {
             throw new IllegalStateException(
@@ -122,26 +150,64 @@ public class OrganizationService {
         org.setCreatedBy(adminUser);
         Organization saved = organizationRepository.save(org);
 
+        // Create built-in roles for the organization dynamically
+        Role adminRole = new Role();
+        adminRole.setName("ADMIN");
+        adminRole.setDescription("Organization Administrator");
+        adminRole.setBuiltin(true);
+        adminRole.setCategory(RoleCategory.BUILTIN_ADMIN);
+        adminRole.setOrganization(saved);
+        roleRepository.save(adminRole);
+
+        Role directorRole = new Role();
+        directorRole.setName("DIRECTOR");
+        directorRole.setDescription("Organization Director");
+        directorRole.setBuiltin(true);
+        directorRole.setCategory(RoleCategory.BUILTIN_DIRECTOR);
+        directorRole.setOrganization(saved);
+        roleRepository.save(directorRole);
+
+        Role managerRole = new Role();
+        managerRole.setName("MANAGER");
+        managerRole.setDescription("Organization Manager");
+        managerRole.setBuiltin(true);
+        managerRole.setCategory(RoleCategory.BUILTIN_MANAGER);
+        managerRole.setOrganization(saved);
+        roleRepository.save(managerRole);
+
+        Role employeeRole = new Role();
+        employeeRole.setName("EMPLOYEE");
+        employeeRole.setDescription("Organization Employee");
+        employeeRole.setBuiltin(true);
+        employeeRole.setCategory(RoleCategory.BUILTIN_EMPLOYEE);
+        employeeRole.setOrganization(saved);
+        roleRepository.save(employeeRole);
+
         OrganizationMembership membership = new OrganizationMembership();
         membership.setUser(adminUser);
         membership.setOrganization(saved);
-        membership.setOrgRole(OrgRole.ADMIN);
+        membership.setOrgRole(adminRole);
         membershipRepository.save(membership);
 
-        return mapToResponseDTO(saved);
+        OrganizationResponseDTO responseDTO = mapToResponseDTO(saved);
+        auditService.record("ORG_CREATED", adminUser, "ORGANIZATION", saved.getId(),
+                null, responseDTO, "Created organization: " + saved.getName());
+
+        return responseDTO;
     }
 
     @Transactional
-    public MembershipResponseDTO inviteMember(Long orgId, Long userId, OrgRole orgRole, User invitedBy) {
+    public MembershipResponseDTO inviteMember(Long orgId, Long userId, Long roleId, User invitedBy) {
         Organization org = organizationRepository.findById(orgId)
                 .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + orgId));
+        requireActiveOrganization(org);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException("User not found: " + userId));
 
         // Only the organization ADMIN can invite members
         OrganizationMembership inviterMembership = membershipRepository.findByUserAndOrganization(invitedBy, org)
                 .orElseThrow(() -> new UnauthorizedActionException("You are not a member of this organization"));
-        if (inviterMembership.getOrgRole() != OrgRole.ADMIN) {
+        if (inviterMembership.getOrgRole().getCategory() != RoleCategory.BUILTIN_ADMIN) {
             throw new UnauthorizedActionException("Only the Organization Admin can invite members");
         }
 
@@ -156,10 +222,13 @@ public class OrganizationService {
             throw new IllegalArgumentException("User is already a member of this organization");
         }
 
+        Role role = roleRepository.findById(roleId)
+                .orElseThrow(() -> new IllegalArgumentException("Role not found"));
+        
         OrganizationMembership membership = new OrganizationMembership();
         membership.setUser(user);
         membership.setOrganization(org);
-        membership.setOrgRole(orgRole);
+        membership.setOrgRole(role);
         OrganizationMembership saved = membershipRepository.save(membership);
 
         return mapToMembershipDTO(saved);
@@ -192,11 +261,11 @@ public class OrganizationService {
         // Notify all org admins about the leave request
         List<OrganizationMembership> members = membershipRepository.findByOrganizationId(orgId);
         for (OrganizationMembership m : members) {
-            if (m.getOrgRole() == OrgRole.ADMIN) {
+            if (m.getOrgRole().getCategory() == RoleCategory.BUILTIN_ADMIN) {
                 notificationService.createAndSend(m.getUser(), user,
                         com.example.taskflow.notification.NotificationEvent.LEAVE_REQUESTED,
                         "Leave Request: " , user.getUsername() + " has requested to leave " + org.getName(), null ,
-                        "leave-request:" + saved.getId());
+                        "leave-request:" + saved.getId(), user);
             }
         }
 
@@ -211,7 +280,7 @@ public class OrganizationService {
         // Validate admin is the org ADMIN
         OrganizationMembership adminMembership = membershipRepository.findByUserAndOrganization(adminUser, org)
                 .orElseThrow(() -> new UnauthorizedActionException("You are not a member of this organization"));
-        if (adminMembership.getOrgRole() != OrgRole.ADMIN) {
+        if (adminMembership.getOrgRole().getCategory() != RoleCategory.BUILTIN_ADMIN) {
             throw new UnauthorizedActionException("Only the Organization Admin can approve leave requests");
         }
 
@@ -239,12 +308,13 @@ public class OrganizationService {
         // Fix #9: Reassign ONLY non-completed tasks to the org admin
         taskRepository.findByAssignedTo(leavingUser).stream()
                 .filter(t -> t.getOrganization() != null && t.getOrganization().getId().equals(orgId))
-                .filter(t -> t.getCurrentStatus() != com.example.taskflow.domain.TaskStatus.APPROVED
-                        && t.getCurrentStatus() != com.example.taskflow.domain.TaskStatus.COMPLETED)
+                .filter(t -> t.getCurrentStatus() != com.example.taskflow.domain.TaskStatus.COMPLETED)
                 .forEach(task -> {
+                    String oldStatus = task.getCurrentStatus().name();
                     task.setAssignedTo(adminUser);
                     task.setCurrentStatus(com.example.taskflow.domain.TaskStatus.ASSIGNED);
-                    taskRepository.save(task);
+                    Task updated = taskRepository.save(task);
+                    taskAuditService.recordStatus(updated, oldStatus, "ASSIGNED", "REASSIGNED", adminUser, "Reassigned due to member leaving org");
                 });
 
         // Fix #8: Remove from all teams within this org
@@ -264,7 +334,7 @@ public class OrganizationService {
         notificationService.createAndSend(leavingUser, adminUser,
                 com.example.taskflow.notification.NotificationEvent.LEAVE_APPROVED,
                 "Leave Approved", "Your leave request for " + org.getName() + " has been approved.",
-                null, "leave-approved:" + saved.getId());
+                null, "leave-approved:" + saved.getId(), adminUser);
 
         return mapToLeaveRequestDTO(saved);
     }
@@ -276,7 +346,7 @@ public class OrganizationService {
 
         OrganizationMembership adminMembership = membershipRepository.findByUserAndOrganization(adminUser, org)
                 .orElseThrow(() -> new UnauthorizedActionException("You are not a member of this organization"));
-        if (adminMembership.getOrgRole() != OrgRole.ADMIN) {
+        if (adminMembership.getOrgRole().getCategory() != RoleCategory.BUILTIN_ADMIN) {
             throw new UnauthorizedActionException("Only the Organization Admin can reject leave requests");
         }
 
@@ -302,7 +372,7 @@ public class OrganizationService {
                 com.example.taskflow.notification.NotificationEvent.LEAVE_REJECTED,
                 "Leave Rejected", "Your leave request for " + org.getName() + " has been rejected."
                         + (adminComment != null ? " Reason: " + adminComment : ""),
-                null, "leave-rejected:" + saved.getId());
+                null, "leave-rejected:" + saved.getId(), adminUser);
 
         return mapToLeaveRequestDTO(saved);
     }
@@ -315,7 +385,7 @@ public class OrganizationService {
         OrganizationMembership membership = membershipRepository.findByUserAndOrganization(user, org)
                 .orElseThrow(() -> new UnauthorizedActionException("You are not a member of this organization"));
 
-        if (membership.getOrgRole() == OrgRole.ADMIN) {
+        if (membership.getOrgRole().getCategory() == RoleCategory.BUILTIN_ADMIN) {
             return leaveRequestRepository.findByOrganizationId(orgId).stream()
                     .map(this::mapToLeaveRequestDTO)
                     .collect(Collectors.toList());
@@ -352,7 +422,7 @@ public class OrganizationService {
         // Only ADMIN can remove members
         OrganizationMembership removerMembership = membershipRepository.findByUserAndOrganization(removedBy, org)
                 .orElseThrow(() -> new UnauthorizedActionException("You are not a member of this organization"));
-        if (removerMembership.getOrgRole() != OrgRole.ADMIN) {
+        if (removerMembership.getOrgRole().getCategory() != RoleCategory.BUILTIN_ADMIN) {
             throw new UnauthorizedActionException("Only the Organization Admin can remove members");
         }
 
@@ -371,22 +441,25 @@ public class OrganizationService {
         // Reassign tasks to the admin before removing
         taskRepository.findByAssignedTo(user).stream()
                 .filter(t -> t.getOrganization() != null && t.getOrganization().getId().equals(orgId))
-                .filter(t -> t.getCurrentStatus() != com.example.taskflow.domain.TaskStatus.APPROVED
-                          && t.getCurrentStatus() != com.example.taskflow.domain.TaskStatus.COMPLETED)
+                .filter(t -> t.getCurrentStatus() != com.example.taskflow.domain.TaskStatus.COMPLETED)
                 .forEach(task -> {
+                    String oldStatus = task.getCurrentStatus().name();
                     task.setAssignedTo(removedBy);
                     task.setCurrentStatus(com.example.taskflow.domain.TaskStatus.ASSIGNED);
-                    taskRepository.save(task);
+                    Task updated = taskRepository.save(task);
+                    taskAuditService.recordStatus(updated, oldStatus, "ASSIGNED", "REASSIGNED", removedBy, "Reassigned due to member removal");
                 });
 
-        // Fix #8: Remove from all teams within this org
         removeUserFromOrgTeams(user, orgId);
 
         membershipRepository.delete(membership);
+        
+        auditService.record("ORG_MEMBER_REMOVED", removedBy, "ORGANIZATION", org.getId(),
+                user.getUsername(), null, "Removed member " + user.getUsername() + " from organization");
     }
 
     @Transactional
-    public MembershipResponseDTO updateMemberRole(Long orgId, Long userId, OrgRole newRole, User callerUser) {
+    public MembershipResponseDTO updateMemberRole(Long orgId, Long userId, Long newRoleId, User callerUser) {
         Organization org = organizationRepository.findById(orgId)
                 .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + orgId));
 
@@ -399,15 +472,25 @@ public class OrganizationService {
         OrganizationMembership membership = membershipRepository.findByUserAndOrganization(user, org)
                 .orElseThrow(() -> new IllegalArgumentException("User is not a member of this organization"));
 
+        Role newRole = roleRepository.findById(newRoleId)
+                .orElseThrow(() -> new IllegalArgumentException("Role not found"));
+
         // Prevent demoting yourself if you're the last admin
-        if (callerUser.getId().equals(userId) && membership.getOrgRole() == OrgRole.ADMIN && newRole != OrgRole.ADMIN) {
+        if (callerUser.getId().equals(userId) && membership.getOrgRole().getCategory() == RoleCategory.BUILTIN_ADMIN && newRole.getCategory() != RoleCategory.BUILTIN_ADMIN) {
             ensureNotLastAdmin(org, user);
         }
 
+        String oldRoleName = membership.getOrgRole().getName();
         membership.setOrgRole(newRole);
         OrganizationMembership saved = membershipRepository.save(membership);
 
-        return mapToMembershipDTO(saved);
+        MembershipResponseDTO responseDTO = mapToMembershipDTO(saved);
+        auditService.record("ORG_MEMBER_ROLE_UPDATED", callerUser, "ORGANIZATION", org.getId(),
+                java.util.Map.of("user", user.getUsername(), "oldRole", oldRoleName), 
+                java.util.Map.of("user", user.getUsername(), "newRole", newRole.getName()), 
+                "Updated member role for " + user.getUsername() + " to " + newRole.getName());
+
+        return responseDTO;
     }
 
     @Transactional(readOnly = true)
@@ -446,6 +529,79 @@ public class OrganizationService {
     }
 
     // ========================================================================
+    // ROLE MANAGEMENT (Org Admin only)
+    // ========================================================================
+
+    @Transactional(readOnly = true)
+    public List<com.example.taskflow.dto.RoleResponseDTO> listOrganizationRoles(Long orgId, User caller) {
+        Organization org = organizationRepository.findById(orgId)
+                .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + orgId));
+        validateMembershipOrSuperAdmin(caller, org);
+        return roleService.getRolesByOrganizationId(orgId);
+    }
+
+    @Transactional
+    public com.example.taskflow.dto.RoleResponseDTO createOrganizationRole(Long orgId, com.example.taskflow.dto.RoleCreateRequestDTO request, User caller) {
+        Organization org = organizationRepository.findById(orgId)
+                .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + orgId));
+        requireActiveOrganization(org);
+        requireAdminMembership(caller, org);
+        
+        com.example.taskflow.dto.RoleCreateRequestDTO orgRequest = new com.example.taskflow.dto.RoleCreateRequestDTO(
+            request.name(), request.description(), orgId);
+            
+        return roleService.createRole(orgRequest, caller);
+    }
+
+    @Transactional
+    public com.example.taskflow.dto.RoleResponseDTO updateOrganizationRole(Long orgId, Long roleId, com.example.taskflow.dto.RoleUpdateRequestDTO request, User caller) {
+        Organization org = organizationRepository.findById(orgId)
+                .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + orgId));
+        requireActiveOrganization(org);
+        requireAdminMembership(caller, org);
+        
+        Role role = roleRepository.findById(roleId)
+                .orElseThrow(() -> new IllegalArgumentException("Role not found"));
+        if (role.getOrganization() == null || !role.getOrganization().getId().equals(orgId)) {
+            throw new IllegalArgumentException("Role does not belong to this organization");
+        }
+        
+        return roleService.updateRole(roleId, request, caller);
+    }
+
+    @Transactional
+    public void deleteOrganizationRole(Long orgId, Long roleId, User caller) {
+        Organization org = organizationRepository.findById(orgId)
+                .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + orgId));
+        requireActiveOrganization(org);
+        requireAdminMembership(caller, org);
+        
+        Role role = roleRepository.findById(roleId)
+                .orElseThrow(() -> new IllegalArgumentException("Role not found"));
+        if (role.getOrganization() == null || !role.getOrganization().getId().equals(orgId)) {
+            throw new IllegalArgumentException("Role does not belong to this organization");
+        }
+        
+        roleService.deleteRole(roleId, caller);
+    }
+
+    @Transactional
+    public java.util.Set<com.example.taskflow.dto.PermissionResponseDTO> updateOrganizationRolePermissions(Long orgId, Long roleId, com.example.taskflow.dto.AssignPermissionsRequestDTO request, User caller) {
+        Organization org = organizationRepository.findById(orgId)
+                .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + orgId));
+        requireActiveOrganization(org);
+        requireAdminMembership(caller, org);
+        
+        Role role = roleRepository.findById(roleId)
+                .orElseThrow(() -> new IllegalArgumentException("Role not found"));
+        if (role.getOrganization() == null || !role.getOrganization().getId().equals(orgId)) {
+            throw new IllegalArgumentException("Role does not belong to this organization");
+        }
+        
+        return roleService.assignRolePermissions(roleId, request, caller);
+    }
+
+    // ========================================================================
     // DTO MAPPING
     // ========================================================================
 
@@ -465,7 +621,7 @@ public class OrganizationService {
                 membership.getId(),
                 membership.getUser().getId(),
                 membership.getUser().getUsername(),
-                membership.getOrgRole(),
+                membership.getOrgRole().getName(),
                 membership.getJoinedAt());
     }
 

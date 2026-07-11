@@ -99,4 +99,13 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     // Project-scoped counts
     long countByProjectId(Long projectId);
     long countByProjectIdAndCurrentStatus(Long projectId, TaskStatus status);
+    long countByProjectIdAndCurrentStatusIn(Long projectId, java.util.Collection<TaskStatus> statuses);
+    
+    // Team-scoped counts
+    @Query("SELECT COUNT(t) FROM Task t WHERE t.team.id = :teamId")
+    long countByTeamId(@Param("teamId") Long teamId);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("UPDATE Task t SET t.project = NULL WHERE t.project.id = :projectId")
+    void detachProjectFromTasks(@Param("projectId") Long projectId);
 }

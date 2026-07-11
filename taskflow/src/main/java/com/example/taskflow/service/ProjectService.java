@@ -40,16 +40,16 @@ public class ProjectService {
 
     @Transactional(readOnly = true)
     public List<ProjectResponseDTO> getAllProjects(User currentUser) {
+        List<Project> result = new java.util.ArrayList<>();
+        result.addAll(projectRepository.findByCreatedById(currentUser.getId()).stream()
+                .filter(p -> p.getOrganization() == null)
+                .collect(Collectors.toList()));
         var memberships = membershipRepository.findByUserId(currentUser.getId());
-        if (memberships.isEmpty()) {
-            return projectRepository.findByCreatedById(currentUser.getId()).stream()
-                    .map(this::toResponseDTO)
-                    .collect(Collectors.toList());
+        if (!memberships.isEmpty()) {
+            Long orgId = memberships.get(0).getOrganization().getId();
+            result.addAll(projectRepository.findByOrganizationId(orgId));
         }
-        Long orgId = memberships.get(0).getOrganization().getId();
-        return projectRepository.findByOrganizationId(orgId).stream()
-                .map(this::toResponseDTO)
-                .collect(Collectors.toList());
+        return result.stream().map(this::toResponseDTO).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
@@ -110,13 +110,14 @@ public class ProjectService {
     public void deleteProject(Long projectId) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Project not found"));
+        taskRepository.detachProjectFromTasks(projectId);
         projectRepository.delete(project);
     }
 
     private ProjectResponseDTO toResponseDTO(Project p) {
         long total = taskRepository.countByProjectId(p.getId());
-        long completed = taskRepository.countByProjectIdAndCurrentStatus(
-                p.getId(), com.example.taskflow.domain.TaskStatus.APPROVED);
+        long completed = taskRepository.countByProjectIdAndCurrentStatusIn(
+                p.getId(), java.util.List.of(com.example.taskflow.domain.TaskStatus.APPROVED, com.example.taskflow.domain.TaskStatus.COMPLETED));
         int progress = total > 0 ? (int) Math.round((completed * 100.0) / total) : 0;
 
         ProjectResponseDTO dto = new ProjectResponseDTO();

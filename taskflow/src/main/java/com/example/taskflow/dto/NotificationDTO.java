@@ -13,7 +13,8 @@ public record NotificationDTO(
         boolean read,
         LocalDateTime createdAt,
         String relativeTime,
-        String deduplicationKey
+        String deduplicationKey,
+        String actorUsername
 ) {
     public static String getRelativeTime(LocalDateTime time) {
         if (time == null) return "";

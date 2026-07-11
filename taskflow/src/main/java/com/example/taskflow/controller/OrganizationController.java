@@ -1,6 +1,6 @@
 package com.example.taskflow.controller;
 
-import com.example.taskflow.domain.OrgRole;
+
 import com.example.taskflow.domain.User;
 import com.example.taskflow.dto.CreateOrganizationRequestDTO;
 import com.example.taskflow.dto.CreateTeamRequestDTO;
@@ -93,7 +93,7 @@ public class OrganizationController {
         User currentUser = getCurrentUser(userDetails);
         User invitedUser = userService.getCurrentUser(request.getUsername());
         com.example.taskflow.dto.OrganizationInviteDTO invite = inviteService.createInAppInvite(
-                id, invitedUser.getId(), request.getOrgRole() == null ? OrgRole.EMPLOYEE : request.getOrgRole(), currentUser);
+                id, invitedUser.getId(), request.getRoleId(), currentUser);
         return ResponseEntity.status(HttpStatus.CREATED).body(invite);
     }
 
@@ -117,7 +117,7 @@ public class OrganizationController {
             @AuthenticationPrincipal UserDetails userDetails) {
         User currentUser = getCurrentUser(userDetails);
         MembershipResponseDTO response = organizationService.updateMemberRole(
-                id, userId, request.getOrgRole(), currentUser);
+                id, userId, request.getRoleId(), currentUser);
         return ResponseEntity.ok(response);
     }
 
@@ -261,5 +261,64 @@ public class OrganizationController {
         User user = getCurrentUser(userDetails);
         LeaveRequestDTO response = organizationService.getLeaveRequestStatus(id, user);
         return ResponseEntity.ok(response);  // null means no pending request
+    }
+
+    // ========================================================================
+    // ROLE MANAGEMENT ENDPOINTS
+    // ========================================================================
+
+    @GetMapping("/{id}/roles")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<com.example.taskflow.dto.RoleResponseDTO>> listRoles(
+            @PathVariable @Min(1) Long id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User user = getCurrentUser(userDetails);
+        return ResponseEntity.ok(organizationService.listOrganizationRoles(id, user));
+    }
+
+    @PostMapping("/{id}/roles")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<com.example.taskflow.dto.RoleResponseDTO> createRole(
+            @PathVariable @Min(1) Long id,
+            @Valid @RequestBody com.example.taskflow.dto.RoleCreateRequestDTO request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User user = getCurrentUser(userDetails);
+        com.example.taskflow.dto.RoleResponseDTO response = organizationService.createOrganizationRole(id, request, user);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PutMapping("/{id}/roles/{roleId}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<com.example.taskflow.dto.RoleResponseDTO> updateRole(
+            @PathVariable @Min(1) Long id,
+            @PathVariable @Min(1) Long roleId,
+            @Valid @RequestBody com.example.taskflow.dto.RoleUpdateRequestDTO request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User user = getCurrentUser(userDetails);
+        com.example.taskflow.dto.RoleResponseDTO response = organizationService.updateOrganizationRole(id, roleId, request, user);
+        return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/{id}/roles/{roleId}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Void> deleteRole(
+            @PathVariable @Min(1) Long id,
+            @PathVariable @Min(1) Long roleId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User user = getCurrentUser(userDetails);
+        organizationService.deleteOrganizationRole(id, roleId, user);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{id}/roles/{roleId}/permissions")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<java.util.Set<com.example.taskflow.dto.PermissionResponseDTO>> updateRolePermissions(
+            @PathVariable @Min(1) Long id,
+            @PathVariable @Min(1) Long roleId,
+            @Valid @RequestBody com.example.taskflow.dto.AssignPermissionsRequestDTO request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User user = getCurrentUser(userDetails);
+        java.util.Set<com.example.taskflow.dto.PermissionResponseDTO> response = organizationService.updateOrganizationRolePermissions(id, roleId, request, user);
+        return ResponseEntity.ok(response);
     }
 }

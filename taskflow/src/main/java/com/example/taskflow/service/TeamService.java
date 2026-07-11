@@ -2,7 +2,7 @@ package com.example.taskflow.service;
 
 import com.example.taskflow.domain.Organization;
 import com.example.taskflow.domain.OrganizationMembership;
-import com.example.taskflow.domain.OrgRole;
+import com.example.taskflow.domain.RoleCategory;
 import com.example.taskflow.domain.Team;
 import com.example.taskflow.domain.User;
 import com.example.taskflow.dto.TeamResponseDTO;
@@ -12,6 +12,7 @@ import com.example.taskflow.repository.OrganizationMembershipRepository;
 import com.example.taskflow.repository.OrganizationRepository;
 import com.example.taskflow.repository.TeamRepository;
 import com.example.taskflow.repository.UserRepository;
+import com.example.taskflow.repository.TaskRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,15 +26,21 @@ public class TeamService {
     private final OrganizationRepository organizationRepository;
     private final UserRepository userRepository;
     private final OrganizationMembershipRepository membershipRepository;
+    private final TaskRepository taskRepository;
+    private final NotificationService notificationService;
 
     public TeamService(TeamRepository teamRepository,
                        OrganizationRepository organizationRepository,
                        UserRepository userRepository,
-                       OrganizationMembershipRepository membershipRepository) {
+                       OrganizationMembershipRepository membershipRepository,
+                       TaskRepository taskRepository,
+                       NotificationService notificationService) {
         this.teamRepository = teamRepository;
         this.organizationRepository = organizationRepository;
         this.userRepository = userRepository;
         this.membershipRepository = membershipRepository;
+        this.taskRepository = taskRepository;
+        this.notificationService = notificationService;
     }
 
     // ========================================================================
@@ -47,8 +54,8 @@ public class TeamService {
 
     private void requireManagerOrAbove(User caller, Organization org) {
         OrganizationMembership membership = requireOrgMembership(caller, org);
-        OrgRole role = membership.getOrgRole();
-        if (role != OrgRole.ADMIN && role != OrgRole.DIRECTOR && role != OrgRole.MANAGER) {
+        RoleCategory role = membership.getOrgRole() != null ? membership.getOrgRole().getCategory() : null;
+        if (role != RoleCategory.BUILTIN_ADMIN && role != RoleCategory.BUILTIN_DIRECTOR && role != RoleCategory.BUILTIN_MANAGER) {
             throw new UnauthorizedActionException("Only Managers, Directors, or Admins can manage teams");
         }
     }
@@ -97,6 +104,14 @@ public class TeamService {
         team.getMembers().add(user);
         Team saved = teamRepository.save(team);
 
+        notificationService.createAndSend(user, caller,
+            com.example.taskflow.notification.NotificationEvent.TEAM_MEMBER_ADDED,
+            "Added to Team",
+            "You have been added to team " + team.getName(),
+            null,
+            "team-add:" + team.getId() + ":" + user.getId(),
+            caller);
+
         return mapToResponseDTO(saved);
     }
 
@@ -115,6 +130,14 @@ public class TeamService {
 
         team.getMembers().remove(user);
         Team saved = teamRepository.save(team);
+
+        notificationService.createAndSend(user, caller,
+            com.example.taskflow.notification.NotificationEvent.TEAM_MEMBER_REMOVED,
+            "Removed from Team",
+            "You have been removed from team " + team.getName(),
+            null,
+            "team-remove:" + team.getId() + ":" + user.getId(),
+            caller);
 
         return mapToResponseDTO(saved);
     }
@@ -147,6 +170,12 @@ public class TeamService {
                 .orElseThrow(() -> new IllegalArgumentException("Team not found: " + teamId));
         // Auth: caller must be MANAGER+ in the same org
         requireManagerOrAbove(caller, team.getOrganization());
+        
+        long taskCount = taskRepository.countByTeamId(teamId);
+        if (taskCount > 0) {
+            throw new IllegalStateException("Cannot delete team because it has " + taskCount + " tasks assigned to it. Please reassign or archive these tasks first.");
+        }
+        
         teamRepository.delete(team);
     }
 

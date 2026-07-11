@@ -1,5 +1,6 @@
 package com.example.taskflow.domain;
 
+import jakarta.persistence.*;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -30,7 +31,7 @@ public class Role {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(unique = true, nullable = false, length = 30)
+    @Column(nullable = false, length = 30)
     private String name;
 
     @Column(columnDefinition = "TEXT")
@@ -43,4 +44,15 @@ public class Role {
         inverseJoinColumns = @JoinColumn(name = "permission_id")
     )
     private Set<Permission> permissions = new HashSet<>();
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "organization_id")
+    private Organization organization;
+
+    @Column(name = "is_builtin", nullable = false)
+    private boolean builtin = false;
+
+    @Column(name = "category", nullable = false, length = 30)
+    @Enumerated(EnumType.STRING)
+    private RoleCategory category = RoleCategory.CUSTOM;
 }

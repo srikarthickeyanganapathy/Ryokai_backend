@@ -103,6 +103,11 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(createErrorResponse(HttpStatus.FORBIDDEN, "Forbidden", ex.getMessage(), "UNAUTHORIZED_ACTION", request), HttpStatus.FORBIDDEN);
     }
 
+    @ExceptionHandler(com.example.taskflow.exception.OrganizationSuspendedException.class)
+    public ResponseEntity<Object> handleOrganizationSuspendedException(com.example.taskflow.exception.OrganizationSuspendedException ex, HttpServletRequest request) {
+        return new ResponseEntity<>(createErrorResponse(HttpStatus.FORBIDDEN, "Forbidden", ex.getMessage(), "ORGANIZATION_SUSPENDED", request), HttpStatus.FORBIDDEN);
+    }
+
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<Object> handleIllegalStateException(IllegalStateException ex, HttpServletRequest request) {
         return new ResponseEntity<>(createErrorResponse(HttpStatus.CONFLICT, "Conflict", ex.getMessage(), "INVALID_STATE", request), HttpStatus.CONFLICT);

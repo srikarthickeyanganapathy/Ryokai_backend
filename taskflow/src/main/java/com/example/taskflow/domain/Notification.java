@@ -31,6 +31,10 @@ public class Notification {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "actor_id")
+    private User actor;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
     private NotificationEvent type;

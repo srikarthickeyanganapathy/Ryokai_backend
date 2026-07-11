@@ -150,6 +150,25 @@ public class EmailService {
         }
     }
 
+    @Async("emailExecutor")
+    public void sendLeaveRequestEmail(String toEmail, String adminName, String userName, String orgName, Long requestId) {
+        if (!emailEnabled) return;
+        try {
+            Context ctx = new Context();
+            ctx.setVariable("adminName", adminName);
+            ctx.setVariable("userName", userName);
+            ctx.setVariable("orgName", orgName);
+            ctx.setVariable("requestUrl", frontendUrl + "/org/leave-requests?id=" + requestId);
+            
+            String html = templateEngine.process("email/leave-request", ctx);
+            sendHtmlEmail(toEmail, "TaskFlow — Leave Request from " + userName, html);
+        } catch (Exception e) {
+            // Sanitize exception messages by not logging raw user input directly if it causes issues, 
+            // though here we just log the failure.
+            log.error("Failed to send leave request email to {}", toEmail, e);
+        }
+    }
+
     private void sendHtmlEmail(String to, String subject, String htmlBody) throws Exception {
         MimeMessage msg = mailSender.createMimeMessage();
         MimeMessageHelper helper = new MimeMessageHelper(msg, true, "UTF-8");

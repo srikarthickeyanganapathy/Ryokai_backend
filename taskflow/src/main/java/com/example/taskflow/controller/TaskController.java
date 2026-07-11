@@ -98,7 +98,7 @@ public class TaskController {
                 request.getDueDate(),
                 request.getTags(),
                 request.isPersonal(),
-                request.getTeamId(),
+                null, // teamId: not applicable for single assign — use bulk assign for teams
                 request.getProjectId());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -108,10 +108,11 @@ public class TaskController {
     public ResponseEntity<TaskResponseDTO> createPersonalTask(@Valid @RequestBody TaskRequestDTO request,
             @AuthenticationPrincipal UserDetails userDetails) {
         User creator = getCurrentUser(userDetails);
-        // For personal tasks, the assignee defaults to the creator
-        User assignee = request.getAssigneeUsername() != null
-                ? userService.getCurrentUser(request.getAssigneeUsername())
-                : creator;
+        if (request.getAssigneeUsername() != null
+                && !request.getAssigneeUsername().equals(userDetails.getUsername())) {
+            throw new IllegalArgumentException("Personal tasks can only be assigned to yourself");
+        }
+        User assignee = creator;
 
         TaskResponseDTO response = taskAssignmentService.assignTask(
                 request.getTitle(),
@@ -133,6 +134,13 @@ public class TaskController {
             @AuthenticationPrincipal UserDetails userDetails) {
         User creator = getCurrentUser(userDetails);
 
+        // Validation: must provide either teamId or assigneeUsernames
+        boolean hasTeam = request.getTeamId() != null;
+        boolean hasUsernames = request.getAssigneeUsernames() != null && !request.getAssigneeUsernames().isEmpty();
+        if (!hasTeam && !hasUsernames) {
+            throw new IllegalArgumentException("Either teamId or assigneeUsernames must be provided");
+        }
+
         String tagsJoined = request.getTags() != null ? String.join(",", request.getTags()) : null;
 
         List<TaskResponseDTO> response = taskAssignmentService.bulkAssignTasks(
@@ -142,7 +150,8 @@ public class TaskController {
                 request.getAssigneeUsernames(),
                 creator,
                 request.getDueDate(),
-                tagsJoined);
+                tagsJoined,
+                request.getTeamId());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -152,6 +161,13 @@ public class TaskController {
     public ResponseEntity<TaskResponseDTO> submitTask(@PathVariable @Min(1) Long taskId,
             @AuthenticationPrincipal UserDetails userDetails) {
         return ResponseEntity.ok(taskWorkflowService.submitTask(taskId, getCurrentUser(userDetails)));
+    }
+
+    @PostMapping("/{taskId}/complete")
+    @PreAuthorize("hasPermission(#taskId, 'Task', 'EDIT')")
+    public ResponseEntity<TaskResponseDTO> completePersonalTask(@PathVariable @Min(1) Long taskId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(taskWorkflowService.completePersonalTask(taskId, getCurrentUser(userDetails)));
     }
 
     @PostMapping("/{taskId}/approve")

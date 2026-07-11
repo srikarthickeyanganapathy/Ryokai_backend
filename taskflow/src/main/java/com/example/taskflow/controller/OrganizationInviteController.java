@@ -14,7 +14,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.example.taskflow.domain.OrgRole;
 import com.example.taskflow.domain.User;
 import com.example.taskflow.dto.InviteMemberRequestDTO;
 import com.example.taskflow.dto.OrganizationInviteDTO;
@@ -52,7 +51,19 @@ public class OrganizationInviteController {
         User currentUser = getCurrentUser(userDetails);
         User invitee = userService.getCurrentUser(request.getUsername());
         OrganizationInviteDTO invite = inviteService.createInAppInvite(
-                orgId, invitee.getId(), request.getOrgRole() == null ? OrgRole.EMPLOYEE : request.getOrgRole(), currentUser);
+                orgId, invitee.getId(), request.getRoleId(), currentUser);
+        return ResponseEntity.status(HttpStatus.CREATED).body(invite);
+    }
+
+    @PostMapping("/organizations/{orgId}/invites/link")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<OrganizationInviteDTO> createShareableLink(
+            @PathVariable @Min(1) Long orgId,
+            @Valid @RequestBody com.example.taskflow.dto.UpdateRoleRequestDTO request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User currentUser = getCurrentUser(userDetails);
+        OrganizationInviteDTO invite = inviteService.createShareableLink(
+                orgId, request.getRoleId(), currentUser);
         return ResponseEntity.status(HttpStatus.CREATED).body(invite);
     }
 
@@ -80,5 +91,13 @@ public class OrganizationInviteController {
             @AuthenticationPrincipal UserDetails userDetails) {
         User user = getCurrentUser(userDetails);
         return ResponseEntity.ok(inviteService.declineInvite(inviteId, user));
+    }
+    @PostMapping("/invites/token/{token}/accept")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<OrganizationInviteDTO> acceptInviteByToken(
+            @PathVariable String token,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User user = getCurrentUser(userDetails);
+        return ResponseEntity.ok(inviteService.acceptInviteByToken(token, user));
     }
 }

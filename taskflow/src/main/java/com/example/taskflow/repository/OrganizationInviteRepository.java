@@ -14,4 +14,5 @@ public interface OrganizationInviteRepository extends JpaRepository<Organization
     List<OrganizationInvite> findByOrganizationId(Long orgId);
     Optional<OrganizationInvite> findByInviteeUserIdAndOrganizationIdAndStatus(Long userId, Long orgId, OrganizationInvite.InviteStatus status);
     boolean existsByInviteeUserIdAndOrganizationIdAndStatus(Long userId, Long orgId, OrganizationInvite.InviteStatus status);
+    Optional<OrganizationInvite> findByToken(String token);
 }

@@ -3,8 +3,6 @@ package com.example.taskflow.dto;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import jakarta.validation.constraints.NotEmpty;
-
 public class BulkAssignRequestDTO {
 
     private Long templateId;
@@ -13,11 +11,14 @@ public class BulkAssignRequestDTO {
     
     private String description;
 
-    @NotEmpty(message = "At least one assignee is required")
+    /** Optional: if provided, auto-resolve all team members as assignees */
+    private Long teamId;
+
+    /** Required if teamId is null — explicit list of usernames to assign to */
     private List<String> assigneeUsernames;
 
     private LocalDateTime dueDate;
-    private List<String> tags; // Changed to List<String> from Set<String> to match frontend if needed, wait backend expects List in controller but DTO has Set. Controller uses request.getTags(), let's leave it as List since frontend sends array
+    private List<String> tags;
 
     public BulkAssignRequestDTO() {}
 
@@ -30,6 +31,9 @@ public class BulkAssignRequestDTO {
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
 
+    public Long getTeamId() { return teamId; }
+    public void setTeamId(Long teamId) { this.teamId = teamId; }
+
     public List<String> getAssigneeUsernames() { return assigneeUsernames; }
     public void setAssigneeUsernames(List<String> assigneeUsernames) { this.assigneeUsernames = assigneeUsernames; }
 
@@ -39,3 +43,4 @@ public class BulkAssignRequestDTO {
     public List<String> getTags() { return tags; }
     public void setTags(List<String> tags) { this.tags = tags; }
 }
+

@@ -24,10 +24,15 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final RealtimeBroadcaster broadcaster;
     private final EmailService emailService;
+    private final org.springframework.context.ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public void createAndSend(User recipient, User excludeUser, NotificationEvent type,
-                              String title, String message, Task task, String dedupKey) {
+                              String title, String message, Task task, String dedupKey, User actor) {
+        
+        if (recipient == null) {
+            return;
+        }
         
         if (excludeUser != null && recipient.getId().equals(excludeUser.getId())) {
             return;
@@ -48,6 +53,7 @@ public class NotificationService {
         n.setType(type);
         n.setTitle(title);
         n.setMessage(message);
+        n.setActor(actor);
         if (task != null) {
             n.setTaskId(task.getId());
             n.setTaskTitleSnapshot(task.getTitle());
@@ -59,12 +65,9 @@ public class NotificationService {
         n = notificationRepository.save(n);
         
         NotificationDTO dto = toDTO(n);
-        
-        broadcaster.sendToUser(recipient.getUsername(), "/queue/notifications", dto);
-        
-        // Also send updated unread count
         long unreadCount = notificationRepository.countByUserIdAndReadFalse(recipient.getId());
-        broadcaster.sendToUser(recipient.getUsername(), "/queue/unread-count", unreadCount);
+        
+        eventPublisher.publishEvent(new com.example.taskflow.notification.NotificationCreatedEvent(dto, recipient.getUsername(), unreadCount));
         
         if (recipient.isEmailNotificationsEnabled() && recipient.getEmail() != null) {
             log.info("Sending email notification to {}", recipient.getEmail());
@@ -86,7 +89,22 @@ public class NotificationService {
                         break;
                 }
             }
+            if (type == NotificationEvent.LEAVE_REQUESTED && actor != null) {
+                try {
+                    String requestIdStr = dedupKey != null && dedupKey.startsWith("leave-request:") ? dedupKey.split(":")[1] : "0";
+                    Long requestId = Long.parseLong(requestIdStr);
+                    emailService.sendLeaveRequestEmail(recipient.getEmail(), recipient.getUsername(), actor.getUsername(), "Your Organization", requestId);
+                } catch (Exception e) {
+                    log.error("Failed to parse leave request id for email", e);
+                }
+            }
         }
+    }
+    
+    @Transactional
+    public void createAndSend(User recipient, User excludeUser, NotificationEvent type,
+                              String title, String message, Task task, String dedupKey) {
+        createAndSend(recipient, excludeUser, type, title, message, task, dedupKey, null);
     }
 
     @Transactional(readOnly = true)
@@ -150,7 +168,8 @@ public class NotificationService {
                 n.isRead(),
                 n.getCreatedAt(),
                 NotificationDTO.getRelativeTime(n.getCreatedAt()),
-                n.getDeduplicationKey()
+                n.getDeduplicationKey(),
+                n.getActor() != null ? n.getActor().getUsername() : null
         );
     }
 }

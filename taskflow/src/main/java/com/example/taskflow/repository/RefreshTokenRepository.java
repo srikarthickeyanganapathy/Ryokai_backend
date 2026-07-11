@@ -22,8 +22,8 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
 
     @Transactional
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("UPDATE RefreshToken r SET r.used = true, r.usedAt = CURRENT_TIMESTAMP WHERE r.tokenHash = :tokenHash")
-    void markAsUsed(@Param("tokenHash") String tokenHash);
+    @Query("UPDATE RefreshToken r SET r.used = true, r.usedAt = CURRENT_TIMESTAMP WHERE r.tokenHash = :tokenHash AND r.used = false")
+    int markAsUsed(@Param("tokenHash") String tokenHash);
 
     @Transactional
     @Modifying(clearAutomatically = true, flushAutomatically = true)

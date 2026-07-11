@@ -31,6 +31,7 @@ import com.example.taskflow.util.JwtUtil;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import org.springframework.transaction.annotation.Transactional;
 
 @RestController
 @RequestMapping(value = "/api/users", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
@@ -65,11 +66,12 @@ public class UserController {
      */
     @GetMapping
     @PreAuthorize("isAuthenticated()")
+    @Transactional(readOnly = true)
     public ResponseEntity<List<UserResponseDTO>> getAllUsers(@AuthenticationPrincipal UserDetails userDetails) {
         User caller = userService.getCurrentUser(userDetails.getUsername());
 
         // Super Admin can see all users
-        boolean isSuperAdmin = caller.getRoles().stream()
+        boolean isSuperAdmin = caller.getRoles() != null && caller.getRoles().stream()
                 .anyMatch(r -> {
                     String name = r.getName();
                     if (name.startsWith("ROLE_")) name = name.substring(5);

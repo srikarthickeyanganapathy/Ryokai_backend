@@ -30,6 +30,7 @@ public class TaskResponseDTO {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private String coverImageUrl;
+    @com.fasterxml.jackson.annotation.JsonProperty("isPersonal")
     private boolean isPersonal;
     private boolean archived;
     private Long organizationId;

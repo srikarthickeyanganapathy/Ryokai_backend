@@ -23,6 +23,7 @@ public class TaskAuditService {
     private final TaskStatusHistoryRepository historyRepository;
     private final RoleStrategyFactory roleStrategyFactory;
     private final com.example.taskflow.repository.OrganizationMembershipRepository membershipRepository;
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
 
     public TaskAuditService(TaskStatusHistoryRepository historyRepository, RoleStrategyFactory roleStrategyFactory,
                             com.example.taskflow.repository.OrganizationMembershipRepository membershipRepository) {
@@ -34,6 +35,11 @@ public class TaskAuditService {
     // Full signature
     @Transactional
     public void recordStatus(Task task, String fromStatus, String toStatus, String eventType, User actor, String reason) {
+        recordStatus(task, fromStatus, toStatus, eventType, actor, reason, null);
+    }
+
+    @Transactional
+    public void recordStatus(Task task, String fromStatus, String toStatus, String eventType, User actor, String reason, java.util.Map<String, Object> metadata) {
         TaskStatusHistory h = new TaskStatusHistory();
         h.setTask(task);
         h.setFromStatus(fromStatus);
@@ -47,6 +53,16 @@ public class TaskAuditService {
         h.setActorUsernameSnapshot(actor.getUsername());
         h.setAssigneeUsernameSnapshot(task.getAssignedTo() != null ? task.getAssignedTo().getUsername() : null);
         h.setCreatorUsernameSnapshot(task.getCreatedBy() != null ? task.getCreatedBy().getUsername() : null);
+        
+        if (metadata != null && !metadata.isEmpty()) {
+            try {
+                h.setMetadataJson(objectMapper.writeValueAsString(metadata));
+            } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+                // Log and ignore to prevent transaction rollback for audit serialization failure
+                org.slf4j.LoggerFactory.getLogger(TaskAuditService.class).warn("Failed to serialize metadata for task history", e);
+            }
+        }
+        
         historyRepository.save(h);
     }
 
@@ -82,10 +98,10 @@ public class TaskAuditService {
                     });
 
             if (isSuperAdmin) {
-                // Super Admin sees all platform activity
+                // Super Admin: privacy boundary — only own personal task activity
                 return includeAllTypes
-                    ? historyRepository.findAllFeedAllTypes(pageable).map(this::mapToActivityEventDTO)
-                    : historyRepository.findAllFeed(pageable).map(this::mapToActivityEventDTO);
+                    ? historyRepository.findGlobalFeedForUserAllTypes(user.getId(), pageable).map(this::mapToActivityEventDTO)
+                    : historyRepository.findGlobalFeedForUser(user.getId(), pageable).map(this::mapToActivityEventDTO);
             }
 
             // Director/Admin: scope to their org

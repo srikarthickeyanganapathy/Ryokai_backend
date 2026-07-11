@@ -21,6 +21,10 @@ import com.example.taskflow.dto.RoleCreateRequestDTO;
 import com.example.taskflow.dto.RoleResponseDTO;
 import com.example.taskflow.dto.RoleUpdateRequestDTO;
 import com.example.taskflow.service.RoleService;
+import com.example.taskflow.service.UserService;
+import com.example.taskflow.domain.User;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 
 import jakarta.validation.Valid;
 
@@ -30,9 +34,11 @@ import jakarta.validation.Valid;
 public class RoleController {
 
     private final RoleService roleService;
+    private final UserService userService;
 
-    public RoleController(RoleService roleService) {
+    public RoleController(RoleService roleService, UserService userService) {
         this.roleService = roleService;
+        this.userService = userService;
     }
 
     // --- Roles ---
@@ -43,19 +49,29 @@ public class RoleController {
     }
 
     @PostMapping("/roles")
-    public ResponseEntity<RoleResponseDTO> createRole(@RequestBody @Valid RoleCreateRequestDTO request) {
-        RoleResponseDTO created = roleService.createRole(request);
+    public ResponseEntity<RoleResponseDTO> createRole(
+            @RequestBody @Valid RoleCreateRequestDTO request,
+            @AuthenticationPrincipal UserDetails principal) {
+        User caller = userService.getCurrentUser(principal.getUsername());
+        RoleResponseDTO created = roleService.createRole(request, caller);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
     @PutMapping("/roles/{id}")
-    public ResponseEntity<RoleResponseDTO> updateRole(@PathVariable Long id, @RequestBody @Valid RoleUpdateRequestDTO request) {
-        return ResponseEntity.ok(roleService.updateRole(id, request));
+    public ResponseEntity<RoleResponseDTO> updateRole(
+            @PathVariable Long id, 
+            @RequestBody @Valid RoleUpdateRequestDTO request,
+            @AuthenticationPrincipal UserDetails principal) {
+        User caller = userService.getCurrentUser(principal.getUsername());
+        return ResponseEntity.ok(roleService.updateRole(id, request, caller));
     }
 
     @DeleteMapping("/roles/{id}")
-    public ResponseEntity<Void> deleteRole(@PathVariable Long id) {
-        roleService.deleteRole(id);
+    public ResponseEntity<Void> deleteRole(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails principal) {
+        User caller = userService.getCurrentUser(principal.getUsername());
+        roleService.deleteRole(id, caller);
         return ResponseEntity.noContent().build();
     }
 
@@ -72,7 +88,11 @@ public class RoleController {
     }
 
     @PutMapping("/roles/{id}/permissions")
-    public ResponseEntity<Set<PermissionResponseDTO>> assignRolePermissions(@PathVariable Long id, @RequestBody @Valid AssignPermissionsRequestDTO request) {
-        return ResponseEntity.ok(roleService.assignRolePermissions(id, request));
+    public ResponseEntity<Set<PermissionResponseDTO>> assignRolePermissions(
+            @PathVariable Long id, 
+            @RequestBody @Valid AssignPermissionsRequestDTO request,
+            @AuthenticationPrincipal UserDetails principal) {
+        User caller = userService.getCurrentUser(principal.getUsername());
+        return ResponseEntity.ok(roleService.assignRolePermissions(id, request, caller));
     }
 }

@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import com.example.taskflow.domain.Permission;
@@ -40,6 +41,12 @@ public class DataSeeder {
 
     @Value("${app.super-admin.password:#{null}}")
     private String superAdminPassword;
+
+    private final Environment environment;
+
+    public DataSeeder(Environment environment) {
+        this.environment = environment;
+    }
 
     @Bean
     @Transactional
@@ -79,6 +86,22 @@ public class DataSeeder {
 
             if (seedDemoData) {
                 logger.info("Demo data seeding enabled.");
+            }
+
+            // Safety net: warn loudly if default dev credentials are active in prod
+            for (String profile : environment.getActiveProfiles()) {
+                if ("prod".equalsIgnoreCase(profile)) {
+                    if ("admin@demo".equals(superAdminEmail) || "password123".equals(superAdminPassword)) {
+                        logger.warn("\n" +
+                                "============================================================\n" +
+                                "  ⚠  SECURITY WARNING: Super Admin is using default dev     \n" +
+                                "  credentials in PROD profile!                              \n" +
+                                "  Set SUPER_ADMIN_EMAIL and SUPER_ADMIN_PASSWORD env vars    \n" +
+                                "  immediately!                                              \n" +
+                                "============================================================");
+                    }
+                    break;
+                }
             }
         };
     }

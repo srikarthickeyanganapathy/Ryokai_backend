@@ -28,19 +28,21 @@ public class PasswordResetService {
     private final RefreshTokenService refreshTokenService;
     private final EmailService emailService;
     private final JwtUtil jwtUtil; // to hash token
+    private final SecurityAuditService securityAuditService;
 
     @Value("${app.password-reset.expiry-minutes:60}")
     private int expiryMinutes;
 
     public PasswordResetService(PasswordResetTokenRepository tokenRepository, UserRepository userRepository,
                                 PasswordEncoder passwordEncoder, RefreshTokenService refreshTokenService,
-                                EmailService emailService, JwtUtil jwtUtil) {
+                                EmailService emailService, JwtUtil jwtUtil, SecurityAuditService securityAuditService) {
         this.tokenRepository = tokenRepository;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.refreshTokenService = refreshTokenService;
         this.emailService = emailService;
         this.jwtUtil = jwtUtil;
+        this.securityAuditService = securityAuditService;
     }
 
     @Transactional
@@ -56,7 +58,9 @@ public class PasswordResetService {
         token.setExpiryDate(LocalDateTime.now().plusMinutes(expiryMinutes));
         token.setRawToken(rawToken); // transient
 
-        return tokenRepository.save(token);
+        PasswordResetToken saved = tokenRepository.save(token);
+        securityAuditService.record("PASSWORD_RESET_REQUESTED", user.getId(), user.getUsername(), null, null, null, true);
+        return saved;
     }
 
     @Transactional
@@ -68,6 +72,7 @@ public class PasswordResetService {
 
         if (token.isUsed()) {
             refreshTokenService.deleteByUserId(token.getUser().getId());
+            securityAuditService.record("PASSWORD_RESET_FAILED", token.getUser().getId(), token.getUser().getUsername(), null, null, "Token reuse detected", false);
             throw new UnauthorizedActionException("Reset token reuse detected for user " + token.getUser().getUsername());
         }
 
@@ -91,6 +96,8 @@ public class PasswordResetService {
 
         // Send email
         emailService.sendPasswordChangedNotification(user.getEmail(), user.getUsername(), user.getLastLoginIp());
+        
+        securityAuditService.record("PASSWORD_RESET", user.getId(), user.getUsername(), null, null, null, true);
     }
 
     @Scheduled(cron = "0 0 0 * * ?", zone = "${app.reminders.timezone:Asia/Kolkata}")

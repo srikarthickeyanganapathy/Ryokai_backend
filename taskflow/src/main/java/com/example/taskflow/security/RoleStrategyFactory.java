@@ -56,23 +56,4 @@ public class RoleStrategyFactory {
         return membershipRepository.findByUserAndOrganization(user, org).orElse(null);
     }
 
-    /** Check if user has a specific org-role in any organization */
-    public boolean hasOrgRole(User user, com.example.taskflow.domain.OrgRole role) {
-        if (user == null) return false;
-        return membershipRepository.findByUserId(user.getId()).stream()
-                .anyMatch(m -> m.getOrgRole() == role);
-    }
-
-    /** Returns the user's organization membership, or null if independent */
-    public OrganizationMembership getUserMembership(User user) {
-        if (user == null) return null;
-        var memberships = membershipRepository.findByUserId(user.getId());
-        return memberships.isEmpty() ? null : memberships.get(0);
-    }
-
-    /** Checks whether a user belongs to any organization */
-    public boolean isOrgMember(User user) {
-        if (user == null) return false;
-        return !membershipRepository.findByUserId(user.getId()).isEmpty();
-    }
 }

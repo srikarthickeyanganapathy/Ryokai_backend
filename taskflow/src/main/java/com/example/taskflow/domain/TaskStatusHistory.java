@@ -15,6 +15,8 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "task_status_history")
@@ -65,4 +67,8 @@ public class TaskStatusHistory {
 
     @Column(name = "creator_username_snapshot", length = 50)
     private String creatorUsernameSnapshot;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "metadata_json", columnDefinition = "jsonb")
+    private String metadataJson;
 }

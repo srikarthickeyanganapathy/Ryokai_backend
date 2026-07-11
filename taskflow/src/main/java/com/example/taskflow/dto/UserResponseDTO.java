@@ -27,7 +27,7 @@ public record UserResponseDTO(
             user.getFullName(),
             user.getBio(),
             user.getAvatarUrl(),
-            user.getRoles().stream().map(r -> r.getName()).collect(Collectors.toList()),
+            user.getRoles() != null ? user.getRoles().stream().map(r -> r.getName()).collect(Collectors.toList()) : java.util.Collections.emptyList(),
             user.getCreatedAt(),
             user.getLastLoginAt(),
             user.isEmailNotificationsEnabled(),
