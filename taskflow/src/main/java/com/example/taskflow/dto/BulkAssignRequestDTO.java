@@ -1,11 +1,9 @@
 package com.example.taskflow.dto;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 
 public class BulkAssignRequestDTO {
-
-    private Long templateId;
 
     private String title;
     
@@ -17,13 +15,10 @@ public class BulkAssignRequestDTO {
     /** Required if teamId is null — explicit list of usernames to assign to */
     private List<String> assigneeUsernames;
 
-    private LocalDateTime dueDate;
+    private LocalDate dueDate;
     private List<String> tags;
 
     public BulkAssignRequestDTO() {}
-
-    public Long getTemplateId() { return templateId; }
-    public void setTemplateId(Long templateId) { this.templateId = templateId; }
 
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
@@ -37,8 +32,8 @@ public class BulkAssignRequestDTO {
     public List<String> getAssigneeUsernames() { return assigneeUsernames; }
     public void setAssigneeUsernames(List<String> assigneeUsernames) { this.assigneeUsernames = assigneeUsernames; }
 
-    public LocalDateTime getDueDate() { return dueDate; }
-    public void setDueDate(LocalDateTime dueDate) { this.dueDate = dueDate; }
+    public LocalDate getDueDate() { return dueDate; }
+    public void setDueDate(LocalDate dueDate) { this.dueDate = dueDate; }
 
     public List<String> getTags() { return tags; }
     public void setTags(List<String> tags) { this.tags = tags; }

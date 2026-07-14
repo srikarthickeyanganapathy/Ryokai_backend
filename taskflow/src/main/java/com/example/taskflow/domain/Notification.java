@@ -51,6 +51,15 @@ public class Notification {
     @Column(name = "task_title_snapshot", length = 255)
     private String taskTitleSnapshot;
 
+    // ER-M01 fix: spec requires a `metadata jsonb` column on NOTIFICATIONS.
+    // The column is created by V39 migration. The existing task_id /
+    // task_title_snapshot / dedup_key columns are kept (they power the
+    // realtime + dedup logic) — this metadata field is for additional
+    // structured context per the spec.
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
+    @Column(name = "metadata", columnDefinition = "jsonb")
+    private String metadata;
+
     @Column(nullable = false)
     private boolean read = false;
 

@@ -4,7 +4,6 @@ import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,8 +32,7 @@ public class AuthService {
     private final RefreshTokenService refreshTokenService;
     private final SecurityAuditService securityAuditService;
 
-    @Value("${app.email.send-welcome:true}")
-    private boolean sendWelcomeEmail;
+    // sendWelcomeEmail was removed — it was injected but never referenced in this service.
 
     public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder,
                        EmailService emailService, JwtUtil jwtUtil, RefreshTokenService refreshTokenService,
@@ -48,7 +46,7 @@ public class AuthService {
     }
 
     @Transactional
-    public JwtResponseDTO register(RegisterRequestDTO request, String deviceInfo) {
+    public JwtResponseDTO register(RegisterRequestDTO request, String deviceInfo, String ip) {
         if (userRepository.findByUsername(request.getUsername()).isPresent()) {
             throw new UsernameConflictException("Username already exists");
         }
@@ -73,7 +71,7 @@ public class AuthService {
         String accessToken = jwtUtil.generateAccessToken(savedUser, tokenId);
         String refreshToken = refreshTokenService.createRefreshChain(savedUser.getId(), deviceInfo, tokenId);
         
-        securityAuditService.record("REGISTER", savedUser.getId(), savedUser.getUsername(), null, deviceInfo, null, true);
+        securityAuditService.record("REGISTER", savedUser.getId(), savedUser.getUsername(), ip, deviceInfo, null, true);
 
         return new JwtResponseDTO(
             accessToken,

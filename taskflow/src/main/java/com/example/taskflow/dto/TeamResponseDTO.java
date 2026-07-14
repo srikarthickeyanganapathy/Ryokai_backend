@@ -10,6 +10,7 @@ import lombok.NoArgsConstructor;
 public class TeamResponseDTO {
     private Long id;
     private String name;
+    private String slug;
     private String description;
     private Long organizationId;
     private String organizationName;

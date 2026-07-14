@@ -5,7 +5,6 @@ import com.example.taskflow.domain.Organization;
 import com.example.taskflow.domain.OrganizationMembership;
 import com.example.taskflow.domain.Task;
 import com.example.taskflow.domain.Role;
-import com.example.taskflow.domain.RoleCategory;
 import com.example.taskflow.domain.User;
 import com.example.taskflow.dto.LeaveRequestDTO;
 import com.example.taskflow.dto.MembershipResponseDTO;
@@ -40,7 +39,9 @@ public class OrganizationService {
     private final TaskAuditService taskAuditService;
     private final AuditService auditService;
     private final RoleRepository roleRepository;
+    private final com.example.taskflow.repository.PermissionRepository permissionRepository;
     private final RoleService roleService;
+    private final com.example.taskflow.repository.TeamMemberRepository teamMemberRepository;
 
     public OrganizationService(OrganizationRepository organizationRepository,
             OrganizationMembershipRepository membershipRepository,
@@ -52,7 +53,9 @@ public class OrganizationService {
             TaskAuditService taskAuditService,
             AuditService auditService,
             RoleRepository roleRepository,
-            RoleService roleService) {
+                       com.example.taskflow.repository.PermissionRepository permissionRepository,
+            RoleService roleService,
+            com.example.taskflow.repository.TeamMemberRepository teamMemberRepository) {
         this.organizationRepository = organizationRepository;
         this.membershipRepository = membershipRepository;
         this.leaveRequestRepository = leaveRequestRepository;
@@ -63,11 +66,13 @@ public class OrganizationService {
         this.taskAuditService = taskAuditService;
         this.auditService = auditService;
         this.roleRepository = roleRepository;
+        this.permissionRepository = permissionRepository;
         this.roleService = roleService;
+        this.teamMemberRepository = teamMemberRepository;
     }
 
     // ========================================================================
-    // HELPERS — Super Admin detection & membership validation
+    // HELPERS ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â Super Admin detection & membership validation
     // ========================================================================
 
     private boolean isSuperAdmin(User user) {
@@ -94,7 +99,7 @@ public class OrganizationService {
             return null; // Super Admin bypasses
         OrganizationMembership membership = membershipRepository.findByUserAndOrganization(user, org)
                 .orElseThrow(() -> new UnauthorizedActionException("You are not a member of this organization"));
-        if (membership.getOrgRole().getCategory() != RoleCategory.BUILTIN_ADMIN) {
+        if (!membership.getOrgRole().isBuiltinAdmin()) {
             throw new UnauthorizedActionException("Only the Organization Admin can perform this action");
         }
         return membership;
@@ -114,10 +119,10 @@ public class OrganizationService {
 
     private void ensureNotLastAdmin(Organization org, User userBeingRemoved) {
         long adminCount = membershipRepository.findByOrganizationId(org.getId()).stream()
-                .filter(m -> m.getOrgRole() != null && m.getOrgRole().getCategory() == RoleCategory.BUILTIN_ADMIN)
+                .filter(m -> m.getOrgRole() != null && m.getOrgRole().isBuiltinAdmin())
                 .count();
         boolean isAdmin = membershipRepository.findByUserAndOrganization(userBeingRemoved, org)
-                .map(m -> m.getOrgRole() != null && m.getOrgRole().getCategory() == RoleCategory.BUILTIN_ADMIN)
+                .map(m -> m.getOrgRole() != null && m.getOrgRole().isBuiltinAdmin())
                 .orElse(false);
         if (isAdmin && adminCount <= 1) {
             throw new IllegalStateException(
@@ -127,8 +132,9 @@ public class OrganizationService {
 
     private void removeUserFromOrgTeams(User user, Long orgId) {
         teamRepository.findByOrganizationId(orgId).forEach(team -> {
-            if (team.getMembers().remove(user)) {
-                teamRepository.save(team);
+            com.example.taskflow.domain.TeamMemberId tmId = new com.example.taskflow.domain.TeamMemberId(team.getId(), user.getId());
+            if (teamMemberRepository.existsById(tmId)) {
+                teamMemberRepository.deleteById(tmId);
             }
         });
     }
@@ -151,36 +157,57 @@ public class OrganizationService {
         Organization saved = organizationRepository.save(org);
 
         // Create built-in roles for the organization dynamically
+        // RB-M03 fix: previously org ADMIN and DIRECTOR roles were created with
+        // NO permissions, making the permission table decorative for those roles
+        // and forcing org-admin operations to gate entirely on name-based
+        // Role.isBuiltinAdmin() checks. Now we seed ADMIN and DIRECTOR with
+        // the full TASK_* set + USER_MANAGE + ROLE_MANAGE so that
+        // PermissionService.hasPermission() actually works for org admins.
+        java.util.Set<com.example.taskflow.domain.Permission> adminPerms = loadPermissionsByName(
+            "TASK_VIEW", "TASK_CREATE", "TASK_ASSIGN", "TASK_EDIT", "TASK_DELETE",
+            "TASK_REVIEW", "TASK_COMMENT", "TASK_CHECKLIST_EDIT", "TASK_DEPENDENCY_EDIT",
+            "TASK_REASSIGN", "TASK_ARCHIVE", "USER_MANAGE", "ROLE_MANAGE");
+        java.util.Set<com.example.taskflow.domain.Permission> directorPerms = loadPermissionsByName(
+            "TASK_VIEW", "TASK_CREATE", "TASK_ASSIGN", "TASK_EDIT", "TASK_DELETE",
+            "TASK_REVIEW", "TASK_COMMENT", "TASK_CHECKLIST_EDIT", "TASK_DEPENDENCY_EDIT",
+            "TASK_REASSIGN", "TASK_ARCHIVE", "USER_MANAGE");
+        java.util.Set<com.example.taskflow.domain.Permission> managerPerms = loadPermissionsByName(
+            "TASK_VIEW", "TASK_CREATE", "TASK_ASSIGN", "TASK_EDIT", "TASK_REVIEW",
+            "TASK_COMMENT", "TASK_CHECKLIST_EDIT", "TASK_DEPENDENCY_EDIT",
+            "TASK_REASSIGN", "TASK_ARCHIVE");
+        java.util.Set<com.example.taskflow.domain.Permission> employeePerms = loadPermissionsByName(
+            "TASK_VIEW", "TASK_CREATE", "TASK_COMMENT", "TASK_CHECKLIST_EDIT");
+
         Role adminRole = new Role();
         adminRole.setName("ADMIN");
         adminRole.setDescription("Organization Administrator");
         adminRole.setBuiltin(true);
-        adminRole.setCategory(RoleCategory.BUILTIN_ADMIN);
         adminRole.setOrganization(saved);
+        adminRole.setPermissions(adminPerms);
         roleRepository.save(adminRole);
 
         Role directorRole = new Role();
         directorRole.setName("DIRECTOR");
         directorRole.setDescription("Organization Director");
         directorRole.setBuiltin(true);
-        directorRole.setCategory(RoleCategory.BUILTIN_DIRECTOR);
         directorRole.setOrganization(saved);
+        directorRole.setPermissions(directorPerms);
         roleRepository.save(directorRole);
 
         Role managerRole = new Role();
         managerRole.setName("MANAGER");
         managerRole.setDescription("Organization Manager");
         managerRole.setBuiltin(true);
-        managerRole.setCategory(RoleCategory.BUILTIN_MANAGER);
         managerRole.setOrganization(saved);
+        managerRole.setPermissions(managerPerms);
         roleRepository.save(managerRole);
 
         Role employeeRole = new Role();
         employeeRole.setName("EMPLOYEE");
         employeeRole.setDescription("Organization Employee");
         employeeRole.setBuiltin(true);
-        employeeRole.setCategory(RoleCategory.BUILTIN_EMPLOYEE);
         employeeRole.setOrganization(saved);
+        employeeRole.setPermissions(employeePerms);
         roleRepository.save(employeeRole);
 
         OrganizationMembership membership = new OrganizationMembership();
@@ -207,7 +234,7 @@ public class OrganizationService {
         // Only the organization ADMIN can invite members
         OrganizationMembership inviterMembership = membershipRepository.findByUserAndOrganization(invitedBy, org)
                 .orElseThrow(() -> new UnauthorizedActionException("You are not a member of this organization"));
-        if (inviterMembership.getOrgRole().getCategory() != RoleCategory.BUILTIN_ADMIN) {
+        if (!inviterMembership.getOrgRole().isBuiltinAdmin()) {
             throw new UnauthorizedActionException("Only the Organization Admin can invite members");
         }
 
@@ -261,7 +288,7 @@ public class OrganizationService {
         // Notify all org admins about the leave request
         List<OrganizationMembership> members = membershipRepository.findByOrganizationId(orgId);
         for (OrganizationMembership m : members) {
-            if (m.getOrgRole().getCategory() == RoleCategory.BUILTIN_ADMIN) {
+            if (m.getOrgRole().isBuiltinAdmin()) {
                 notificationService.createAndSend(m.getUser(), user,
                         com.example.taskflow.notification.NotificationEvent.LEAVE_REQUESTED,
                         "Leave Request: " , user.getUsername() + " has requested to leave " + org.getName(), null ,
@@ -280,7 +307,7 @@ public class OrganizationService {
         // Validate admin is the org ADMIN
         OrganizationMembership adminMembership = membershipRepository.findByUserAndOrganization(adminUser, org)
                 .orElseThrow(() -> new UnauthorizedActionException("You are not a member of this organization"));
-        if (adminMembership.getOrgRole().getCategory() != RoleCategory.BUILTIN_ADMIN) {
+        if (!adminMembership.getOrgRole().isBuiltinAdmin()) {
             throw new UnauthorizedActionException("Only the Organization Admin can approve leave requests");
         }
 
@@ -295,7 +322,7 @@ public class OrganizationService {
             throw new IllegalStateException("This leave request has already been " + request.getStatus());
         }
 
-        // Fix #11: Block self-approval — admin cannot approve their own leave request
+        // Fix #11: Block self-approval ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â admin cannot approve their own leave request
         User leavingUser = request.getUser();
         if (adminUser.getId().equals(leavingUser.getId())) {
             throw new UnauthorizedActionException(
@@ -306,12 +333,12 @@ public class OrganizationService {
         ensureNotLastAdmin(org, leavingUser);
 
         // Fix #9: Reassign ONLY non-completed tasks to the org admin
-        taskRepository.findByAssignedTo(leavingUser).stream()
-                .filter(t -> t.getOrganization() != null && t.getOrganization().getId().equals(orgId))
+        taskRepository.findByAssignee(leavingUser).stream()
+                .filter(t -> t.getOrg() != null && t.getOrg().getId().equals(orgId))
                 .filter(t -> t.getCurrentStatus() != com.example.taskflow.domain.TaskStatus.COMPLETED)
                 .forEach(task -> {
                     String oldStatus = task.getCurrentStatus().name();
-                    task.setAssignedTo(adminUser);
+                    task.setAssignee(adminUser);
                     task.setCurrentStatus(com.example.taskflow.domain.TaskStatus.ASSIGNED);
                     Task updated = taskRepository.save(task);
                     taskAuditService.recordStatus(updated, oldStatus, "ASSIGNED", "REASSIGNED", adminUser, "Reassigned due to member leaving org");
@@ -346,7 +373,7 @@ public class OrganizationService {
 
         OrganizationMembership adminMembership = membershipRepository.findByUserAndOrganization(adminUser, org)
                 .orElseThrow(() -> new UnauthorizedActionException("You are not a member of this organization"));
-        if (adminMembership.getOrgRole().getCategory() != RoleCategory.BUILTIN_ADMIN) {
+        if (!adminMembership.getOrgRole().isBuiltinAdmin()) {
             throw new UnauthorizedActionException("Only the Organization Admin can reject leave requests");
         }
 
@@ -385,7 +412,7 @@ public class OrganizationService {
         OrganizationMembership membership = membershipRepository.findByUserAndOrganization(user, org)
                 .orElseThrow(() -> new UnauthorizedActionException("You are not a member of this organization"));
 
-        if (membership.getOrgRole().getCategory() == RoleCategory.BUILTIN_ADMIN) {
+        if (membership.getOrgRole().isBuiltinAdmin()) {
             return leaveRequestRepository.findByOrganizationId(orgId).stream()
                     .map(this::mapToLeaveRequestDTO)
                     .collect(Collectors.toList());
@@ -422,11 +449,11 @@ public class OrganizationService {
         // Only ADMIN can remove members
         OrganizationMembership removerMembership = membershipRepository.findByUserAndOrganization(removedBy, org)
                 .orElseThrow(() -> new UnauthorizedActionException("You are not a member of this organization"));
-        if (removerMembership.getOrgRole().getCategory() != RoleCategory.BUILTIN_ADMIN) {
+        if (!removerMembership.getOrgRole().isBuiltinAdmin()) {
             throw new UnauthorizedActionException("Only the Organization Admin can remove members");
         }
 
-        // Fix #10: Block self-removal — admin must use the leave request workflow
+        // Fix #10: Block self-removal ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â admin must use the leave request workflow
         if (removedBy.getId().equals(userId)) {
             throw new UnauthorizedActionException(
                     "Admins cannot remove themselves directly. Use the leave request workflow instead.");
@@ -439,12 +466,12 @@ public class OrganizationService {
         ensureNotLastAdmin(org, user);
 
         // Reassign tasks to the admin before removing
-        taskRepository.findByAssignedTo(user).stream()
-                .filter(t -> t.getOrganization() != null && t.getOrganization().getId().equals(orgId))
+        taskRepository.findByAssignee(user).stream()
+                .filter(t -> t.getOrg() != null && t.getOrg().getId().equals(orgId))
                 .filter(t -> t.getCurrentStatus() != com.example.taskflow.domain.TaskStatus.COMPLETED)
                 .forEach(task -> {
                     String oldStatus = task.getCurrentStatus().name();
-                    task.setAssignedTo(removedBy);
+                    task.setAssignee(removedBy);
                     task.setCurrentStatus(com.example.taskflow.domain.TaskStatus.ASSIGNED);
                     Task updated = taskRepository.save(task);
                     taskAuditService.recordStatus(updated, oldStatus, "ASSIGNED", "REASSIGNED", removedBy, "Reassigned due to member removal");
@@ -475,8 +502,18 @@ public class OrganizationService {
         Role newRole = roleRepository.findById(newRoleId)
                 .orElseThrow(() -> new IllegalArgumentException("Role not found"));
 
+        // RB-M01 fix: verify the new role actually belongs to this organization.
+        // Previously an org admin could pass the ID of a role from ANOTHER org
+        // (or a global builtin) and assign it to a member of their own org -
+        // leaking foreign permission grants into the local org.
+        if (newRole.getOrganization() == null
+                || !newRole.getOrganization().getId().equals(orgId)) {
+            throw new IllegalArgumentException(
+                "Role does not belong to this organization. Cross-org role assignment is not allowed.");
+        }
+
         // Prevent demoting yourself if you're the last admin
-        if (callerUser.getId().equals(userId) && membership.getOrgRole().getCategory() == RoleCategory.BUILTIN_ADMIN && newRole.getCategory() != RoleCategory.BUILTIN_ADMIN) {
+        if (callerUser.getId().equals(userId) && membership.getOrgRole().isBuiltinAdmin() && !newRole.isBuiltinAdmin()) {
             ensureNotLastAdmin(org, user);
         }
 
@@ -610,6 +647,7 @@ public class OrganizationService {
         return new OrganizationResponseDTO(
                 org.getId(),
                 org.getName(),
+                org.getSlug(),
                 org.getDescription(),
                 org.getCreatedBy() != null ? org.getCreatedBy().getUsername() : null,
                 org.getCreatedAt(),
@@ -638,5 +676,17 @@ public class OrganizationService {
                 request.getReviewedBy() != null ? request.getReviewedBy().getUsername() : null,
                 request.getCreatedAt(),
                 request.getReviewedAt());
+    }
+    /**
+     * RB-M03 helper: load a set of Permission entities by name.
+     * Used by createOrganization to seed org-scoped builtin roles with
+     * appropriate permissions at creation time.
+     */
+    private java.util.Set<com.example.taskflow.domain.Permission> loadPermissionsByName(String... names) {
+        java.util.Set<com.example.taskflow.domain.Permission> perms = new java.util.HashSet<>();
+        for (String name : names) {
+            permissionRepository.findByName(name).ifPresent(perms::add);
+        }
+        return perms;
     }
 }

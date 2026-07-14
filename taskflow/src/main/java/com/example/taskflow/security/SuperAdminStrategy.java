@@ -5,7 +5,7 @@ import com.example.taskflow.domain.Task;
 import com.example.taskflow.domain.User;
 
 /**
- * Super Admin Strategy — Privacy-compliant platform owner role.
+ * Super Admin Strategy â€” Privacy-compliant platform owner role.
  * 
  * The Super Admin (platform owner) can:
  *   - Manage their OWN personal tasks (create, edit, complete, delete)
@@ -14,7 +14,7 @@ import com.example.taskflow.domain.User;
  * 
  * The Super Admin CANNOT:
  *   - View, edit, review, or interact with ANY org task data
- *   - This is a privacy boundary — org data belongs to the org
+ *   - This is a privacy boundary â€” org data belongs to the org
  */
 @Component
 public class SuperAdminStrategy implements RoleStrategy {
@@ -27,8 +27,8 @@ public class SuperAdminStrategy implements RoleStrategy {
 
     @Override
     public boolean canReview(User user, Task task) {
-        // Personal tasks have no review pipeline (TODO → COMPLETED)
-        // Org tasks: Super Admin cannot review — privacy boundary
+        // Personal tasks have no review pipeline (TODO â†’ COMPLETED)
+        // Org tasks: Super Admin cannot review â€” privacy boundary
         return false;
     }
 
@@ -64,14 +64,22 @@ public class SuperAdminStrategy implements RoleStrategy {
         return false;
     }
 
+    // RB-M04 fix: dedicated archive permission.
+    @Override
+    public boolean canArchive(User user, Task task) {
+        if (task == null || user == null) return false;
+        // Privacy boundary: Super Admin can only archive their own personal tasks.
+        return isOwnPersonalTask(user, task);
+    }
+
     // --- Private helpers ---
 
     private boolean isOwnTask(User user, Task task) {
-        return (task.getCreatedBy() != null && task.getCreatedBy().getId().equals(user.getId()))
-            || (task.getAssignedTo() != null && task.getAssignedTo().getId().equals(user.getId()));
+        return (task.getCreator() != null && task.getCreator().getId().equals(user.getId()))
+            || (task.getAssignee() != null && task.getAssignee().getId().equals(user.getId()));
     }
 
     private boolean isOwnPersonalTask(User user, Task task) {
-        return task.isPersonal() && task.getOrganization() == null && isOwnTask(user, task);
+        return task.isPersonal() && task.getOrg() == null && isOwnTask(user, task);
     }
 }

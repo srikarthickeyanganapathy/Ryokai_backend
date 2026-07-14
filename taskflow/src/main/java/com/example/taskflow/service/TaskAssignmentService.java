@@ -7,13 +7,11 @@ import org.springframework.stereotype.Service;
 import com.example.taskflow.domain.Task;
 import com.example.taskflow.domain.TaskPriority;
 import com.example.taskflow.domain.TaskStatus;
-import com.example.taskflow.domain.TaskTemplate;
 import com.example.taskflow.domain.Team;
 import com.example.taskflow.domain.User;
 import com.example.taskflow.domain.Project;
 import com.example.taskflow.dto.TaskResponseDTO;
 import com.example.taskflow.repository.TaskRepository;
-import com.example.taskflow.repository.TaskTemplateRepository;
 import com.example.taskflow.repository.OrganizationRepository;
 import com.example.taskflow.repository.OrganizationMembershipRepository;
 import com.example.taskflow.repository.TeamRepository;
@@ -30,13 +28,14 @@ public class TaskAssignmentService {
 
     private final TaskRepository taskRepository;
     private final TaskAuditService taskAuditService;
-    private final TaskTemplateRepository taskTemplateRepository;
     private final UserService userService;
     private final NotificationService notificationService;
     private final OrganizationRepository organizationRepository;
     private final TeamRepository teamRepository;
     private final OrganizationMembershipRepository membershipRepository;
     private final ProjectRepository projectRepository;
+    private final com.example.taskflow.repository.CrewMemberRepository crewMemberRepository;
+    private final com.example.taskflow.repository.CrewRepository crewRepository;
 
     @Value("${app.reminders.timezone:Asia/Kolkata}")
     private String timezoneProperty;
@@ -45,22 +44,24 @@ public class TaskAssignmentService {
 
     public TaskAssignmentService(TaskRepository taskRepository,
                                  TaskAuditService taskAuditService,
-                                 TaskTemplateRepository taskTemplateRepository,
                                  UserService userService,
                                  NotificationService notificationService,
                                  OrganizationRepository organizationRepository,
                                  TeamRepository teamRepository,
                                  OrganizationMembershipRepository membershipRepository,
-                                 ProjectRepository projectRepository) {
+                                 ProjectRepository projectRepository,
+                                 com.example.taskflow.repository.CrewMemberRepository crewMemberRepository,
+                                 com.example.taskflow.repository.CrewRepository crewRepository) {
         this.taskRepository = taskRepository;
         this.taskAuditService = taskAuditService;
-        this.taskTemplateRepository = taskTemplateRepository;
         this.userService = userService;
         this.notificationService = notificationService;
         this.organizationRepository = organizationRepository;
         this.teamRepository = teamRepository;
         this.membershipRepository = membershipRepository;
         this.projectRepository = projectRepository;
+        this.crewMemberRepository = crewMemberRepository;
+        this.crewRepository = crewRepository;
     }
 
     @PostConstruct
@@ -70,22 +71,34 @@ public class TaskAssignmentService {
 
     @Transactional
     public TaskResponseDTO assignTask(String title, String description, User assignee, User creator, 
-                           TaskPriority priority, LocalDateTime dueDate, String tags, boolean isPersonal) {
-        return assignTask(title, description, assignee, creator, priority, dueDate, tags, isPersonal, null, null);
+                           TaskPriority priority, java.time.LocalDate dueDate, String tags, boolean isPersonal) {
+        return assignTask(title, description, assignee, creator, priority, dueDate, tags, isPersonal, null, null, null);
     }
 
     @Transactional
     public TaskResponseDTO assignTask(String title, String description, User assignee, User creator, 
-                           TaskPriority priority, LocalDateTime dueDate, String tags, boolean isPersonal, Long teamId) {
-        return assignTask(title, description, assignee, creator, priority, dueDate, tags, isPersonal, teamId, null);
+                           TaskPriority priority, java.time.LocalDate dueDate, String tags, boolean isPersonal, Long teamId) {
+        return assignTask(title, description, assignee, creator, priority, dueDate, tags, isPersonal, teamId, null, null);
     }
 
     @Transactional
     public TaskResponseDTO assignTask(String title, String description, User assignee, User creator, 
-                           TaskPriority priority, LocalDateTime dueDate, String tags, boolean isPersonal, Long teamId, Long projectId) {
+                           TaskPriority priority, java.time.LocalDate dueDate, String tags, boolean isPersonal, Long teamId, Long projectId) {
+        return assignTask(title, description, assignee, creator, priority, dueDate, tags, isPersonal, teamId, projectId, null);
+    }
 
+    @Transactional
+    public TaskResponseDTO assignTask(String title, String description, User assignee, User creator, 
+                           TaskPriority priority, java.time.LocalDate dueDate, String tags, boolean isPersonal, Long teamId, Long projectId, Long crewId) {
+
+        // Crew tasks
+        if (crewId != null) {
+            if (!crewMemberRepository.existsByIdCrewIdAndIdUserId(crewId, creator.getId())) {
+                throw new IllegalStateException("You must be a member of the crew to create a task in it");
+            }
+        }
         // Personal tasks can be assigned to anyone (including self)
-        if (!isPersonal) {
+        else if (!isPersonal) {
             boolean isSuperAdmin = creator.getRoles() != null && creator.getRoles().stream()
                     .anyMatch(r -> r.getName().contains("SUPER_ADMIN"));
 
@@ -117,13 +130,16 @@ public class TaskAssignmentService {
             if (assignee != null && !assignee.getId().equals(creator.getId())) {
                 throw new IllegalArgumentException("Personal tasks must be assigned to the creator");
             }
+            // RT-M02 fix: explicit mutual exclusivity - personal tasks have
+            // no org, no team, no crew. Spec flowchart: organization_id=NULL,
+            // team_id=NULL, crew_id=NULL, creator=assignee=user.
         }
 
         Task task = new Task();
         task.setTitle(title);
         task.setDescription(description);
-        task.setAssignedTo(assignee);
-        task.setCreatedBy(creator);
+        task.setAssignee(assignee);
+        task.setCreator(creator);
 
         // Team/Org scoping
         if (teamId != null) {
@@ -149,31 +165,56 @@ public class TaskAssignmentService {
                 throw new IllegalArgumentException("Assignee is not a member of team: " + team.getName());
             }
             task.setTeam(team);
-            task.setOrganization(team.getOrganization());
+            task.setOrg(team.getOrganization());
             isPersonal = false; // Team tasks cannot be personal
         } else if (!isPersonal) {
             // If no teamId and not personal, task must have org scope via creator's org membership
             var memberships = membershipRepository.findByUserId(creator.getId());
             if (!memberships.isEmpty()) {
-                task.setOrganization(memberships.get(0).getOrganization());
+                task.setOrg(memberships.get(0).getOrganization());
             } else {
                 // If creator has no org (Super Admin), use assignee's org!
                 var assigneeMemberships = membershipRepository.findByUserId(assignee.getId());
                 if (!assigneeMemberships.isEmpty()) {
-                    task.setOrganization(assigneeMemberships.get(0).getOrganization());
+                    task.setOrg(assigneeMemberships.get(0).getOrganization());
                 }
             }
+            // RT-M02 fix: org task - ensure crew is NULL (mutual exclusivity)
+            task.setCrew(null);
+        } else {
+            // RT-M02 fix: personal task - ensure org/team/crew are all NULL
+            task.setOrg(null);
+            task.setTeam(null);
+            task.setCrew(null);
         }
         
-        if (dueDate != null && dueDate.isBefore(LocalDateTime.now(zoneId).minusMinutes(5))) {
+        if (dueDate != null && dueDate.isBefore(java.time.LocalDate.now(zoneId))) {
             throw new IllegalArgumentException("Due date cannot be in the past");
         }
 
-        // ✨ Set defaults if null
-        task.setPriority(priority != null ? priority : TaskPriority.NORMAL);
+        // Crew scoping + RT-M02 fix: make personal/crew/org mutually exclusive
+        // at the entity level. Spec flowchart says crew tasks must have
+        // organization_id=NULL and team_id=NULL. Previously, if the creator
+        // happened to belong to an org AND a crew, a crew task could inherit
+        // the creator's org via the membership lookup above.
+        if (crewId != null) {
+            com.example.taskflow.domain.Crew crew = crewRepository.findById(crewId)
+                    .orElseThrow(() -> new IllegalArgumentException("Crew not found"));
+            task.setCrew(crew);
+            task.setOrg(null);   // RT-M02: crew tasks have no org
+            task.setTeam(null);  // RT-M02: crew tasks have no team
+            task.setPersonal(false);  // RT-M02: crew tasks are not personal
+        }
+
+        task.setPriority(priority != null ? priority : TaskPriority.MEDIUM);
         task.setDueDate(dueDate);
         task.setTags(tags);
         task.setPersonal(isPersonal);
+        // SM-C01 fix: crew tasks now start in ASSIGNED (was TODO) so the
+        // completeCrewTask endpoint can move them ASSIGNED -> COMPLETED.
+        // Spec state machine: crew tasks follow the no-review path
+        // ASSIGNED --> COMPLETED.
+        task.setCurrentStatus(isPersonal ? TaskStatus.TODO : (crewId != null ? TaskStatus.ASSIGNED : TaskStatus.ASSIGNED));
 
         // B-16b: Wire projectId
         if (projectId != null) {
@@ -182,13 +223,10 @@ public class TaskAssignmentService {
             task.setProject(project);
         }
 
-        // B-04b: Personal tasks start as To-Do, not Assigned
-        String statusName = isPersonal ? "TODO" : "ASSIGNED";
-        task.setCurrentStatus(isPersonal ? TaskStatus.TODO : TaskStatus.ASSIGNED);
         // CreatedAt/UpdatedAt are handled by @CreationTimestamp / @UpdateTimestamp
 
         Task savedTask = taskRepository.save(task);
-        taskAuditService.recordStatus(savedTask, null, statusName, statusName, creator, null);
+        taskAuditService.recordStatus(savedTask, null, savedTask.getCurrentStatus().name(), savedTask.getCurrentStatus().name(), creator, null);
 
         notificationService.createAndSend(
             assignee,
@@ -205,29 +243,21 @@ public class TaskAssignmentService {
     }
 
     @Transactional
-    public List<TaskResponseDTO> bulkAssignTasks(Long templateId, String title, String description, List<String> assigneeUsernames, User creator, LocalDateTime dueDate, String tags) {
-        return bulkAssignTasks(templateId, title, description, assigneeUsernames, creator, dueDate, tags, null);
+    public List<TaskResponseDTO> bulkAssignTasks(String title, String description, List<String> assigneeUsernames, User creator, java.time.LocalDate dueDate, String tags) {
+        return bulkAssignTasks(title, description, assigneeUsernames, creator, dueDate, tags, null);
     }
 
     @Transactional
-    public List<TaskResponseDTO> bulkAssignTasks(Long templateId, String title, String description, List<String> assigneeUsernames, User creator, LocalDateTime dueDate, String tags, Long teamId) {
+    public List<TaskResponseDTO> bulkAssignTasks(String title, String description, List<String> assigneeUsernames, User creator, java.time.LocalDate dueDate, String tags, Long teamId) {
         String finalTitle = title;
         String finalDescription = description;
-        TaskPriority finalPriority = TaskPriority.NORMAL;
-
-        if (templateId != null) {
-            TaskTemplate template = taskTemplateRepository.findById(templateId)
-                    .orElseThrow(() -> new IllegalArgumentException("Template not found: " + templateId));
-            finalTitle = template.getDefaultTitle();
-            finalDescription = template.getDefaultDescription();
-            finalPriority = template.getDefaultPriority();
-        }
+        TaskPriority finalPriority = TaskPriority.MEDIUM;
 
         if (finalTitle == null || finalTitle.trim().isEmpty()) {
             throw new IllegalArgumentException("Task title is required");
         }
 
-        // Mode 1: teamId provided → auto-resolve all team members as assignees
+        // Mode 1: teamId provided ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ auto-resolve all team members as assignees
         List<String> resolvedUsernames = assigneeUsernames;
         if (teamId != null && (assigneeUsernames == null || assigneeUsernames.isEmpty())) {
             Team team = teamRepository.findById(teamId)
@@ -242,7 +272,7 @@ public class TaskAssignmentService {
         }
 
         if (resolvedUsernames == null || resolvedUsernames.isEmpty()) {
-            throw new IllegalArgumentException("No assignees resolved — provide teamId or assigneeUsernames");
+            throw new IllegalArgumentException("No assignees resolved ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â provide teamId or assigneeUsernames");
         }
 
         final String t = finalTitle;
@@ -271,9 +301,9 @@ public class TaskAssignmentService {
             task.getId(),
             task.getTitle(),
             task.getDescription(),
-            task.getAssignedTo() != null ? task.getAssignedTo().getUsername() : null,
-            task.getCreatedBy() != null ? task.getCreatedBy().getUsername() : null,
-            task.getReviewedBy() != null ? task.getReviewedBy().getUsername() : null,
+            task.getAssignee() != null ? task.getAssignee().getUsername() : null,
+            task.getCreator() != null ? task.getCreator().getUsername() : null,
+            task.getReviewer() != null ? task.getReviewer().getUsername() : null,
             task.getCurrentStatus(),
             task.getPriority(),
             task.getDueDate(),
@@ -284,14 +314,17 @@ public class TaskAssignmentService {
             task.getCreatedAt(),
             task.getUpdatedAt(),
             task.getCoverImageUrl(),
+            task.getRejectionReason(),
             task.isPersonal(),
             task.isArchived(),
-            task.getOrganization() != null ? task.getOrganization().getId() : null,
-            task.getOrganization() != null ? task.getOrganization().getName() : null,
+            task.getOrg() != null ? task.getOrg().getId() : null,
+            task.getOrg() != null ? task.getOrg().getName() : null,
             task.getTeam() != null ? task.getTeam().getId() : null,
             task.getTeam() != null ? task.getTeam().getName() : null,
             task.getProject() != null ? task.getProject().getId() : null,
-            task.getProject() != null ? task.getProject().getName() : null
+            task.getProject() != null ? task.getProject().getName() : null,
+            task.getCrew() != null ? task.getCrew().getId() : null,
+            task.getCrew() != null ? task.getCrew().getName() : null
         );
     }
 }

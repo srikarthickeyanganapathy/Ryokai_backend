@@ -38,7 +38,7 @@ public class TokenCleanupService {
         this.zoneId = ZoneId.of(timezoneProperty);
     }
 
-    // Run once a day at midnight to clean up expired refresh tokens
+    // Run once a day at midnight to clean up expired and stale refresh tokens
     @Scheduled(cron = "0 0 0 * * ?", zone = "${app.reminders.timezone:Asia/Kolkata}")
     @Transactional
     public void cleanUpExpiredTokens() {
@@ -46,9 +46,14 @@ public class TokenCleanupService {
         LocalDateTime now = LocalDateTime.now(zoneId);
         
         int refreshDeleted = refreshTokenRepository.deleteAllExpiredSince(now);
+        // Purge used (rotated) refresh tokens after a 7-day grace period.
+        // During the grace period, reuse-detection can still trigger "revoke all sessions"
+        // if an attacker replays a rotated token.
+        int usedRefreshDeleted = refreshTokenRepository.deleteUsedTokensOlderThan(now.minusDays(7));
         int expiredDeleted = passwordResetTokenRepository.deleteExpiredUnusedTokens(now);
         int oldUsedDeleted = passwordResetTokenRepository.deleteUsedTokensOlderThan(now.minusDays(7));
         
-        logger.info("Token cleanup complete: {} expired refresh tokens, {} expired reset tokens, {} old used reset tokens", refreshDeleted, expiredDeleted, oldUsedDeleted);
+        logger.info("Token cleanup complete: {} expired refresh tokens, {} stale used refresh tokens, {} expired reset tokens, {} old used reset tokens",
+                refreshDeleted, usedRefreshDeleted, expiredDeleted, oldUsedDeleted);
     }
 }

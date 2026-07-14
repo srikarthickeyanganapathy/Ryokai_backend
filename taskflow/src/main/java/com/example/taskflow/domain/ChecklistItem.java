@@ -1,5 +1,7 @@
 package com.example.taskflow.domain;
 
+import java.time.LocalDateTime;
+
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import jakarta.persistence.Column;
@@ -40,4 +42,7 @@ public class ChecklistItem {
     
     @Column(name = "display_order")
     private Integer displayOrder;
+
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt;
 }

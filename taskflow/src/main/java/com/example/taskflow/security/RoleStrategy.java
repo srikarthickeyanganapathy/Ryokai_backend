@@ -18,4 +18,14 @@ public interface RoleStrategy {
     boolean canDelete(User user, Task task);
 
     boolean canReassign(User user, Task task);
+
+    /**
+     * RB-M04 fix: dedicated archive permission. Previously ARCHIVE was routed
+     * to canDelete in CustomPermissionEvaluator, but TaskController.toggleArchive
+     * used 'EDIT' — so the ARCHIVE branch was dead code and an assignee (who can
+     * edit but not delete) could archive a task. canArchive is intentionally
+     * stricter than canEdit but looser than canDelete (creator + assignee +
+     * org manager+).
+     */
+    boolean canArchive(User user, Task task);
 }

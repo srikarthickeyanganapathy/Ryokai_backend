@@ -13,8 +13,7 @@ jwt:
   secret: ${JWT_SECRET}
   refreshSecret: ${JWT_REFRESH_SECRET}
 
-app:
-  upload.dir: ${APP_UPLOAD_DIR:/var/data/taskflow/uploads}
+
   frontend-url: ${APP_FRONTEND_URL:https://taskflow.example.com}
   email:
     from: ${APP_EMAIL_FROM:noreply@taskflow.example.com}

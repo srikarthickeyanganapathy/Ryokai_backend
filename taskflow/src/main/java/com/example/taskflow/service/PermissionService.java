@@ -1,5 +1,6 @@
 package com.example.taskflow.service;
 
+import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.concurrent.TimeUnit;
@@ -10,33 +11,74 @@ import org.springframework.stereotype.Service;
 
 import com.example.taskflow.domain.User;
 import com.example.taskflow.domain.Permission;
+import com.example.taskflow.domain.OrganizationMembership;
+import com.example.taskflow.repository.OrganizationMembershipRepository;
 
 @Service
 public class PermissionService {
+
+    private final OrganizationMembershipRepository membershipRepository;
 
     // Cache for user permissions using Caffeine with a 5-minute TTL to automatically evict stale roles
     private final Cache<Long, Set<String>> userPermissionsCache = Caffeine.newBuilder()
             .expireAfterWrite(5, TimeUnit.MINUTES)
             .build();
 
+    public PermissionService(OrganizationMembershipRepository membershipRepository) {
+        this.membershipRepository = membershipRepository;
+    }
+
+    /**
+     * Returns the set of permission names granted to the user.
+     *
+     * RB-C03 fix: previously this method only aggregated permissions from
+     * user.getRoles() (the global user_roles join, which holds only SUPER_ADMIN).
+     * Per the spec and the comment in RoleStrategyFactory, every non-SUPER_ADMIN
+     * user has an empty roles set — so this method returned an empty set for
+     * everyone except SUPER_ADMIN, making @PreAuthorize("hasPermission(null, 'X')")
+     * unreachable for org users.
+     *
+     * Fixed to ALSO aggregate permissions from OrganizationMembership.orgRole.permissions
+     * for every org the user belongs to. SUPER_ADMIN still gets the global short-circuit
+     * in hasPermission() below.
+     */
     public Set<String> getPermissionsForUser(User user) {
         if (user == null || user.getId() == null) {
             return Set.of();
         }
-        
-        return userPermissionsCache.get(user.getId(), id -> 
-            user.getRoles().stream()
-                .filter(role -> role != null && role.getPermissions() != null)
-                .flatMap(role -> role.getPermissions().stream())
-                .filter(permission -> permission != null && permission.getName() != null)
-                .map(Permission::getName)
-                .collect(Collectors.toSet())
-        );
+
+        return userPermissionsCache.get(user.getId(), id -> {
+            Set<String> perms = new HashSet<>();
+
+            // 1. Global roles (user_roles join — typically only SUPER_ADMIN)
+            if (user.getRoles() != null) {
+                user.getRoles().stream()
+                    .filter(role -> role != null && role.getPermissions() != null)
+                    .flatMap(role -> role.getPermissions().stream())
+                    .filter(permission -> permission != null && permission.getName() != null)
+                    .map(Permission::getName)
+                    .forEach(perms::add);
+            }
+
+            // 2. Org-scoped roles via OrganizationMembership.orgRole.permissions
+            //    This is where ADMIN/DIRECTOR/MANAGER/EMPLOYEE/custom role
+            //    permissions actually live.
+            for (OrganizationMembership m : membershipRepository.findByUserId(user.getId())) {
+                if (m.getOrgRole() != null && m.getOrgRole().getPermissions() != null) {
+                    m.getOrgRole().getPermissions().stream()
+                        .filter(p -> p != null && p.getName() != null)
+                        .map(Permission::getName)
+                        .forEach(perms::add);
+                }
+            }
+
+            return perms;
+        });
     }
 
     public boolean hasPermission(User user, String permissionName) {
         if (user == null) return false;
-        
+
         // SUPER_ADMIN override
         if (isSuperAdmin(user)) return true;
 
@@ -57,16 +99,17 @@ public class PermissionService {
         }
         return false;
     }
-    
+
     public void invalidateCache(Long userId) {
         userPermissionsCache.invalidate(userId);
     }
-    
+
     public void invalidateAll() {
         userPermissionsCache.invalidateAll();
     }
 
     private boolean isSuperAdmin(User user) {
+        if (user.getRoles() == null) return false;
         return user.getRoles().stream()
                 .anyMatch(r -> r.getName().equalsIgnoreCase("SUPER_ADMIN") || r.getName().equalsIgnoreCase("ROLE_SUPER_ADMIN"));
     }

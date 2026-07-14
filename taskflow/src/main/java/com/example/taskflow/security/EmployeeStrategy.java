@@ -1,7 +1,7 @@
 package com.example.taskflow.security;
 
 import com.example.taskflow.domain.OrganizationMembership;
-import com.example.taskflow.domain.RoleCategory;
+import com.example.taskflow.domain.Role;
 import com.example.taskflow.domain.Task;
 import com.example.taskflow.domain.User;
 import com.example.taskflow.repository.OrganizationMembershipRepository;
@@ -13,31 +13,34 @@ public class EmployeeStrategy implements RoleStrategy {
 
     private final OrganizationMembershipRepository membershipRepository;
     private final TeamRepository teamRepository;
+    private final com.example.taskflow.repository.CrewMemberRepository crewMemberRepository;
 
     public EmployeeStrategy(OrganizationMembershipRepository membershipRepository,
-                            TeamRepository teamRepository) {
+                            TeamRepository teamRepository,
+                            com.example.taskflow.repository.CrewMemberRepository crewMemberRepository) {
         this.membershipRepository = membershipRepository;
         this.teamRepository = teamRepository;
+        this.crewMemberRepository = crewMemberRepository;
     }
 
     // ====================================================================
     // Helper — resolve the user's org role within a task's organization
     // ====================================================================
-    private RoleCategory getOrgRoleCategoryInTask(User user, Task task) {
-        if (user == null || task == null || task.getOrganization() == null) return null;
+    private Role getOrgRoleInTask(User user, Task task) {
+        if (user == null || task == null || task.getOrg() == null) return null;
         OrganizationMembership m = membershipRepository
-                .findByUserAndOrganization(user, task.getOrganization()).orElse(null);
-        return m != null && m.getOrgRole() != null ? m.getOrgRole().getCategory() : null;
+                .findByUserAndOrganization(user, task.getOrg()).orElse(null);
+        return m != null ? m.getOrgRole() : null;
     }
 
     private boolean isOrgAdminOrAbove(User user, Task task) {
-        RoleCategory role = getOrgRoleCategoryInTask(user, task);
-        return role == RoleCategory.BUILTIN_ADMIN || role == RoleCategory.BUILTIN_DIRECTOR;
+        Role role = getOrgRoleInTask(user, task);
+        return role != null && role.isBuiltinDirectorOrAbove();
     }
 
     private boolean isOrgManagerOrAbove(User user, Task task) {
-        RoleCategory role = getOrgRoleCategoryInTask(user, task);
-        return role == RoleCategory.BUILTIN_ADMIN || role == RoleCategory.BUILTIN_DIRECTOR || role == RoleCategory.BUILTIN_MANAGER;
+        Role role = getOrgRoleInTask(user, task);
+        return role != null && role.isBuiltinManagerOrAbove();
     }
 
     private boolean isInSameTeam(User user, Task task) {
@@ -55,32 +58,35 @@ public class EmployeeStrategy implements RoleStrategy {
         // Only org members with MANAGER/DIRECTOR/ADMIN can assign
         return membershipRepository.findByUserId(user.getId()).stream()
                 .filter(m -> m.getOrgRole() != null)
-                .anyMatch(m -> m.getOrgRole().getCategory() == RoleCategory.BUILTIN_ADMIN
-                        || m.getOrgRole().getCategory() == RoleCategory.BUILTIN_DIRECTOR
-                        || m.getOrgRole().getCategory() == RoleCategory.BUILTIN_MANAGER);
+                .anyMatch(m -> m.getOrgRole().isBuiltinManagerOrAbove());
     }
 
     @Override
     public boolean canReview(User user, Task task) {
         if (task == null || user == null) return false;
 
-        // Personal tasks have no review pipeline (TODO → COMPLETED, no reviewer)
-        if (task.isPersonal() && task.getOrganization() == null) return false;
+        if (task.isPersonal() && task.getOrg() == null && task.getCrew() == null) return false;
+
+        // Crew tasks have no review pipeline
+        if (task.getCrew() != null) return false;
 
         // Assignee cannot review their own work
-        if (task.getAssignedTo() != null && task.getAssignedTo().getId().equals(user.getId())) return false;
+        if (task.getAssignee() != null && task.getAssignee().getId().equals(user.getId())) return false;
+
+        // SM-M02 fix: creator cannot review their own task (spec:
+        // "creator ≠ reviewer (no self-review)"). Previously only the
+        // assignee was blocked; a creator who held MANAGER+ role in the
+        // same org could approve or reject their own submission.
+        if (task.getCreator() != null && task.getCreator().getId().equals(user.getId())) return false;
 
         // Must be in the SAME org as the task
-        if (task.getOrganization() == null) return false;
+        if (task.getOrg() == null) return false;
         OrganizationMembership m = membershipRepository
-                .findByUserAndOrganization(user, task.getOrganization()).orElse(null);
+                .findByUserAndOrganization(user, task.getOrg()).orElse(null);
         if (m == null || m.getOrgRole() == null) return false;
 
         // Managers and above can review tasks inherently (aligning with frontend canReview flag)
-        RoleCategory category = m.getOrgRole().getCategory();
-        if (category == RoleCategory.BUILTIN_ADMIN || 
-            category == RoleCategory.BUILTIN_DIRECTOR || 
-            category == RoleCategory.BUILTIN_MANAGER) {
+        if (m.getOrgRole().isBuiltinManagerOrAbove()) {
             return true;
         }
 
@@ -93,8 +99,7 @@ public class EmployeeStrategy implements RoleStrategy {
     public boolean canOverride(User user) {
         return membershipRepository.findByUserId(user.getId()).stream()
                 .filter(m -> m.getOrgRole() != null)
-                .anyMatch(m -> m.getOrgRole().getCategory() == RoleCategory.BUILTIN_ADMIN
-                        || m.getOrgRole().getCategory() == RoleCategory.BUILTIN_DIRECTOR);
+                .anyMatch(m -> m.getOrgRole().isBuiltinDirectorOrAbove());
     }
 
     @Override
@@ -102,14 +107,19 @@ public class EmployeeStrategy implements RoleStrategy {
         if (task == null || user == null) return false;
 
         // Personal tasks: only creator can see
-        if (task.isPersonal() && task.getOrganization() == null) {
-            return task.getCreatedBy() != null && task.getCreatedBy().getId().equals(user.getId());
+        if (task.isPersonal() && task.getOrg() == null && task.getCrew() == null) {
+            return task.getCreator() != null && task.getCreator().getId().equals(user.getId());
+        }
+
+        // Crew tasks: all crew members can view
+        if (task.getCrew() != null) {
+            return crewMemberRepository.existsByIdCrewIdAndIdUserId(task.getCrew().getId(), user.getId());
         }
 
         // Org tasks: visibility depends on role
-        if (task.getOrganization() != null) {
+        if (task.getOrg() != null) {
             // Must be in the same org first
-            if (!membershipRepository.existsByUserAndOrganization(user, task.getOrganization())) {
+            if (!membershipRepository.existsByUserAndOrganization(user, task.getOrg())) {
                 return false;
             }
 
@@ -117,8 +127,8 @@ public class EmployeeStrategy implements RoleStrategy {
             if (isOrgAdminOrAbove(user, task)) return true;
 
             // Creator or assignee can always see their own tasks
-            boolean isCreator = task.getCreatedBy() != null && task.getCreatedBy().getId().equals(user.getId());
-            boolean isAssignee = task.getAssignedTo() != null && task.getAssignedTo().getId().equals(user.getId());
+            boolean isCreator = task.getCreator() != null && task.getCreator().getId().equals(user.getId());
+            boolean isAssignee = task.getAssignee() != null && task.getAssignee().getId().equals(user.getId());
             if (isCreator || isAssignee) return true;
 
             // Team-scoped: if the task belongs to a team, only team members can see it
@@ -131,7 +141,7 @@ public class EmployeeStrategy implements RoleStrategy {
         }
 
         // Fallback: only the assignee
-        return task.getAssignedTo() != null && task.getAssignedTo().getId().equals(user.getId());
+        return task.getAssignee() != null && task.getAssignee().getId().equals(user.getId());
     }
 
     @Override
@@ -139,18 +149,22 @@ public class EmployeeStrategy implements RoleStrategy {
         if (task == null || user == null) return false;
 
         // Creator can always edit
-        boolean isCreator = task.getCreatedBy() != null && task.getCreatedBy().getId().equals(user.getId());
+        boolean isCreator = task.getCreator() != null && task.getCreator().getId().equals(user.getId());
         if (isCreator) return true;
 
+        // Crew tasks: all crew members can edit
+        if (task.getCrew() != null) {
+            return crewMemberRepository.existsByIdCrewIdAndIdUserId(task.getCrew().getId(), user.getId());
+        }
+
         // Assignee can edit their own task
-        if (task.getAssignedTo() != null && task.getAssignedTo().getId().equals(user.getId())) return true;
+        if (task.getAssignee() != null && task.getAssignee().getId().equals(user.getId())) return true;
 
         // Org admin/director/manager can edit tasks in their org
-        if (task.getOrganization() != null && isOrgManagerOrAbove(user, task)) {
-            // Manager must be in the same team
-            RoleCategory role = getOrgRoleCategoryInTask(user, task);
-            if (role == RoleCategory.BUILTIN_ADMIN || role == RoleCategory.BUILTIN_DIRECTOR) return true;
-            if (role == RoleCategory.BUILTIN_MANAGER) return isInSameTeam(user, task);
+        if (task.getOrg() != null && isOrgManagerOrAbove(user, task)) {
+            Role role = getOrgRoleInTask(user, task);
+            if (role != null && role.isBuiltinDirectorOrAbove()) return true;
+            if (role != null && role.isBuiltinManagerOrAbove()) return isInSameTeam(user, task);
         }
 
         return false;
@@ -161,10 +175,13 @@ public class EmployeeStrategy implements RoleStrategy {
         if (task == null || user == null) return false;
 
         // Creator can delete
-        if (task.getCreatedBy() != null && task.getCreatedBy().getId().equals(user.getId())) return true;
+        if (task.getCreator() != null && task.getCreator().getId().equals(user.getId())) return true;
+
+        // Crew tasks: only creator can delete (already handled above, so if it's a crew task and not creator, deny)
+        if (task.getCrew() != null) return false;
 
         // Org admin/director can delete any task in their org
-        if (task.getOrganization() != null && isOrgAdminOrAbove(user, task)) return true;
+        if (task.getOrg() != null && isOrgAdminOrAbove(user, task)) return true;
 
         return false;
     }
@@ -174,10 +191,37 @@ public class EmployeeStrategy implements RoleStrategy {
         if (task == null || user == null) return false;
 
         // Creator can reassign
-        if (task.getCreatedBy() != null && task.getCreatedBy().getId().equals(user.getId())) return true;
+        if (task.getCreator() != null && task.getCreator().getId().equals(user.getId())) return true;
+
+        // Crew tasks: flat structure, only creator can explicitly reassign
+        if (task.getCrew() != null) return false;
 
         // Org admin/director can reassign any task in their org
-        if (task.getOrganization() != null && isOrgAdminOrAbove(user, task)) return true;
+        if (task.getOrg() != null && isOrgAdminOrAbove(user, task)) return true;
+
+        return false;
+    }
+
+    /**
+     * RB-M04 fix: dedicated archive permission.
+     * Stricter than canEdit (assignee can edit but not archive),
+     * looser than canDelete (org manager can archive but not delete).
+     */
+    @Override
+    public boolean canArchive(User user, Task task) {
+        if (task == null || user == null) return false;
+
+        // Creator can always archive
+        if (task.getCreator() != null && task.getCreator().getId().equals(user.getId())) return true;
+
+        // Crew tasks: only creator can archive (already handled above, so deny)
+        if (task.getCrew() != null) return false;
+
+        // Org admin/director/manager can archive any task in their org
+        if (task.getOrg() != null && isOrgManagerOrAbove(user, task)) return true;
+
+        // Assignee can archive (they can also edit, but they cannot delete)
+        if (task.getAssignee() != null && task.getAssignee().getId().equals(user.getId())) return true;
 
         return false;
     }

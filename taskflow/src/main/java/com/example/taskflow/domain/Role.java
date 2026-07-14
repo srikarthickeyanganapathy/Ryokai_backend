@@ -1,26 +1,24 @@
 package com.example.taskflow.domain;
 
 import jakarta.persistence.*;
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.JoinTable;
-import jakarta.persistence.ManyToMany;
-import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
 
 @Entity
-@Table(name = "roles")
+@Table(name = "roles", uniqueConstraints = {
+    // RB-C02 fix: composite unique on (name, organization_id) replaces the
+    // V1 single-column UNIQUE on name. Allows per-org builtin roles
+    // (ADMIN/DIRECTOR/MANAGER/EMPLOYEE) to coexist with the global builtin
+    // rows seeded by V19/V27. Mirrors V39 migration's uq_roles_name_org index.
+    @UniqueConstraint(name = "uq_roles_name_org", columnNames = {"name", "organization_id"})
+})
 @Getter
 @Setter
 @NoArgsConstructor
@@ -52,7 +50,32 @@ public class Role {
     @Column(name = "is_builtin", nullable = false)
     private boolean builtin = false;
 
-    @Column(name = "category", nullable = false, length = 30)
-    @Enumerated(EnumType.STRING)
-    private RoleCategory category = RoleCategory.CUSTOM;
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
+
+    // ====================================================================
+    // Name-based role hierarchy helpers (replaces RoleCategory enum)
+    // ====================================================================
+
+    /**
+     * Returns true if this role is the builtin ADMIN role.
+     */
+    public boolean isBuiltinAdmin() {
+        return "ADMIN".equals(name);
+    }
+
+    /**
+     * Returns true if this role is ADMIN or DIRECTOR (i.e., director-level or above).
+     */
+    public boolean isBuiltinDirectorOrAbove() {
+        return "ADMIN".equals(name) || "DIRECTOR".equals(name);
+    }
+
+    /**
+     * Returns true if this role is ADMIN, DIRECTOR, or MANAGER (i.e., manager-level or above).
+     */
+    public boolean isBuiltinManagerOrAbove() {
+        return "ADMIN".equals(name) || "DIRECTOR".equals(name) || "MANAGER".equals(name);
+    }
 }

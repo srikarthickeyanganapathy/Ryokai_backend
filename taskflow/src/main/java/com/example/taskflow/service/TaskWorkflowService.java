@@ -7,9 +7,7 @@ import org.springframework.stereotype.Service;
 
 import com.example.taskflow.domain.TaskStatus;
 
-import com.example.taskflow.domain.Attachment;
 import com.example.taskflow.domain.ChecklistItem;
-import com.example.taskflow.repository.AttachmentRepository;
 import com.example.taskflow.repository.TaskStatusHistoryRepository;
 import com.example.taskflow.domain.Task;
 import com.example.taskflow.domain.TaskComment;
@@ -51,8 +49,6 @@ public class TaskWorkflowService {
     private final NotificationService notificationService;
     private final RealtimeBroadcaster realtimeBroadcaster;
     private final TaskStatusHistoryRepository taskStatusHistoryRepository;
-    private final AttachmentRepository attachmentRepository;
-    private final FileStorageService fileStorageService;
     private final OrganizationMembershipRepository membershipRepository;
     private final OrganizationRepository organizationRepository;
     private final TeamRepository teamRepository;
@@ -71,8 +67,6 @@ public class TaskWorkflowService {
                                NotificationService notificationService,
                                RealtimeBroadcaster realtimeBroadcaster,
                                TaskStatusHistoryRepository taskStatusHistoryRepository,
-                               AttachmentRepository attachmentRepository,
-                               FileStorageService fileStorageService,
                                OrganizationMembershipRepository membershipRepository,
                                OrganizationRepository organizationRepository,
                                TeamRepository teamRepository) {
@@ -85,8 +79,6 @@ public class TaskWorkflowService {
         this.notificationService = notificationService;
         this.realtimeBroadcaster = realtimeBroadcaster;
         this.taskStatusHistoryRepository = taskStatusHistoryRepository;
-        this.attachmentRepository = attachmentRepository;
-        this.fileStorageService = fileStorageService;
         this.membershipRepository = membershipRepository;
         this.organizationRepository = organizationRepository;
         this.teamRepository = teamRepository;
@@ -120,11 +112,11 @@ public class TaskWorkflowService {
                     });
 
             if (isSuperAdmin) {
-                // Super Admin: privacy boundary — only sees own personal tasks, not org data
+                // Super Admin: privacy boundary ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â only sees own personal tasks, not org data
                 Page<Task> page = taskRepository.findVisibleForEmployee(user, pageable);
                 List<Task> personalOnly = page.stream()
-                        .filter(task -> task.isPersonal() && task.getCreatedBy() != null
-                                && task.getCreatedBy().getId().equals(user.getId()))
+                        .filter(task -> task.isPersonal() && task.getCreator() != null
+                                && task.getCreator().getId().equals(user.getId()))
                         .collect(java.util.stream.Collectors.toList());
                 return batchMapList(personalOnly, pageable, personalOnly.size());
             }
@@ -143,8 +135,8 @@ public class TaskWorkflowService {
                 }
                 return result;
             }
-            // Fallback: user is ADMIN/DIRECTOR but somehow has no membership — show own tasks only
-            Page<Task> page = taskRepository.findByAssignedToOrCreatedBy(user, pageable);
+            // Fallback: user is ADMIN/DIRECTOR but somehow has no membership ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â show own tasks only
+            Page<Task> page = taskRepository.findByAssigneeOrCreator(user, pageable);
             Page<TaskResponseDTO> fallbackResult = batchMapTasks(page);
             if (scope != null) {
                 List<TaskResponseDTO> filtered = fallbackResult.getContent().stream()
@@ -161,7 +153,7 @@ public class TaskWorkflowService {
             List<Task> filteredTasks = page.stream()
                     .filter(task -> {
                         // B-05: Scope filter
-                        if ("personal".equals(scope)) return task.isPersonal() && task.getCreatedBy() != null && task.getCreatedBy().getId().equals(user.getId());
+                        if ("personal".equals(scope)) return task.isPersonal() && task.getCreator() != null && task.getCreator().getId().equals(user.getId());
                         if ("org".equals(scope)) return !task.isPersonal();
                         return true;
                     })
@@ -174,7 +166,7 @@ public class TaskWorkflowService {
         List<Task> filteredTasks = page.stream()
                 .filter(task -> {
                     // B-05: Scope filter
-                    if ("personal".equals(scope)) return task.isPersonal() && task.getCreatedBy() != null && task.getCreatedBy().getId().equals(user.getId());
+                    if ("personal".equals(scope)) return task.isPersonal() && task.getCreator() != null && task.getCreator().getId().equals(user.getId());
                     if ("org".equals(scope)) return !task.isPersonal();
                     return true;
                 })
@@ -187,8 +179,8 @@ public class TaskWorkflowService {
         Task task = getTask(taskId);
         
         RoleStrategy strategy = roleStrategyFactory.getStrategy(user);
-        boolean isAssignee = task.getAssignedTo() != null && task.getAssignedTo().getId().equals(user.getId());
-        boolean isCreator = task.getCreatedBy() != null && task.getCreatedBy().getId().equals(user.getId());
+        boolean isAssignee = task.getAssignee() != null && task.getAssignee().getId().equals(user.getId());
+        boolean isCreator = task.getCreator() != null && task.getCreator().getId().equals(user.getId());
         boolean canOverride = strategy.canOverride(user);
         
         // Ensure only the assignee, creator, or admin can submit
@@ -196,10 +188,10 @@ public class TaskWorkflowService {
             throw new com.example.taskflow.exception.UnauthorizedActionException("Only the assignee, creator, or admin can submit a task");
         }
 
-        // B-04c: Personal tasks go To-Do → COMPLETED (not ASSIGNED → APPROVED)
+        // B-04c: Personal tasks go To-Do ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ COMPLETED (not ASSIGNED ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ APPROVED)
         if (task.isPersonal()) {
             if (task.getCurrentStatus() == TaskStatus.COMPLETED) {
-                return mapToTaskResponseDTO(task); // Already completed — no-op
+                return mapToTaskResponseDTO(task); // Already completed ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â no-op
             }
             if (task.getCurrentStatus() != TaskStatus.TODO) {
                 throw new IllegalStateException("Only TODO tasks can be completed");
@@ -208,7 +200,7 @@ public class TaskWorkflowService {
             task.setCurrentStatus(TaskStatus.COMPLETED);
             Task updated = taskRepository.save(task);
             taskAuditService.recordStatus(updated, fromStatus.name(), "COMPLETED", "COMPLETED", user, "Personal task marked complete");
-            notificationService.createAndSend(task.getCreatedBy(), user, com.example.taskflow.notification.NotificationEvent.TASK_APPROVED,
+            notificationService.createAndSend(task.getCreator(), user, com.example.taskflow.notification.NotificationEvent.TASK_APPROVED,
                 "Task Completed", "Personal task " + task.getTitle() + " has been completed.", updated, "task-completed:" + task.getId(), user);
             TaskResponseDTO dto = mapToTaskResponseDTO(updated);
             realtimeBroadcaster.broadcastTaskUpdate(dto, updated.getId());
@@ -217,7 +209,7 @@ public class TaskWorkflowService {
 
         // Check dependencies
         boolean hasIncompleteDependencies = taskDependencyRepository.findByTask_Id(taskId).stream()
-            .map(TaskDependency::getBlocksTask)
+            .map(TaskDependency::getDependsOn)
             .anyMatch(blockingTask -> blockingTask.getCurrentStatus() != TaskStatus.APPROVED);
 
         if (hasIncompleteDependencies) {
@@ -230,11 +222,12 @@ public class TaskWorkflowService {
 
         TaskStatus fromStatus = task.getCurrentStatus();
         task.setCurrentStatus(TaskStatus.SUBMITTED);
+        task.setRejectionReason(null);
         Task updated = taskRepository.save(task);
         taskAuditService.recordStatus(updated, fromStatus.name(), "SUBMITTED", "SUBMITTED", user, null);
         
         // Notify creator
-        notificationService.createAndSend(task.getCreatedBy(), user, com.example.taskflow.notification.NotificationEvent.TASK_SUBMITTED,
+        notificationService.createAndSend(task.getCreator(), user, com.example.taskflow.notification.NotificationEvent.TASK_SUBMITTED,
             "Task Submitted", "Task " + task.getTitle() + " has been submitted for review.", updated, "task-submitted:" + task.getId(), user);
             
         // Broadcast real-time update
@@ -257,21 +250,22 @@ public class TaskWorkflowService {
 
         TaskStatus fromStatus = task.getCurrentStatus();
         task.setCurrentStatus(TaskStatus.APPROVED);
-        task.setReviewedBy(reviewer); // Store who approved it
+        task.setReviewer(reviewer); // Store who approved it
+        task.setRejectionReason(null); // Defensive clear
         
         Task updated = taskRepository.save(task);
         taskAuditService.recordStatus(updated, fromStatus.name(), "APPROVED", "APPROVED", reviewer, null);
         
-        notificationService.createAndSend(task.getAssignedTo(), reviewer, com.example.taskflow.notification.NotificationEvent.TASK_APPROVED,
+        notificationService.createAndSend(task.getAssignee(), reviewer, com.example.taskflow.notification.NotificationEvent.TASK_APPROVED,
             "Task Approved", "Your task " + task.getTitle() + " was approved.", updated, "task-approved:" + task.getId(), reviewer);
             
-        List<TaskDependency> dependents = taskDependencyRepository.findByBlocksTask_Id(taskId);
+        List<TaskDependency> dependents = taskDependencyRepository.findByDependsOn_Id(taskId);
         for (TaskDependency dep : dependents) {
             Task blockedTask = dep.getTask();
-            if (blockedTask.getAssignedTo() == null) continue;
-            if (blockedTask.getAssignedTo().getId().equals(reviewer.getId())) continue;  // self-exclusion
+            if (blockedTask.getAssignee() == null) continue;
+            if (blockedTask.getAssignee().getId().equals(reviewer.getId())) continue;  // self-exclusion
             notificationService.createAndSend(
-                blockedTask.getAssignedTo(),
+                blockedTask.getAssignee(),
                 reviewer,
                 com.example.taskflow.notification.NotificationEvent.DEPENDENCY_RESOLVED,
                 "Dependency resolved: " + task.getTitle(),
@@ -299,14 +293,15 @@ public class TaskWorkflowService {
 
         TaskStatus fromStatus = task.getCurrentStatus();
         task.setCurrentStatus(TaskStatus.REJECTED);
-        task.setReviewedBy(reviewer);
+        task.setReviewer(reviewer);
+        task.setRejectionReason(reason);
         
         Task updated = taskRepository.save(task);
 
         // Note(frontend): migration - frontend needs to read rejection reason from /dashboard/activity/task/{taskId} instead of comments
         taskAuditService.recordStatus(updated, fromStatus.name(), "REJECTED", "REJECTED", reviewer, reason);
         
-        notificationService.createAndSend(task.getAssignedTo(), reviewer, com.example.taskflow.notification.NotificationEvent.TASK_REJECTED,
+        notificationService.createAndSend(task.getAssignee(), reviewer, com.example.taskflow.notification.NotificationEvent.TASK_REJECTED,
             "Task Rejected", "Your task " + task.getTitle() + " was rejected. Reason: " + reason, updated, "task-rejected:" + task.getId(), reviewer);
             
         TaskResponseDTO dto = mapToTaskResponseDTO(updated);
@@ -320,7 +315,7 @@ public class TaskWorkflowService {
     /** B-05: Scope filter for getTasksForUser */
     private boolean scopeFilter(TaskResponseDTO dto, User user, String scope) {
         if ("personal".equals(scope)) {
-            return dto.isPersonal() && user.getUsername().equals(dto.getCreatedBy());
+            return dto.isPersonal() && user.getUsername().equals(dto.getCreator());
         }
         if ("org".equals(scope)) {
             return !dto.isPersonal();
@@ -333,9 +328,16 @@ public class TaskWorkflowService {
         if (!strategy.canReview(reviewer, task)) {
             throw new com.example.taskflow.exception.UnauthorizedActionException("You are not authorized to review this task.");
         }
+        // SM-M02 fix: defensive check - creator cannot review their own task.
+        // (EmployeeStrategy.canReview already blocks this, but we double-check
+        // here so the invariant holds even if a future strategy implementation
+        // forgets the guard.)
+        if (task.getCreator() != null && task.getCreator().getId().equals(reviewer.getId())) {
+            throw new com.example.taskflow.exception.UnauthorizedActionException("You cannot review a task you created (no self-review).");
+        }
         // Org boundary check: reviewer must be in the same org as the task
-        if (task.getOrganization() != null) {
-            boolean inSameOrg = membershipRepository.existsByUserAndOrganization(reviewer, task.getOrganization());
+        if (task.getOrg() != null) {
+            boolean inSameOrg = membershipRepository.existsByUserAndOrganization(reviewer, task.getOrg());
             if (!inSameOrg) {
                 throw new com.example.taskflow.exception.UnauthorizedActionException("You cannot review tasks outside your organization.");
             }
@@ -354,8 +356,8 @@ public class TaskWorkflowService {
 
         java.util.Map<Long, List<TaskDependency>> blockingByTaskId = taskDependencyRepository.findAllByTaskIdIn(taskIds)
                 .stream().collect(java.util.stream.Collectors.groupingBy(d -> d.getTask().getId()));
-        java.util.Map<Long, List<TaskDependency>> blockedByByTaskId = taskDependencyRepository.findAllByBlocksTaskIdIn(taskIds)
-                .stream().collect(java.util.stream.Collectors.groupingBy(d -> d.getBlocksTask().getId()));
+        java.util.Map<Long, List<TaskDependency>> blockedByByTaskId = taskDependencyRepository.findAllByDependsOnIdIn(taskIds)
+                .stream().collect(java.util.stream.Collectors.groupingBy(d -> d.getDependsOn().getId()));
 
         List<TaskResponseDTO> dtos = page.getContent().stream()
                 .map(task -> mapToTaskResponseDTO(task, blockingByTaskId, blockedByByTaskId))
@@ -370,8 +372,8 @@ public class TaskWorkflowService {
 
         java.util.Map<Long, List<TaskDependency>> blockingByTaskId = taskDependencyRepository.findAllByTaskIdIn(taskIds)
                 .stream().collect(java.util.stream.Collectors.groupingBy(d -> d.getTask().getId()));
-        java.util.Map<Long, List<TaskDependency>> blockedByByTaskId = taskDependencyRepository.findAllByBlocksTaskIdIn(taskIds)
-                .stream().collect(java.util.stream.Collectors.groupingBy(d -> d.getBlocksTask().getId()));
+        java.util.Map<Long, List<TaskDependency>> blockedByByTaskId = taskDependencyRepository.findAllByDependsOnIdIn(taskIds)
+                .stream().collect(java.util.stream.Collectors.groupingBy(d -> d.getDependsOn().getId()));
 
         List<TaskResponseDTO> dtos = tasks.stream()
                 .map(task -> mapToTaskResponseDTO(task, blockingByTaskId, blockedByByTaskId))
@@ -385,7 +387,7 @@ public class TaskWorkflowService {
         return mapToTaskResponseDTO(task, null, null);
     }
 
-    /** Batch-aware mapper — pass pre-fetched dependency maps to avoid N+1 */
+    /** Batch-aware mapper ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â pass pre-fetched dependency maps to avoid N+1 */
     private TaskResponseDTO mapToTaskResponseDTO(Task task,
             java.util.Map<Long, List<TaskDependency>> blockingByTaskId,
             java.util.Map<Long, List<TaskDependency>> blockedByByTaskId) {
@@ -395,10 +397,10 @@ public class TaskWorkflowService {
             : taskDependencyRepository.findByTask_Id(taskId);
         List<TaskDependency> blockedBy = (blockedByByTaskId != null)
             ? blockedByByTaskId.getOrDefault(taskId, java.util.Collections.emptyList())
-            : taskDependencyRepository.findByBlocksTask_Id(taskId);
+            : taskDependencyRepository.findByDependsOn_Id(taskId);
         
         List<TaskSummaryDTO> blocksDto = blocking.stream()
-            .map(d -> new TaskSummaryDTO(d.getBlocksTask().getId(), d.getBlocksTask().getTitle(), d.getBlocksTask().getCurrentStatus()))
+            .map(d -> new TaskSummaryDTO(d.getDependsOn().getId(), d.getDependsOn().getTitle(), d.getDependsOn().getCurrentStatus()))
             .collect(java.util.stream.Collectors.toList());
             
         List<TaskSummaryDTO> blockedByDto = blockedBy.stream()
@@ -409,9 +411,9 @@ public class TaskWorkflowService {
             task.getId(),
             task.getTitle(),
             task.getDescription(),
-            task.getAssignedTo() != null ? task.getAssignedTo().getUsername() : null,
-            task.getCreatedBy() != null ? task.getCreatedBy().getUsername() : null,
-            task.getReviewedBy() != null ? task.getReviewedBy().getUsername() : null,
+            task.getAssignee() != null ? task.getAssignee().getUsername() : null,
+            task.getCreator() != null ? task.getCreator().getUsername() : null,
+            task.getReviewer() != null ? task.getReviewer().getUsername() : null,
             task.getCurrentStatus(),
             task.getPriority(),
             task.getDueDate(),
@@ -422,21 +424,24 @@ public class TaskWorkflowService {
             task.getCreatedAt(),
             task.getUpdatedAt(),
             task.getCoverImageUrl(),
+            task.getRejectionReason(),
             task.isPersonal(),
             task.isArchived(),
-            task.getOrganization() != null ? task.getOrganization().getId() : null,
-            task.getOrganization() != null ? task.getOrganization().getName() : null,
+            task.getOrg() != null ? task.getOrg().getId() : null,
+            task.getOrg() != null ? task.getOrg().getName() : null,
             task.getTeam() != null ? task.getTeam().getId() : null,
             task.getTeam() != null ? task.getTeam().getName() : null,
             task.getProject() != null ? task.getProject().getId() : null,
-            task.getProject() != null ? task.getProject().getName() : null
+            task.getProject() != null ? task.getProject().getName() : null,
+            task.getCrew() != null ? task.getCrew().getId() : null,
+            task.getCrew() != null ? task.getCrew().getName() : null
         );
     }
 
     private TaskCommentDTO mapToTaskCommentDTO(TaskComment comment) {
         return new TaskCommentDTO(
             comment.getId(),
-            comment.getUser().getUsername(),
+            comment.getAuthor().getUsername(),
             comment.getComment(),
             comment.getCreatedAt()
         );
@@ -460,16 +465,16 @@ public class TaskWorkflowService {
 
         TaskComment comment = new TaskComment();
         comment.setTask(task);
-        comment.setUser(user);
+        comment.setAuthor(user);
         comment.setComment(text);
         comment.setCreatedAt(LocalDateTime.now());
         TaskComment saved = taskCommentRepository.save(comment);
         taskAuditService.recordStatus(task, task.getCurrentStatus().name(), task.getCurrentStatus().name(), "COMMENTED", user, null, java.util.Map.of("comment", text));
         
         Set<User> participants = new HashSet<>();
-        if (task.getAssignedTo() != null) participants.add(task.getAssignedTo());
-        if (task.getCreatedBy() != null) participants.add(task.getCreatedBy());
-        if (task.getReviewedBy() != null) participants.add(task.getReviewedBy());
+        if (task.getAssignee() != null) participants.add(task.getAssignee());
+        if (task.getCreator() != null) participants.add(task.getCreator());
+        if (task.getReviewer() != null) participants.add(task.getReviewer());
         
         for (User p : participants) {
             notificationService.createAndSend(p, user, com.example.taskflow.notification.NotificationEvent.TASK_COMMENTED,
@@ -485,23 +490,6 @@ public class TaskWorkflowService {
         return taskCommentRepository.findByTaskIdOrderByCreatedAtAsc(taskId, pageable).map(this::mapToTaskCommentDTO);
     }
 
-    @Transactional(readOnly = true)
-    public List<com.example.taskflow.dto.AttachmentResponseDTO> getTaskAttachments(Long taskId) {
-        return attachmentRepository.findByTask_Id(taskId).stream()
-                .map(this::mapToAttachmentResponseDTO)
-                .collect(java.util.stream.Collectors.toList());
-    }
-
-    public com.example.taskflow.dto.AttachmentResponseDTO mapToAttachmentResponseDTO(Attachment attachment) {
-        return new com.example.taskflow.dto.AttachmentResponseDTO(
-            attachment.getId(),
-            attachment.getOriginalFilename(),
-            attachment.getContentType(),
-            attachment.getFileSize(),
-            attachment.getCreatedAt(),
-            attachment.getUploadedBy() != null ? attachment.getUploadedBy().getUsername() : null
-        );
-    }
 
     @Transactional
     public ChecklistItemDTO addChecklistItem(Long taskId, String text, User user) {
@@ -528,18 +516,26 @@ public class TaskWorkflowService {
         
         // B-11: Allow both the creator AND the task assignee to toggle checklist items
         boolean isCreator = item.getCreatedBy() != null && item.getCreatedBy().getId().equals(user.getId());
-        boolean isAssignee = item.getTask().getAssignedTo() != null && item.getTask().getAssignedTo().getId().equals(user.getId());
+        boolean isAssignee = item.getTask().getAssignee() != null && item.getTask().getAssignee().getId().equals(user.getId());
         if (!isCreator && !isAssignee) {
             throw new com.example.taskflow.exception.UnauthorizedActionException("Only the creator or assignee of the checklist item can modify it.");
         }
 
         item.setIsCompleted(!item.getIsCompleted());
+        // ER-M03 fix: stamp completed_at when is_completed flips to true,
+        // clear it when flipping back to false. The column was added by V39
+        // migration; the entity field already existed but was never written.
+        if (item.getIsCompleted()) {
+            item.setCompletedAt(LocalDateTime.now());
+        } else {
+            item.setCompletedAt(null);
+        }
         ChecklistItem saved = checklistItemRepository.save(item);
         taskAuditService.recordStatus(item.getTask(), item.getTask().getCurrentStatus().name(), item.getTask().getCurrentStatus().name(), "CHECKLIST_TOGGLED", user, item.getText() + " completed: " + item.getIsCompleted(), java.util.Map.of("itemId", item.getId(), "completed", item.getIsCompleted()));
         
         boolean allComplete = checklistItemRepository.findByTaskIdOrderByDisplayOrderAsc(taskId).stream().allMatch(ChecklistItem::getIsCompleted);
         if (allComplete) {
-            notificationService.createAndSend(item.getTask().getCreatedBy(), user, com.example.taskflow.notification.NotificationEvent.CHECKLIST_UPDATED,
+            notificationService.createAndSend(item.getTask().getCreator(), user, com.example.taskflow.notification.NotificationEvent.CHECKLIST_UPDATED,
                 "Checklist Completed", "All items completed on task: " + item.getTask().getTitle(), item.getTask(), "checklist-updated:" + item.getTask().getId(), user);
         }
         
@@ -586,42 +582,44 @@ public class TaskWorkflowService {
 
     // --- Dependencies ---
     @Transactional
-    public void addDependency(Long taskId, Long blocksTaskId, User user) {
+    public void addDependency(Long taskId, Long dependsOnId, User user) {
         Task task = getTask(taskId);
-        Task blocksTask = getTask(blocksTaskId);
+        Task dependsOnTask = getTask(dependsOnId);
 
-        if (task.getId().equals(blocksTask.getId())) {
+        if (task.getId().equals(dependsOnTask.getId())) {
             throw new IllegalArgumentException("A task cannot depend on itself");
         }
 
-        if (taskDependencyRepository.existsByTask_IdAndBlocksTask_Id(taskId, blocksTaskId)) {
+        if (taskDependencyRepository.existsByTask_IdAndDependsOn_Id(taskId, dependsOnId)) {
             throw new IllegalArgumentException("Dependency already exists");
         }
 
         // Cycle Detection (DFS)
-        if (detectCycle(blocksTask, task, new HashSet<>())) {
+        if (detectCycle(dependsOnTask, task, new HashSet<>())) {
             throw new IllegalStateException("Cannot add dependency: It would create a circular dependency loop.");
         }
 
         TaskDependency dependency = new TaskDependency();
+        dependency.setId(new com.example.taskflow.domain.TaskDependencyId(taskId, dependsOnId));
         dependency.setTask(task);
-        dependency.setBlocksTask(blocksTask);
+        dependency.setDependsOn(dependsOnTask);
+        dependency.setCreatedBy(user);
         try {
             taskDependencyRepository.saveAndFlush(dependency);
         } catch (org.springframework.dao.DataIntegrityViolationException e) {
             throw new IllegalArgumentException("Dependency already exists");
         }
         
-        taskAuditService.recordStatus(task, task.getCurrentStatus().name(), task.getCurrentStatus().name(), "DEPENDENCY_ADDED", user, "Blocked by task " + blocksTaskId, java.util.Map.of("blocksTaskId", blocksTaskId));
-        if (task.getAssignedTo() != null && !task.getAssignedTo().getId().equals(user.getId())) {
+        taskAuditService.recordStatus(task, task.getCurrentStatus().name(), task.getCurrentStatus().name(), "DEPENDENCY_ADDED", user, "Blocked by task " + dependsOnId, java.util.Map.of("dependsOnId", dependsOnId));
+        if (task.getAssignee() != null && !task.getAssignee().getId().equals(user.getId())) {
             notificationService.createAndSend(
-                task.getAssignedTo(),
+                task.getAssignee(),
                 user,
                 com.example.taskflow.notification.NotificationEvent.TASK_BLOCKED,
                 "Task Blocked",
-                "Your task has been blocked by another task: " + blocksTask.getTitle(),
+                "Your task has been blocked by another task: " + dependsOnTask.getTitle(),
                 task,
-                "task-blocked:" + task.getId() + ":" + blocksTask.getId(),
+                "task-blocked:" + task.getId() + ":" + dependsOnTask.getId(),
                 user
             );
         }
@@ -640,23 +638,20 @@ public class TaskWorkflowService {
 
         // Find what current is blocked by
         return taskDependencyRepository.findByTask_Id(current.getId()).stream()
-                .map(TaskDependency::getBlocksTask)
+                .map(TaskDependency::getDependsOn)
                 .anyMatch(nextTask -> detectCycle(nextTask, target, visited));
     }
 
     @Transactional
-    public void removeDependency(Long taskId, Long depId, User user) {
+    public void removeDependency(Long taskId, Long dependsOnId, User user) {
         Task task = getTask(taskId);
         
-        TaskDependency dependency = taskDependencyRepository.findById(depId)
+        com.example.taskflow.domain.TaskDependencyId depKey = new com.example.taskflow.domain.TaskDependencyId(taskId, dependsOnId);
+        TaskDependency dependency = taskDependencyRepository.findById(depKey)
                 .orElseThrow(() -> new IllegalArgumentException("Dependency not found"));
-                
-        if (!dependency.getTask().getId().equals(taskId)) {
-            throw new IllegalArgumentException("Dependency does not belong to this task");
-        }
         
         taskDependencyRepository.delete(dependency);
-        taskAuditService.recordStatus(task, task.getCurrentStatus().name(), task.getCurrentStatus().name(), "DEPENDENCY_REMOVED", user, "Dependency removed: " + depId, java.util.Map.of("dependencyId", depId));
+        taskAuditService.recordStatus(task, task.getCurrentStatus().name(), task.getCurrentStatus().name(), "DEPENDENCY_REMOVED", user, "Dependency removed: depends_on=" + dependsOnId, java.util.Map.of("dependsOnId", dependsOnId));
     }
 
     @Transactional
@@ -671,7 +666,7 @@ public class TaskWorkflowService {
         if (request.getDescription() != null) task.setDescription(request.getDescription());
         if (request.getPriority() != null) task.setPriority(request.getPriority());
         if (request.getDueDate() != null) {
-            if (request.getDueDate().isBefore(LocalDateTime.now(zoneId).minusMinutes(5))) {
+            if (request.getDueDate().isBefore(java.time.LocalDate.now(zoneId))) {
                 throw new IllegalArgumentException("Due date cannot be in the past");
             }
             task.setDueDate(request.getDueDate());
@@ -705,23 +700,12 @@ public class TaskWorkflowService {
         // Audit BEFORE delete
         taskAuditService.recordStatus(task, task.getCurrentStatus().name(), "DELETED", "DELETED", user, "Task deleted");
 
-        // Clean up on-disk attachment files
-        List<Attachment> attachments = attachmentRepository.findByTask_Id(taskId);
-        for (Attachment att : attachments) {
-            try {
-                fileStorageService.delete(att.getId());
-            } catch (Exception e) {
-                // Log but continue
-            }
-        }
-
         // Delete related rows
         taskStatusHistoryRepository.deleteByTaskId(taskId);
         taskCommentRepository.deleteByTaskId(taskId);
         taskDependencyRepository.deleteByTaskId(taskId);
-        taskDependencyRepository.deleteByBlocksTaskId(taskId);
+        taskDependencyRepository.deleteByDependsOnId(taskId);
         checklistItemRepository.deleteByTaskId(taskId);
-        attachmentRepository.deleteByTaskId(taskId);
 
         taskRepository.delete(task);
     }
@@ -749,8 +733,8 @@ public class TaskWorkflowService {
             throw new com.example.taskflow.exception.UnauthorizedActionException("You are not authorized to reassign this task.");
         }
         
-        if (task.getOrganization() != null) {
-            boolean inSameOrg = membershipRepository.existsByUserAndOrganization(newAssignee, task.getOrganization());
+        if (task.getOrg() != null) {
+            boolean inSameOrg = membershipRepository.existsByUserAndOrganization(newAssignee, task.getOrg());
             if (!inSameOrg) {
                 throw new IllegalArgumentException("Assignee must be a member of the task's organization.");
             }
@@ -763,12 +747,13 @@ public class TaskWorkflowService {
             }
         }
         
-        User oldAssignee = task.getAssignedTo();
+        User oldAssignee = task.getAssignee();
         TaskStatus oldStatus = task.getCurrentStatus();
         
-        task.setAssignedTo(newAssignee);
-        task.setCurrentStatus(task.isPersonal() ? TaskStatus.TODO : TaskStatus.ASSIGNED); // RESET
-        task.setReviewedBy(null); // RESET
+        task.setAssignee(newAssignee);
+        task.setCurrentStatus(task.isPersonal() ? TaskStatus.TODO : (task.getCrew() != null ? TaskStatus.TODO : TaskStatus.ASSIGNED)); // RESET
+        task.setReviewer(null); // RESET
+        task.setRejectionReason(null);
         Task updated = taskRepository.save(task);
         taskAuditService.recordStatus(updated, oldStatus.name(), updated.getCurrentStatus().name(), "REASSIGNED", user, "Reassigned to " + newAssignee.getUsername(), java.util.Map.of("assigneeFrom", oldAssignee != null ? oldAssignee.getUsername() : null, "assigneeTo", newAssignee.getUsername()));
         
@@ -792,7 +777,7 @@ public class TaskWorkflowService {
         if (!task.isPersonal()) {
             throw new IllegalArgumentException("Only personal tasks can be completed directly");
         }
-        if (!task.getCreatedBy().getId().equals(user.getId())) {
+        if (!task.getCreator().getId().equals(user.getId())) {
             throw new com.example.taskflow.exception.UnauthorizedActionException("Only the owner can complete a personal task");
         }
         if (task.getCurrentStatus() == TaskStatus.COMPLETED) {
@@ -805,8 +790,108 @@ public class TaskWorkflowService {
         task.setCurrentStatus(TaskStatus.COMPLETED);
         Task updated = taskRepository.save(task);
         taskAuditService.recordStatus(updated, fromStatus.name(), "COMPLETED", "COMPLETED", user, "Personal task marked complete");
-        notificationService.createAndSend(task.getCreatedBy(), user, com.example.taskflow.notification.NotificationEvent.TASK_APPROVED,
+        notificationService.createAndSend(task.getCreator(), user, com.example.taskflow.notification.NotificationEvent.TASK_APPROVED,
             "Task Completed", "Personal task " + task.getTitle() + " has been completed.", updated, "task-completed:" + task.getId(), user);
+        TaskResponseDTO dto = mapToTaskResponseDTO(updated);
+        realtimeBroadcaster.broadcastTaskUpdate(dto, updated.getId());
+        return dto;
+    }
+
+    /**
+     * SM-M03 fix: Recall a submitted task back to ASSIGNED.
+     * Spec state machine: "SUBMITTED --> ASSIGNED : assignee recalls".
+     * Only the assignee can recall; task must be in SUBMITTED status.
+     */
+    @Transactional
+    public TaskResponseDTO recallTask(Long taskId, User user) {
+        Task task = getTask(taskId);
+
+        // Only the assignee can recall their own submission
+        boolean isAssignee = task.getAssignee() != null && task.getAssignee().getId().equals(user.getId());
+        if (!isAssignee) {
+            throw new com.example.taskflow.exception.UnauthorizedActionException("Only the assignee can recall a submitted task.");
+        }
+
+        if (task.getCurrentStatus() != TaskStatus.SUBMITTED) {
+            throw new IllegalStateException("Only SUBMITTED tasks can be recalled.");
+        }
+
+        // Personal tasks never enter SUBMITTED, so this is implicitly org-only.
+        // Crew tasks have no review pipeline, so they never enter SUBMITTED either.
+        TaskStatus fromStatus = task.getCurrentStatus();
+        task.setCurrentStatus(TaskStatus.ASSIGNED);
+        Task updated = taskRepository.save(task);
+        taskAuditService.recordStatus(updated, fromStatus.name(), "ASSIGNED", "RECALLED", user,
+                "Assignee recalled submission", java.util.Map.of("recalledBy", user.getUsername()));
+
+        // Notify the creator that the submission was recalled
+        if (task.getCreator() != null && !task.getCreator().getId().equals(user.getId())) {
+            notificationService.createAndSend(task.getCreator(), user,
+                com.example.taskflow.notification.NotificationEvent.TASK_SUBMITTED,
+                "Task Recalled",
+                "Task " + task.getTitle() + " was recalled by " + user.getUsername() + ".",
+                updated, "task-recalled:" + task.getId(), user);
+        }
+
+        TaskResponseDTO dto = mapToTaskResponseDTO(updated);
+        realtimeBroadcaster.broadcastTaskUpdate(dto, updated.getId());
+        return dto;
+    }
+
+    /**
+     * SM-C01 fix: Complete a crew task (ASSIGNED -> COMPLETED).
+     * Spec state machine for crew tasks: ASSIGNED --> COMPLETED (no review pipeline).
+     * Any crew member can complete a crew task (flat structure, per spec flowchart).
+     * Previously crew tasks were initialised to TODO with no completion path -
+     * they were permanently stuck.
+     */
+    @Transactional
+    public TaskResponseDTO completeCrewTask(Long taskId, User user) {
+        Task task = getTask(taskId);
+
+        if (task.getCrew() == null) {
+            throw new IllegalArgumentException("This endpoint is only for crew tasks. Use /complete for personal tasks or /approve for org tasks.");
+        }
+
+        // Any crew member can complete a crew task (flat structure)
+        // The @PreAuthorize("hasPermission(..., 'EDIT')") on the controller
+        // already verified via EmployeeStrategy.canEdit that the caller is a
+        // crew member. No additional check needed here.
+
+        if (task.getCurrentStatus() == TaskStatus.COMPLETED) {
+            return mapToTaskResponseDTO(task); // Already completed - no-op
+        }
+        if (task.getCurrentStatus() != TaskStatus.ASSIGNED) {
+            throw new IllegalStateException("Only ASSIGNED crew tasks can be completed. Current status: " + task.getCurrentStatus());
+        }
+
+        TaskStatus fromStatus = task.getCurrentStatus();
+        task.setCurrentStatus(TaskStatus.COMPLETED);
+        Task updated = taskRepository.save(task);
+        taskAuditService.recordStatus(updated, fromStatus.name(), "COMPLETED", "COMPLETED", user,
+                "Crew task marked complete by " + user.getUsername());
+
+        // Notify all crew members (except the completer) that the task is done
+        // We rely on the crew relationship being loaded; if not, we skip notification.
+        try {
+            if (task.getCrew() != null && task.getCrew().getMembers() != null) {
+                for (com.example.taskflow.domain.CrewMember cm : task.getCrew().getMembers()) {
+                    User member = cm.getUser();
+                    if (member != null && !member.getId().equals(user.getId())) {
+                        notificationService.createAndSend(member, user,
+                            com.example.taskflow.notification.NotificationEvent.TASK_APPROVED,
+                            "Crew Task Completed",
+                            "Crew task " + task.getTitle() + " has been completed by " + user.getUsername() + ".",
+                            updated, "crew-task-completed:" + task.getId() + ":" + member.getId(), user);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            // Best-effort notification - do not fail the completion
+            org.slf4j.LoggerFactory.getLogger(TaskWorkflowService.class)
+                .warn("Failed to notify crew members of task completion: {}", e.getMessage());
+        }
+
         TaskResponseDTO dto = mapToTaskResponseDTO(updated);
         realtimeBroadcaster.broadcastTaskUpdate(dto, updated.getId());
         return dto;

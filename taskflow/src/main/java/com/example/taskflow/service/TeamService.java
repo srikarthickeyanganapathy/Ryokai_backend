@@ -2,14 +2,16 @@ package com.example.taskflow.service;
 
 import com.example.taskflow.domain.Organization;
 import com.example.taskflow.domain.OrganizationMembership;
-import com.example.taskflow.domain.RoleCategory;
 import com.example.taskflow.domain.Team;
+import com.example.taskflow.domain.TeamMember;
+import com.example.taskflow.domain.TeamMemberId;
 import com.example.taskflow.domain.User;
 import com.example.taskflow.dto.TeamResponseDTO;
 import com.example.taskflow.exception.UnauthorizedActionException;
 import com.example.taskflow.exception.UserNotFoundException;
 import com.example.taskflow.repository.OrganizationMembershipRepository;
 import com.example.taskflow.repository.OrganizationRepository;
+import com.example.taskflow.repository.TeamMemberRepository;
 import com.example.taskflow.repository.TeamRepository;
 import com.example.taskflow.repository.UserRepository;
 import com.example.taskflow.repository.TaskRepository;
@@ -28,19 +30,22 @@ public class TeamService {
     private final OrganizationMembershipRepository membershipRepository;
     private final TaskRepository taskRepository;
     private final NotificationService notificationService;
+    private final TeamMemberRepository teamMemberRepository;
 
     public TeamService(TeamRepository teamRepository,
                        OrganizationRepository organizationRepository,
                        UserRepository userRepository,
                        OrganizationMembershipRepository membershipRepository,
                        TaskRepository taskRepository,
-                       NotificationService notificationService) {
+                       NotificationService notificationService,
+                       TeamMemberRepository teamMemberRepository) {
         this.teamRepository = teamRepository;
         this.organizationRepository = organizationRepository;
         this.userRepository = userRepository;
         this.membershipRepository = membershipRepository;
         this.taskRepository = taskRepository;
         this.notificationService = notificationService;
+        this.teamMemberRepository = teamMemberRepository;
     }
 
     // ========================================================================
@@ -54,8 +59,7 @@ public class TeamService {
 
     private void requireManagerOrAbove(User caller, Organization org) {
         OrganizationMembership membership = requireOrgMembership(caller, org);
-        RoleCategory role = membership.getOrgRole() != null ? membership.getOrgRole().getCategory() : null;
-        if (role != RoleCategory.BUILTIN_ADMIN && role != RoleCategory.BUILTIN_DIRECTOR && role != RoleCategory.BUILTIN_MANAGER) {
+        if (membership.getOrgRole() == null || !membership.getOrgRole().isBuiltinManagerOrAbove()) {
             throw new UnauthorizedActionException("Only Managers, Directors, or Admins can manage teams");
         }
     }
@@ -101,8 +105,19 @@ public class TeamService {
                 "User " + user.getUsername() + " is not a member of the organization this team belongs to");
         }
 
-        team.getMembers().add(user);
-        Team saved = teamRepository.save(team);
+        // Check if already a member
+        if (teamMemberRepository.existsByIdTeamIdAndIdUserId(teamId, userId)) {
+            throw new IllegalArgumentException("User is already a member of this team");
+        }
+
+        TeamMember tm = new TeamMember();
+        tm.setId(new TeamMemberId(teamId, userId));
+        tm.setTeam(team);
+        tm.setUser(user);
+        teamMemberRepository.save(tm);
+
+        // Re-fetch team to get updated members
+        Team saved = teamRepository.findById(teamId).orElseThrow();
 
         notificationService.createAndSend(user, caller,
             com.example.taskflow.notification.NotificationEvent.TEAM_MEMBER_ADDED,
@@ -128,8 +143,14 @@ public class TeamService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException("User not found: " + userId));
 
-        team.getMembers().remove(user);
-        Team saved = teamRepository.save(team);
+        TeamMemberId tmId = new TeamMemberId(teamId, userId);
+        if (!teamMemberRepository.existsById(tmId)) {
+            throw new IllegalArgumentException("User is not a member of this team");
+        }
+        teamMemberRepository.deleteById(tmId);
+
+        // Re-fetch team to get updated members
+        Team saved = teamRepository.findById(teamId).orElseThrow();
 
         notificationService.createAndSend(user, caller,
             com.example.taskflow.notification.NotificationEvent.TEAM_MEMBER_REMOVED,
@@ -194,8 +215,10 @@ public class TeamService {
 
     @Transactional(readOnly = true)
     public List<TeamResponseDTO> listUserTeams(Long userId) {
-        return teamRepository.findByMembersId(userId).stream()
-                .map(this::mapToResponseDTO)
+        // Find teams via TeamMember join table
+        List<TeamMember> memberships = teamMemberRepository.findByIdUserId(userId);
+        return memberships.stream()
+                .map(tm -> mapToResponseDTO(tm.getTeam()))
                 .collect(Collectors.toList());
     }
 
@@ -209,6 +232,7 @@ public class TeamService {
         return new TeamResponseDTO(
                 team.getId(),
                 team.getName(),
+                team.getSlug(),
                 team.getDescription(),
                 team.getOrganization() != null ? team.getOrganization().getId() : null,
                 team.getOrganization() != null ? team.getOrganization().getName() : null,

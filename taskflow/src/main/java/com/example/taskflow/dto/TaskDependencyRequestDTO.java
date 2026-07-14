@@ -4,15 +4,15 @@ import jakarta.validation.constraints.NotNull;
 
 public class TaskDependencyRequestDTO {
 
-    @NotNull(message = "Blocking task ID cannot be null")
-    private Long blocksTaskId;
+    @NotNull(message = "Depends-on task ID cannot be null")
+    private Long dependsOnId;
 
     public TaskDependencyRequestDTO() {}
 
-    public TaskDependencyRequestDTO(Long blocksTaskId) {
-        this.blocksTaskId = blocksTaskId;
+    public TaskDependencyRequestDTO(Long dependsOnId) {
+        this.dependsOnId = dependsOnId;
     }
 
-    public Long getBlocksTaskId() { return blocksTaskId; }
-    public void setBlocksTaskId(Long blocksTaskId) { this.blocksTaskId = blocksTaskId; }
+    public Long getDependsOnId() { return dependsOnId; }
+    public void setDependsOnId(Long dependsOnId) { this.dependsOnId = dependsOnId; }
 }

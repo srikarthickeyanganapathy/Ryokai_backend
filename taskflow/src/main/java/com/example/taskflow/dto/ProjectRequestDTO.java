@@ -1,6 +1,6 @@
 package com.example.taskflow.dto;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -12,9 +12,10 @@ public class ProjectRequestDTO {
     private String name;
 
     private String description;
+    private String color;
     private Long organizationId;
     private Long teamId;
-    private LocalDateTime dueDate;
+    private LocalDate dueDate;
 
     public ProjectRequestDTO() {}
 
@@ -24,12 +25,15 @@ public class ProjectRequestDTO {
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
 
+    public String getColor() { return color; }
+    public void setColor(String color) { this.color = color; }
+
     public Long getOrganizationId() { return organizationId; }
     public void setOrganizationId(Long organizationId) { this.organizationId = organizationId; }
 
     public Long getTeamId() { return teamId; }
     public void setTeamId(Long teamId) { this.teamId = teamId; }
 
-    public LocalDateTime getDueDate() { return dueDate; }
-    public void setDueDate(LocalDateTime dueDate) { this.dueDate = dueDate; }
+    public LocalDate getDueDate() { return dueDate; }
+    public void setDueDate(LocalDate dueDate) { this.dueDate = dueDate; }
 }

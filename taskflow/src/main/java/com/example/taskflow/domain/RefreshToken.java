@@ -41,8 +41,11 @@ public class RefreshToken {
     @Column(nullable = false)
     private LocalDateTime expiryDate;
 
+    // SEC-M06 fix: spec requires primitive boolean. DB column is
+    // BOOLEAN NOT NULL DEFAULT FALSE; the wrapper bought nothing and risked
+    // null-pointer footguns in future code paths.
     @Column
-    private Boolean used = false;
+    private boolean used = false;
 
     @Column(nullable = true)
     private LocalDateTime usedAt;

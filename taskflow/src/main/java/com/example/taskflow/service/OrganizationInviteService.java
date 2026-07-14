@@ -14,7 +14,6 @@ import com.example.taskflow.domain.OrganizationInvite;
 import com.example.taskflow.domain.OrganizationInvite.InviteStatus;
 import com.example.taskflow.domain.OrganizationMembership;
 import com.example.taskflow.domain.Role;
-import com.example.taskflow.domain.RoleCategory;
 import com.example.taskflow.domain.User;
 import com.example.taskflow.dto.OrganizationInviteDTO;
 import com.example.taskflow.exception.UnauthorizedActionException;
@@ -64,7 +63,7 @@ public class OrganizationInviteService {
         // Auth: caller must be org ADMIN
         OrganizationMembership inviterMembership = membershipRepository.findByUserAndOrganization(invitedBy, org)
                 .orElseThrow(() -> new UnauthorizedActionException("You are not a member of this organization"));
-        if (inviterMembership.getOrgRole().getCategory() != RoleCategory.BUILTIN_ADMIN) {
+        if (!inviterMembership.getOrgRole().isBuiltinAdmin()) {
             throw new UnauthorizedActionException("Only the Organization Admin can send invites");
         }
 
@@ -80,6 +79,15 @@ public class OrganizationInviteService {
 
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new IllegalArgumentException("Role not found"));
+
+        // RB-M02 fix: verify the role belongs to the inviting organization.
+        // Previously an org admin could attach a role from ANOTHER org (or a
+        // global builtin) to an invite, leaking foreign permission grants.
+        if (role.getOrganization() == null
+                || !role.getOrganization().getId().equals(orgId)) {
+            throw new IllegalArgumentException(
+                "Role does not belong to this organization. Cross-org role assignment is not allowed.");
+        }
 
         OrganizationInvite invite = new OrganizationInvite();
         invite.setOrganization(org);
@@ -110,12 +118,19 @@ public class OrganizationInviteService {
 
         OrganizationMembership inviterMembership = membershipRepository.findByUserAndOrganization(invitedBy, org)
                 .orElseThrow(() -> new UnauthorizedActionException("You are not a member of this organization"));
-        if (inviterMembership.getOrgRole().getCategory() != RoleCategory.BUILTIN_ADMIN) {
+        if (!inviterMembership.getOrgRole().isBuiltinAdmin()) {
             throw new UnauthorizedActionException("Only the Organization Admin can create shareable links");
         }
 
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new IllegalArgumentException("Role not found"));
+
+        // RB-M02 fix: same cross-org role check as createInAppInvite above.
+        if (role.getOrganization() == null
+                || !role.getOrganization().getId().equals(orgId)) {
+            throw new IllegalArgumentException(
+                "Role does not belong to this organization. Cross-org role assignment is not allowed.");
+        }
 
         byte[] tokenBytes = new byte[32];
         SECURE_RANDOM.nextBytes(tokenBytes);
@@ -151,7 +166,7 @@ public class OrganizationInviteService {
                 .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + orgId));
         OrganizationMembership membership = membershipRepository.findByUserAndOrganization(caller, org)
                 .orElseThrow(() -> new UnauthorizedActionException("You are not a member of this organization"));
-        if (membership.getOrgRole().getCategory() != RoleCategory.BUILTIN_ADMIN) {
+        if (!membership.getOrgRole().isBuiltinAdmin()) {
             throw new UnauthorizedActionException("Only the Organization Admin can view invites");
         }
         return inviteRepository.findByOrganizationId(orgId).stream()
@@ -275,7 +290,7 @@ public class OrganizationInviteService {
         Organization org = invite.getOrganization();
         OrganizationMembership membership = membershipRepository.findByUserAndOrganization(adminUser, org)
                 .orElseThrow(() -> new UnauthorizedActionException("You are not a member of this organization"));
-        if (membership.getOrgRole().getCategory() != RoleCategory.BUILTIN_ADMIN) {
+        if (!membership.getOrgRole().isBuiltinAdmin()) {
             throw new UnauthorizedActionException("Only the Organization Admin can revoke invites");
         }
 

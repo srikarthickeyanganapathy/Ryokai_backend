@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 public class OrganizationResponseDTO {
     private Long id;
     private String name;
+    private String slug;
     private String description;
     private String createdBy;
     private LocalDateTime createdAt;

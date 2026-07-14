@@ -1,5 +1,6 @@
 package com.example.taskflow.dto;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import com.example.taskflow.domain.Project.ProjectStatus;
@@ -15,13 +16,14 @@ public class ProjectResponseDTO {
     private Long id;
     private String name;
     private String description;
+    private String color;
     private Long organizationId;
     private String organizationName;
     private Long teamId;
     private String teamName;
     private String createdBy;
     private ProjectStatus status;
-    private LocalDateTime dueDate;
+    private LocalDate dueDate;
     private long tasksTotal;
     private long tasksCompleted;
     private int progress;

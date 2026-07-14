@@ -52,7 +52,7 @@ public class AdminController {
     }
 
     /**
-     * Suspend an organization — prevents all members from performing org operations.
+     * Suspend an organization Ã¢â‚¬â€ prevents all members from performing org operations.
      */
     @PostMapping("/organizations/{id}/suspend")
     public ResponseEntity<OrganizationResponseDTO> suspendOrganization(@PathVariable Long id) {
@@ -103,6 +103,7 @@ public class AdminController {
         return new OrganizationResponseDTO(
                 org.getId(),
                 org.getName(),
+                org.getSlug(),
                 org.getDescription(),
                 org.getCreatedBy() != null ? org.getCreatedBy().getUsername() : null,
                 org.getCreatedAt(),

@@ -1,11 +1,14 @@
 package com.example.taskflow.dto;
 
+import java.time.LocalDateTime;
+
 public class ChecklistItemDTO {
     private Long id;
     private String text;
     private Boolean isCompleted;
     private Integer displayOrder;
     private String createdBy;
+    private LocalDateTime completedAt;
 
     public ChecklistItemDTO() {}
 
@@ -31,4 +34,7 @@ public class ChecklistItemDTO {
 
     public String getCreatedBy() { return createdBy; }
     public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
+
+    public LocalDateTime getCompletedAt() { return completedAt; }
+    public void setCompletedAt(LocalDateTime completedAt) { this.completedAt = completedAt; }
 }

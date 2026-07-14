@@ -77,6 +77,16 @@ public class RoleService {
 
     @Transactional
     public RoleResponseDTO createRole(RoleCreateRequestDTO request, User caller) {
+        // RB-M06 fix: block reserved builtin role names. Previously an org admin
+        // could create a custom role named "ADMIN" in their org, which would then
+        // be indistinguishable from the builtin ADMIN role in name-based
+        // isBuiltinAdmin() checks. The CORE_ROLES set already exists for update
+        // guarding — we reuse it here for creation guarding.
+        if (CORE_ROLES.contains(request.name().toUpperCase())) {
+            throw new IllegalArgumentException(
+                "Role name '" + request.name() + "' is reserved. Choose a different name.");
+        }
+
         if (request.organizationId() != null) {
             if (roleRepository.findByNameAndOrganizationId(request.name(), request.organizationId()).isPresent()) {
                 throw new IllegalArgumentException("Role already exists in this organization");

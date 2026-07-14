@@ -66,7 +66,7 @@ public class RefreshTokenService {
         RefreshToken tokenEntity = refreshTokenRepository.findByTokenHash(tokenHash)
                 .orElseThrow(() -> new TokenRefreshException(TokenRefreshException.ErrorCode.NOT_FOUND, "Refresh token not found in database"));
 
-        if (Boolean.TRUE.equals(tokenEntity.getUsed())) {
+        if (tokenEntity.isUsed()) {
             // REUSE DETECTED!
             logger.error("Security Event: Refresh token reuse detected for user {}", tokenEntity.getUser().getId());
             securityAuditService.record("TOKEN_REUSE_DETECTED", tokenEntity.getUser().getId(), tokenEntity.getUser().getUsername(), null, null, null, false);

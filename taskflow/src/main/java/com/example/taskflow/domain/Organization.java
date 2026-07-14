@@ -21,6 +21,9 @@ public class Organization {
     @Column(nullable = false, length = 100)
     private String name;
 
+    @Column(unique = true, length = 100)
+    private String slug;
+
     @Column(columnDefinition = "TEXT")
     private String description;
 
@@ -41,4 +44,7 @@ public class Organization {
 
     @OneToMany(mappedBy = "organization", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
     private Set<Team> teams = new HashSet<>();
+
+    @OneToMany(mappedBy = "organization", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    private Set<Role> roles = new HashSet<>();
 }

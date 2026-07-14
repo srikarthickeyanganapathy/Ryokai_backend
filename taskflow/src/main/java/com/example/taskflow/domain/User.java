@@ -44,6 +44,10 @@ public class User {
     @Column(name = "avatar_url", length = 500)
     private String avatarUrl;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "manager_id")
+    private User manager;
+
     @Column(name = "last_login_at")
     private LocalDateTime lastLoginAt;
 

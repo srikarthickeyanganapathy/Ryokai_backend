@@ -13,14 +13,14 @@ public interface TaskStatusHistoryRepository extends JpaRepository<TaskStatusHis
     Page<TaskStatusHistory> findByTask_Id(Long taskId, Pageable pageable);
 
     @org.springframework.data.jpa.repository.Query("SELECT h FROM TaskStatusHistory h WHERE h.eventType != 'COMMENTED' AND h.eventType != 'CHECKLIST_TOGGLED' AND h.task.id IN " +
-            "(SELECT t.id FROM Task t WHERE t.assignedTo.id = :userId OR t.createdBy.id = :userId) " +
+            "(SELECT t.id FROM Task t WHERE t.assignee.id = :userId OR t.creator.id = :userId) " +
             "ORDER BY h.changedAt DESC")
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"task", "changedBy"})
     Page<TaskStatusHistory> findGlobalFeedForUser(@org.springframework.data.repository.query.Param("userId") Long userId, Pageable pageable);
 
     @org.springframework.data.jpa.repository.Query("SELECT h FROM TaskStatusHistory h WHERE h.eventType != 'COMMENTED' AND h.eventType != 'CHECKLIST_TOGGLED' AND h.task.id IN " +
-            "(SELECT t.id FROM Task t WHERE t.assignedTo.id = :userId " +
-            "OR t.createdBy.id = :userId) " +
+            "(SELECT t.id FROM Task t WHERE t.assignee.id = :userId " +
+            "OR t.creator.id = :userId) " +
             "ORDER BY h.changedAt DESC")
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"task", "changedBy"})
     Page<TaskStatusHistory> findManagerFeed(@org.springframework.data.repository.query.Param("userId") Long userId, Pageable pageable);
@@ -31,14 +31,14 @@ public interface TaskStatusHistoryRepository extends JpaRepository<TaskStatusHis
 
     // Queries that include comments/checklists
     @org.springframework.data.jpa.repository.Query("SELECT h FROM TaskStatusHistory h WHERE h.task.id IN " +
-            "(SELECT t.id FROM Task t WHERE t.assignedTo.id = :userId OR t.createdBy.id = :userId) " +
+            "(SELECT t.id FROM Task t WHERE t.assignee.id = :userId OR t.creator.id = :userId) " +
             "ORDER BY h.changedAt DESC")
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"task", "changedBy"})
     Page<TaskStatusHistory> findGlobalFeedForUserAllTypes(@org.springframework.data.repository.query.Param("userId") Long userId, Pageable pageable);
 
     @org.springframework.data.jpa.repository.Query("SELECT h FROM TaskStatusHistory h WHERE h.task.id IN " +
-            "(SELECT t.id FROM Task t WHERE t.assignedTo.id = :userId " +
-            "OR t.createdBy.id = :userId) " +
+            "(SELECT t.id FROM Task t WHERE t.assignee.id = :userId " +
+            "OR t.creator.id = :userId) " +
             "ORDER BY h.changedAt DESC")
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"task", "changedBy"})
     Page<TaskStatusHistory> findManagerFeedAllTypes(@org.springframework.data.repository.query.Param("userId") Long userId, Pageable pageable);
@@ -48,11 +48,11 @@ public interface TaskStatusHistoryRepository extends JpaRepository<TaskStatusHis
     Page<TaskStatusHistory> findAllFeedAllTypes(Pageable pageable);
 
     // Org-scoped feed queries (Fix #4: data isolation for Director/Admin)
-    @org.springframework.data.jpa.repository.Query("SELECT h FROM TaskStatusHistory h WHERE h.eventType != 'COMMENTED' AND h.eventType != 'CHECKLIST_TOGGLED' AND h.task.organization.id = :orgId ORDER BY h.changedAt DESC")
+    @org.springframework.data.jpa.repository.Query("SELECT h FROM TaskStatusHistory h WHERE h.eventType != 'COMMENTED' AND h.eventType != 'CHECKLIST_TOGGLED' AND h.task.org.id = :orgId ORDER BY h.changedAt DESC")
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"task", "changedBy"})
     Page<TaskStatusHistory> findOrgFeed(@org.springframework.data.repository.query.Param("orgId") Long orgId, Pageable pageable);
 
-    @org.springframework.data.jpa.repository.Query("SELECT h FROM TaskStatusHistory h WHERE h.task.organization.id = :orgId ORDER BY h.changedAt DESC")
+    @org.springframework.data.jpa.repository.Query("SELECT h FROM TaskStatusHistory h WHERE h.task.org.id = :orgId ORDER BY h.changedAt DESC")
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"task", "changedBy"})
     Page<TaskStatusHistory> findOrgFeedAllTypes(@org.springframework.data.repository.query.Param("orgId") Long orgId, Pageable pageable);
 

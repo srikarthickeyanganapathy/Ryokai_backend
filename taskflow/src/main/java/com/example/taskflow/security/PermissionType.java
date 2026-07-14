@@ -13,8 +13,7 @@ public enum PermissionType {
     TASK_REASSIGN("Reassign tasks to different users"),
     TASK_ARCHIVE("Archive tasks"),
     USER_MANAGE("Manage user accounts"),
-    ROLE_MANAGE("Manage roles and permissions"),
-    TEMPLATE_MANAGE("Manage task templates");
+    ROLE_MANAGE("Manage roles and permissions");
 
     private final String description;
 

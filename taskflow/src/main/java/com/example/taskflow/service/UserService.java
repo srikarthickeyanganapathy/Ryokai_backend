@@ -37,4 +37,35 @@ public class UserService {
     public List<User> getAllUsers() {
         return userRepository.findAll();
     }
+
+    @org.springframework.transaction.annotation.Transactional
+    public void setManager(Long userId, Long managerId) {
+        if (userId.equals(managerId)) {
+            throw new IllegalArgumentException("A user cannot be their own manager");
+        }
+        
+        User user = getUserById(userId);
+        
+        if (managerId == null) {
+            user.setManager(null);
+            userRepository.save(user);
+            return;
+        }
+
+        User manager = getUserById(managerId);
+
+        // Detect cycle: traverse up the manager chain (max 10 hops to prevent infinite loops)
+        User currentManager = manager.getManager();
+        int hops = 0;
+        while (currentManager != null) {
+            if (currentManager.getId().equals(userId)) {
+                throw new IllegalArgumentException("Cannot set manager: creates a reporting cycle");
+            }
+            if (hops++ > 10) break; // Defensive bound
+            currentManager = currentManager.getManager();
+        }
+
+        user.setManager(manager);
+        userRepository.save(user);
+    }
 }

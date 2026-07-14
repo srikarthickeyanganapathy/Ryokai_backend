@@ -87,9 +87,17 @@ public class UserRoleController {
         
         Set<String> oldRoles = user.getRoles().stream().map(Role::getName).collect(Collectors.toSet());
         
+        // RB-C01 fix: strip ROLE_ prefix symmetrically. The DB stores role
+        // names WITHOUT the ROLE_ prefix (DataSeeder uses "SUPER_ADMIN",
+        // V3 inserts 'SUPER_ADMIN', etc.). The old code called
+        // findByName("ROLE_" + name) which always returned an empty Optional
+        // and the endpoint always threw "Role not found".
         Set<Role> newRoles = roleNames.stream()
-                .map(name -> roleRepository.findByName(name.startsWith("ROLE_") ? name : "ROLE_" + name)
-                        .orElseThrow(() -> new IllegalArgumentException("Role not found: " + name)))
+                .map(requested -> {
+                    String normalized = requested.replaceFirst("^ROLE_", "");
+                    return roleRepository.findByName(normalized)
+                        .orElseThrow(() -> new IllegalArgumentException("Role not found: " + normalized));
+                })
                 .collect(Collectors.toSet());
         user.setRoles(newRoles);
         userRepository.save(user);

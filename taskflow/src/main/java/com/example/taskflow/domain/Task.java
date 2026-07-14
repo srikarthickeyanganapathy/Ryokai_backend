@@ -1,5 +1,6 @@
 package com.example.taskflow.domain;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,6 +21,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -51,31 +53,23 @@ public class Task {
     @Column(length = 20)
     private TaskPriority priority; 
 
-    /**
-     * The due date for this task. 
-     *
-     * ⚠️ CONVENTION: All LocalDateTime values in this system are implicitly
-     * in the Asia/Kolkata timezone. The JVM must be configured to run in
-     * Asia/Kolkata (see application.yml app.reminders.timezone). Do NOT
-     * mix UTC values into this field.
-     */
     @Column(name = "due_date")
-    private LocalDateTime dueDate;
+    private LocalDate dueDate;
 
     @Column(name = "tags")
     private String tags; 
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "assigned_to")
-    private User assignedTo;
+    private User assignee;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by", nullable = false)
-    private User createdBy;
+    private User creator;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reviewed_by")
-    private User reviewedBy;
+    private User reviewer;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "current_status", nullable = false, length = 30)
@@ -98,25 +92,43 @@ public class Task {
     /**
      * Personal tasks belong to an individual's to-do list and skip the org
      * review workflow (SUBMITTED → APPROVED/REJECTED). They go directly to
-     * APPROVED when the assignee marks them complete.
+     * COMPLETED when the user marks them done.
      */
     @Column(name = "is_personal", nullable = false)
     private boolean isPersonal = false;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "organization_id")
-    private Organization organization;
+    private Organization org;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "team_id")
     private Team team;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "crew_id")
+    private Crew crew;
+
+    @Column(name = "rejection_reason", columnDefinition = "TEXT")
+    private String rejectionReason;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "project_id")
     private Project project;
 
-    // In Task.java
     @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
     @BatchSize(size = 20)
     private List<ChecklistItem> checklists = new ArrayList<>();
+
+    @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    @OrderBy("changedAt DESC")
+    private List<TaskStatusHistory> history = new ArrayList<>();
+
+    @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    @OrderBy("createdAt DESC")
+    private List<TaskEvidence> evidence = new ArrayList<>();
+
+    @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    @OrderBy("createdAt ASC")
+    private List<TaskComment> comments = new ArrayList<>();
 }

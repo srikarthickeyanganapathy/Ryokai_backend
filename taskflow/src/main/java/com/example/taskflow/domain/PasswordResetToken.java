@@ -32,7 +32,9 @@ public class PasswordResetToken {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(name = "token_hash", nullable = false)
+    // SEC-M01 / ER-M05 fix: spec requires UK on token_hash. V7 only created
+    // a non-unique index; V39 migration adds the UNIQUE constraint.
+    @Column(name = "token_hash", nullable = false, unique = true)
     private String tokenHash;
 
     @Column(name = "expiry_date", nullable = false)

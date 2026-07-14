@@ -25,10 +25,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
     private final CustomUserDetailsService customUserDetailsService;
+    private final com.example.taskflow.service.TokenDenylistService tokenDenylistService;
 
-    public JwtAuthenticationFilter(JwtUtil jwtUtil, CustomUserDetailsService customUserDetailsService) {
+    public JwtAuthenticationFilter(JwtUtil jwtUtil, CustomUserDetailsService customUserDetailsService,
+                                   com.example.taskflow.service.TokenDenylistService tokenDenylistService) {
         this.jwtUtil = jwtUtil;
         this.customUserDetailsService = customUserDetailsService;
+        this.tokenDenylistService = tokenDenylistService;
     }
 
     @Override
@@ -50,6 +53,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     String username = jwtUtil.extractUsername(token);
 
                     if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                        // Check if this token has been revoked (e.g., via logout)
+                        String tokenId = jwtUtil.extractTokenId(token);
+                        if (tokenDenylistService.isDenied(tokenId)) {
+                            SecurityContextHolder.clearContext();
+                            sendUnauthorizedResponse(response, "Token has been revoked");
+                            return;
+                        }
+
                         UserDetails userDetails = customUserDetailsService.loadUserByUsername(username);
 
                         if (userDetails instanceof CustomUserDetailsService.CustomUserDetails customUser) {

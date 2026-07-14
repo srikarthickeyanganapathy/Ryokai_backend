@@ -111,4 +111,25 @@ public class UserProfileService {
     public void revokeSession(User user, String tokenId) {
         refreshTokenRepository.deleteByUserAndTokenId(user, tokenId);
     }
+
+    /**
+     * SEC-Min01 fix: logout-all endpoint helper.
+     * Spec implies token_version should be incrementable on "logout-all / password change".
+     * Previously only changePassword and resetPassword incremented token_version —
+     * there was no way for a user who suspected compromise to invalidate all other
+     * sessions' access tokens without changing their password.
+     *
+     * This method:
+     *   1. Increments user.tokenVersion (invalidates ALL access tokens immediately)
+     *   2. Deletes ALL refresh tokens for the user (forces re-login on every device)
+     *
+     * The caller (AuthController.logoutAll) is responsible for also denylisting
+     * the current access token so the caller's own session ends immediately too.
+     */
+    @Transactional
+    public void logoutAll(User user) {
+        user.setTokenVersion(user.getTokenVersion() + 1);
+        userRepository.save(user);
+        refreshTokenService.deleteByUserId(user.getId());
+    }
 }

@@ -89,6 +89,10 @@ public class TaskController {
         }
         User assignee = userService.getCurrentUser(request.getAssigneeUsername());
 
+        // RT-M01 fix: previously crewId from the DTO was silently dropped -
+        // the 10-arg overload delegated to the 11-arg overload with crewId=null,
+        // so even if a frontend sent {"crewId": 5} the task was created as
+        // either personal or org-scoped. Now we pass crewId through.
         TaskResponseDTO response = taskAssignmentService.assignTask(
                 request.getTitle(),
                 request.getDescription(),
@@ -98,8 +102,9 @@ public class TaskController {
                 request.getDueDate(),
                 request.getTags(),
                 request.isPersonal(),
-                null, // teamId: not applicable for single assign — use bulk assign for teams
-                request.getProjectId());
+                null, // teamId: not applicable for single assign - use bulk assign for teams
+                request.getProjectId(),
+                request.getCrewId());  // RT-M01 fix: was silently dropped
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -144,7 +149,6 @@ public class TaskController {
         String tagsJoined = request.getTags() != null ? String.join(",", request.getTags()) : null;
 
         List<TaskResponseDTO> response = taskAssignmentService.bulkAssignTasks(
-                request.getTemplateId(),
                 request.getTitle(),
                 request.getDescription(),
                 request.getAssigneeUsernames(),
@@ -177,13 +181,16 @@ public class TaskController {
         return ResponseEntity.ok(taskWorkflowService.approveTask(taskId, getCurrentUser(userDetails)));
     }
 
+    // SM-M01 fix: spec requires rejection_reason NOT NULL enforced at DTO + DB level.
+    // - DTO now has @NotBlank on `reason`.
+    // - Body is now required (was required=false).
+    // - V39 migration adds partial CHECK constraint at DB level.
     @PostMapping("/{taskId}/reject")
     @PreAuthorize("hasPermission(#taskId, 'Task', 'REVIEW')")
     public ResponseEntity<TaskResponseDTO> rejectTask(@PathVariable @Min(1) Long taskId,
-            @Valid @RequestBody(required = false) RejectReasonDTO request,
+            @Valid @RequestBody RejectReasonDTO request,
             @AuthenticationPrincipal UserDetails userDetails) {
-        String reason = request != null ? request.getReason() : null;
-        return ResponseEntity.ok(taskWorkflowService.rejectTask(taskId, getCurrentUser(userDetails), reason));
+        return ResponseEntity.ok(taskWorkflowService.rejectTask(taskId, getCurrentUser(userDetails), request.getReason()));
     }
 
     @GetMapping("/{taskId}/comments")
@@ -251,7 +258,7 @@ public class TaskController {
     @PreAuthorize("hasPermission(#taskId, 'Task', 'DEPENDENCY_EDIT')")
     public ResponseEntity<Void> addDependency(@PathVariable @Min(1) Long taskId,
             @Valid @RequestBody TaskDependencyRequestDTO request, @AuthenticationPrincipal UserDetails userDetails) {
-        taskWorkflowService.addDependency(taskId, request.getBlocksTaskId(), getCurrentUser(userDetails));
+        taskWorkflowService.addDependency(taskId, request.getDependsOnId(), getCurrentUser(userDetails));
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
@@ -286,10 +293,34 @@ public class TaskController {
         return ResponseEntity.ok(taskWorkflowService.reassignTask(taskId, newAssignee, getCurrentUser(userDetails)));
     }
 
+    // RB-M04 fix: switched from 'EDIT' to 'ARCHIVE' permission.
+    // CustomPermissionEvaluator now routes ARCHIVE to canArchive (was canDelete).
     @PutMapping("/{taskId}/archive")
-    @PreAuthorize("hasPermission(#taskId, 'Task', 'EDIT')")
+    @PreAuthorize("hasPermission(#taskId, 'Task', 'ARCHIVE')")
     public ResponseEntity<TaskResponseDTO> toggleArchive(@PathVariable @Min(1) Long taskId,
             @AuthenticationPrincipal UserDetails userDetails) {
         return ResponseEntity.ok(taskWorkflowService.toggleArchive(taskId, getCurrentUser(userDetails)));
+    }
+
+    // SM-M03 fix: spec state machine says "SUBMITTED --> ASSIGNED : assignee recalls".
+    // Previously no endpoint existed - once an assignee submitted, they had to
+    // wait for the reviewer to approve or reject.
+    @PostMapping("/{taskId}/recall")
+    @PreAuthorize("hasPermission(#taskId, 'Task', 'EDIT')")
+    public ResponseEntity<TaskResponseDTO> recallTask(@PathVariable @Min(1) Long taskId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(taskWorkflowService.recallTask(taskId, getCurrentUser(userDetails)));
+    }
+
+    // SM-C01 fix: spec state machine for crew tasks is ASSIGNED -> COMPLETED
+    // (no review pipeline). Previously crew tasks were initialised to TODO and
+    // no endpoint could move them to COMPLETED - they were permanently stuck.
+    // Crew tasks now initialise to ASSIGNED (see TaskAssignmentService) and any
+    // crew member can complete them via this endpoint.
+    @PostMapping("/{taskId}/complete-crew")
+    @PreAuthorize("hasPermission(#taskId, 'Task', 'EDIT')")
+    public ResponseEntity<TaskResponseDTO> completeCrewTask(@PathVariable @Min(1) Long taskId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(taskWorkflowService.completeCrewTask(taskId, getCurrentUser(userDetails)));
     }
 }

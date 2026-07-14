@@ -1,6 +1,6 @@
 package com.example.taskflow.dto;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 import com.example.taskflow.domain.TaskPriority;
 
@@ -17,11 +17,12 @@ public class TaskRequestDTO {
     private String assigneeUsername;
     private String creatorUsername; // Optional, usually derived from token
     private TaskPriority priority;
-    private LocalDateTime dueDate;
+    private LocalDate dueDate;
     private String tags;
     @JsonProperty("isPersonal")
     private boolean isPersonal = false;
     private Long projectId;
+    private Long crewId;
 
     public TaskRequestDTO() {}
 
@@ -41,8 +42,8 @@ public class TaskRequestDTO {
     public TaskPriority getPriority() { return priority; }
     public void setPriority(TaskPriority priority) { this.priority = priority; }
 
-    public LocalDateTime getDueDate() { return dueDate; }
-    public void setDueDate(LocalDateTime dueDate) { this.dueDate = dueDate; }
+    public LocalDate getDueDate() { return dueDate; }
+    public void setDueDate(LocalDate dueDate) { this.dueDate = dueDate; }
 
     public String getTags() { return tags; }
     public void setTags(String tags) { this.tags = tags; }
@@ -52,4 +53,7 @@ public class TaskRequestDTO {
 
     public Long getProjectId() { return projectId; }
     public void setProjectId(Long projectId) { this.projectId = projectId; }
+
+    public Long getCrewId() { return crewId; }
+    public void setCrewId(Long crewId) { this.crewId = crewId; }
 }

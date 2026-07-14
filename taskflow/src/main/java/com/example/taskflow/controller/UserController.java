@@ -23,7 +23,6 @@ import com.example.taskflow.dto.ChangePasswordRequestDTO;
 import com.example.taskflow.dto.SessionDTO;
 import com.example.taskflow.dto.UpdateProfileRequestDTO;
 import com.example.taskflow.dto.UserResponseDTO;
-import com.example.taskflow.service.FileStorageService;
 import com.example.taskflow.service.UserProfileService;
 import com.example.taskflow.service.UserService;
 import com.example.taskflow.repository.OrganizationMembershipRepository;
@@ -39,16 +38,14 @@ public class UserController {
 
     private final UserProfileService userProfileService;
     private final UserService userService;
-    private final FileStorageService fileStorageService;
     private final JwtUtil jwtUtil;
     private final OrganizationMembershipRepository membershipRepository;
 
     public UserController(UserProfileService userProfileService, UserService userService,
-                          FileStorageService fileStorageService, JwtUtil jwtUtil,
+                          JwtUtil jwtUtil,
                           OrganizationMembershipRepository membershipRepository) {
         this.userProfileService = userProfileService;
         this.userService = userService;
-        this.fileStorageService = fileStorageService;
         this.jwtUtil = jwtUtil;
         this.membershipRepository = membershipRepository;
     }
@@ -85,7 +82,7 @@ public class UserController {
         // Regular users only see members of their own organization
         List<OrganizationMembership> callerMemberships = membershipRepository.findByUserId(caller.getId());
         if (callerMemberships.isEmpty()) {
-            // Not in any org — only return self
+            // Not in any org Ã¢â‚¬â€ only return self
             return ResponseEntity.ok(List.of(UserResponseDTO.from(caller)));
         }
 
@@ -113,18 +110,6 @@ public class UserController {
         User user = userService.getCurrentUser(userDetails.getUsername());
         userProfileService.changePassword(user, request);
         return ResponseEntity.ok().build();
-    }
-
-    @PostMapping("/me/avatar")
-    public ResponseEntity<?> uploadAvatar(
-            @AuthenticationPrincipal UserDetails userDetails,
-            @RequestParam("file") MultipartFile file) {
-        User user = userService.getCurrentUser(userDetails.getUsername());
-        
-        String avatarUrl = fileStorageService.storeAvatar(file, user);
-        userProfileService.updateAvatarUrl(user, avatarUrl);
-        
-        return ResponseEntity.ok(java.util.Map.of("avatarUrl", avatarUrl));
     }
 
     @GetMapping("/me/sessions")

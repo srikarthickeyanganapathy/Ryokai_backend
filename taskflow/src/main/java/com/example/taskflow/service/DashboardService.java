@@ -1,6 +1,6 @@
 package com.example.taskflow.service;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
 import java.util.ArrayList;
@@ -61,7 +61,7 @@ public class DashboardService {
      * Fix #4: Scoped to user's organization. Only Super Admin sees platform-wide stats.
      */
     private DashboardStatsDTO buildStatsForAllUsers(User user) {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDate now = LocalDate.now();
         List<TaskStatus> notApproved = Arrays.asList(TaskStatus.APPROVED);
 
         // Check if Super Admin
@@ -74,7 +74,6 @@ public class DashboardService {
 
         if (isSuperAdmin) {
             // Super Admin: privacy boundary — show only own personal task stats
-            // Platform-level metadata (orgs, users) is available via /api/admin endpoints
             return buildStatsForEmployee(user);
         }
 
@@ -86,19 +85,19 @@ public class DashboardService {
         }
 
         Long orgId = memberships.get(0).getOrganization().getId();
-        long totalTasks = taskRepository.countByOrganizationIdAndArchivedFalse(orgId);
-        long todoCount = taskRepository.countByOrganizationIdAndCurrentStatusAndArchivedFalse(orgId, TaskStatus.ASSIGNED);
-        long inReviewCount = taskRepository.countByOrganizationIdAndCurrentStatusAndArchivedFalse(orgId, TaskStatus.SUBMITTED);
-        long doneCount = taskRepository.countByOrganizationIdAndCurrentStatusAndArchivedFalse(orgId, TaskStatus.APPROVED);
-        long revisionsCount = taskRepository.countByOrganizationIdAndCurrentStatusAndArchivedFalse(orgId, TaskStatus.REJECTED);
+        long totalTasks = taskRepository.countByOrgIdAndArchivedFalse(orgId);
+        long todoCount = taskRepository.countByOrgIdAndCurrentStatusAndArchivedFalse(orgId, TaskStatus.ASSIGNED);
+        long inReviewCount = taskRepository.countByOrgIdAndCurrentStatusAndArchivedFalse(orgId, TaskStatus.SUBMITTED);
+        long doneCount = taskRepository.countByOrgIdAndCurrentStatusAndArchivedFalse(orgId, TaskStatus.APPROVED);
+        long revisionsCount = taskRepository.countByOrgIdAndCurrentStatusAndArchivedFalse(orgId, TaskStatus.REJECTED);
         long overdueCount = taskRepository.countByOrgIdOverdue(orgId, now, notApproved);
-        long assignedToMeCount = taskRepository.countByAssignedToIdAndArchivedFalse(user.getId());
+        long assignedToMeCount = taskRepository.countByAssigneeIdAndArchivedFalse(user.getId());
 
         return createDto(totalTasks, todoCount, inReviewCount, doneCount, revisionsCount, overdueCount, assignedToMeCount);
     }
 
     private DashboardStatsDTO buildStatsForManager(User user) {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDate now = LocalDate.now();
         List<TaskStatus> notApproved = Arrays.asList(TaskStatus.APPROVED);
         Long uid = user.getId();
         
@@ -109,22 +108,22 @@ public class DashboardService {
         long revisionsCount = taskRepository.countForManagerByStatus(uid, TaskStatus.REJECTED);
         long overdueCount = taskRepository.countForManagerOverdue(uid, now, notApproved);
         
-        long assignedToMeCount = taskRepository.countByAssignedToIdAndArchivedFalse(uid);
+        long assignedToMeCount = taskRepository.countByAssigneeIdAndArchivedFalse(uid);
 
         return createDto(totalTasks, todoCount, inReviewCount, doneCount, revisionsCount, overdueCount, assignedToMeCount);
     }
 
     private DashboardStatsDTO buildStatsForEmployee(User user) {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDate now = LocalDate.now();
         List<TaskStatus> notApproved = Arrays.asList(TaskStatus.APPROVED);
         Long uid = user.getId();
         
-        long totalTasks = taskRepository.countByAssignedToIdAndArchivedFalse(uid);
-        long todoCount = taskRepository.countByAssignedToIdAndCurrentStatusAndArchivedFalse(uid, TaskStatus.ASSIGNED);
-        long inReviewCount = taskRepository.countByAssignedToIdAndCurrentStatusAndArchivedFalse(uid, TaskStatus.SUBMITTED);
-        long doneCount = taskRepository.countByAssignedToIdAndCurrentStatusAndArchivedFalse(uid, TaskStatus.APPROVED);
-        long revisionsCount = taskRepository.countByAssignedToIdAndCurrentStatusAndArchivedFalse(uid, TaskStatus.REJECTED);
-        long overdueCount = taskRepository.countByAssignedToIdAndDueDateBeforeAndCurrentStatusNotInAndArchivedFalse(uid, now, notApproved);
+        long totalTasks = taskRepository.countByAssigneeIdAndArchivedFalse(uid);
+        long todoCount = taskRepository.countByAssigneeIdAndCurrentStatusAndArchivedFalse(uid, TaskStatus.ASSIGNED);
+        long inReviewCount = taskRepository.countByAssigneeIdAndCurrentStatusAndArchivedFalse(uid, TaskStatus.SUBMITTED);
+        long doneCount = taskRepository.countByAssigneeIdAndCurrentStatusAndArchivedFalse(uid, TaskStatus.APPROVED);
+        long revisionsCount = taskRepository.countByAssigneeIdAndCurrentStatusAndArchivedFalse(uid, TaskStatus.REJECTED);
+        long overdueCount = taskRepository.countByAssigneeIdAndDueDateBeforeAndCurrentStatusNotInAndArchivedFalse(uid, now, notApproved);
         
         long assignedToMeCount = totalTasks;
 

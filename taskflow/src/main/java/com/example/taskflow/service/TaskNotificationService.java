@@ -70,24 +70,24 @@ public class TaskNotificationService {
             Page<Task> taskPage;
             do {
                 taskPage = taskRepository.findDueSoon(
-                    LocalDateTime.now(zoneId),
-                    LocalDateTime.now(zoneId).plusHours(24),
+                    java.time.LocalDate.now(zoneId),
+                    java.time.LocalDate.now(zoneId).plusDays(1),
                     List.of(TaskStatus.APPROVED),
                     PageRequest.of(page, size)
                 );
                 
                 for (Task task : taskPage.getContent()) {
-                    if (task.getAssignedTo() == null) continue;
+                    if (task.getAssignee() == null) continue;
                     
                     try {
                         notificationService.createAndSend(
-                            task.getAssignedTo(),
+                            task.getAssignee(),
                             null, // self-exclusion doesn't apply for reminders
                             NotificationEvent.TASK_DUE_SOON,
                             "Task due soon: " + task.getTitle(),
                             "Your task is due in less than 24 hours.",
                             task,
-                            "reminder:" + task.getId() + ":" + LocalDateTime.now(zoneId).toLocalDate()
+                            "reminder:" + task.getId() + ":" + java.time.LocalDate.now(zoneId)
                         );
                         totalSent++;
                         dueSoonSent.increment();
@@ -119,23 +119,23 @@ public class TaskNotificationService {
             Page<Task> taskPage;
             do {
                 taskPage = taskRepository.findOverdue(
-                    LocalDateTime.now(zoneId),
+                    java.time.LocalDate.now(zoneId),
                     List.of(TaskStatus.APPROVED),
                     PageRequest.of(page, size)
                 );
                 
                 for (Task task : taskPage.getContent()) {
-                    if (task.getAssignedTo() == null) continue;
+                    if (task.getAssignee() == null) continue;
                     
                     try {
                         notificationService.createAndSend(
-                            task.getAssignedTo(),
+                            task.getAssignee(),
                             null, // self-exclusion doesn't apply for reminders
                             NotificationEvent.TASK_OVERDUE,
                             "Task overdue: " + task.getTitle(),
                             "Your task is overdue.",
                             task,
-                            "overdue:" + task.getId() + ":" + LocalDateTime.now(zoneId).toLocalDate()
+                            "overdue:" + task.getId() + ":" + java.time.LocalDate.now(zoneId)
                         );
                         totalSent++;
                         overdueSent.increment();

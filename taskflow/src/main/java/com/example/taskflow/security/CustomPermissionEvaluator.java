@@ -66,10 +66,10 @@ public class CustomPermissionEvaluator implements PermissionEvaluator {
 
     /**
      * Checks whether the given organization is active (not SUSPENDED or DELETED).
-     * Super Admins are exempt — they operate at the platform level, not within orgs.
+     * Super Admins are exempt ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â they operate at the platform level, not within orgs.
      */
     private boolean isOrganizationActive(Organization org, User user) {
-        if (org == null || org.getId() == null) return true; // personal / non-org resource — no org check needed
+        if (org == null || org.getId() == null) return true; // personal / non-org resource ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â no org check needed
         if (isSuperAdmin(user)) return true; // Super Admin manages orgs at platform level
         
         Organization freshOrg = organizationRepository.findById(org.getId()).orElse(null);
@@ -99,7 +99,7 @@ public class CustomPermissionEvaluator implements PermissionEvaluator {
         // Domain-scoped permission check
         if (targetDomainObject instanceof Task) {
             Task task = (Task) targetDomainObject;
-            if (!isOrganizationActive(task.getOrganization(), user)) return false;
+            if (!isOrganizationActive(task.getOrg(), user)) return false;
             return hasPrivilege(user, task, perm);
         }
         
@@ -174,7 +174,7 @@ public class CustomPermissionEvaluator implements PermissionEvaluator {
 
             if (task == null) return false;
             // Block operations on tasks belonging to suspended/deleted orgs
-            if (!isOrganizationActive(task.getOrganization(), user)) return false;
+            if (!isOrganizationActive(task.getOrg(), user)) return false;
             return hasPrivilege(user, task, perm);
         }
 
@@ -183,14 +183,14 @@ public class CustomPermissionEvaluator implements PermissionEvaluator {
 
     private boolean hasPrivilege(User user, Task task, String permission) {
         // Personal tasks: owner has full access (no RBAC in personal mode)
-        if (task != null && task.isPersonal() && task.getOrganization() == null) {
-            boolean isOwner = (task.getCreatedBy() != null && task.getCreatedBy().getId().equals(user.getId())) ||
-                              (task.getAssignedTo() != null && task.getAssignedTo().getId().equals(user.getId()));
+        if (task != null && task.isPersonal() && task.getOrg() == null) {
+            boolean isOwner = (task.getCreator() != null && task.getCreator().getId().equals(user.getId())) ||
+                              (task.getAssignee() != null && task.getAssignee().getId().equals(user.getId()));
             if (isOwner) return true;
         }
 
-        // Org suspension check — reject if the task's org is not active
-        if (task != null && !isOrganizationActive(task.getOrganization(), user)) {
+        // Org suspension check ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â reject if the task's org is not active
+        if (task != null && !isOrganizationActive(task.getOrg(), user)) {
             return false;
         }
 
@@ -205,15 +205,18 @@ public class CustomPermissionEvaluator implements PermissionEvaluator {
             case "REASSIGN", "TASK_REASSIGN" -> strategy.canReassign(user, task);
             case "COMMENT", "TASK_COMMENT" -> {
                 // Personal tasks: only creator can comment
-                if (task != null && task.isPersonal() && task.getOrganization() == null) {
-                    boolean isCreator = task.getCreatedBy() != null && task.getCreatedBy().getId().equals(user.getId());
+                if (task != null && task.isPersonal() && task.getOrg() == null) {
+                    boolean isCreator = task.getCreator() != null && task.getCreator().getId().equals(user.getId());
                     yield isCreator;
                 }
                 yield strategy.canViewTask(user, task);
             }
             case "CHECKLIST_EDIT", "TASK_CHECKLIST_EDIT" -> strategy.canEdit(user, task);
             case "DEPENDENCY_EDIT", "TASK_DEPENDENCY_EDIT" -> strategy.canEdit(user, task);
-            case "ARCHIVE", "TASK_ARCHIVE" -> strategy.canDelete(user, task); // Fallback to delete logic for now
+            // RB-M04 fix: route ARCHIVE to the new dedicated canArchive method
+            // (was routed to canDelete, but controller used 'EDIT' — making this
+            // branch dead code. TaskController.toggleArchive now uses 'ARCHIVE'.)
+            case "ARCHIVE", "TASK_ARCHIVE" -> strategy.canArchive(user, task);
             default -> false;
         };
     }

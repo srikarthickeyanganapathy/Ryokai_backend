@@ -1,6 +1,6 @@
 package com.example.taskflow.dto;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 import com.example.taskflow.domain.TaskPriority;
 import com.example.taskflow.domain.TaskStatus;
@@ -17,7 +17,7 @@ public class TaskUpdateRequestDTO {
     
     private TaskPriority priority;
     
-    private LocalDateTime dueDate;
+    private LocalDate dueDate;
     
     @Size(max = 200, message = "Tags cannot exceed 200 characters")
     private String tags;
@@ -36,8 +36,8 @@ public class TaskUpdateRequestDTO {
     public TaskPriority getPriority() { return priority; }
     public void setPriority(TaskPriority priority) { this.priority = priority; }
 
-    public LocalDateTime getDueDate() { return dueDate; }
-    public void setDueDate(LocalDateTime dueDate) { this.dueDate = dueDate; }
+    public LocalDate getDueDate() { return dueDate; }
+    public void setDueDate(LocalDate dueDate) { this.dueDate = dueDate; }
 
     public String getTags() { return tags; }
     public void setTags(String tags) { this.tags = tags; }
