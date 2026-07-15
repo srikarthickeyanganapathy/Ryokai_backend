@@ -212,7 +212,9 @@ public class CustomPermissionEvaluator implements PermissionEvaluator {
                 yield strategy.canViewTask(user, task);
             }
             case "CHECKLIST_EDIT", "TASK_CHECKLIST_EDIT" -> strategy.canEdit(user, task);
-            case "DEPENDENCY_EDIT", "TASK_DEPENDENCY_EDIT" -> strategy.canEdit(user, task);
+            case "DEPENDENCY_EDIT", "TASK_DEPENDENCY_EDIT" -> strategy.canEditDependency(user, task);
+            // Evidence uses EDIT privilege (adder / task editor)
+            case "EVIDENCE_EDIT", "TASK_EVIDENCE_EDIT" -> strategy.canEdit(user, task);
             // RB-M04 fix: route ARCHIVE to the new dedicated canArchive method
             // (was routed to canDelete, but controller used 'EDIT' — making this
             // branch dead code. TaskController.toggleArchive now uses 'ARCHIVE'.)

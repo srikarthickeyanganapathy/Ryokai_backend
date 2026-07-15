@@ -91,11 +91,16 @@ public class TaskAssignmentService {
     public TaskResponseDTO assignTask(String title, String description, User assignee, User creator, 
                            TaskPriority priority, java.time.LocalDate dueDate, String tags, boolean isPersonal, Long teamId, Long projectId, Long crewId) {
 
-        // Crew tasks
+        // Crew tasks: assignee is optional (unclaimed = null, nudge = set)
         if (crewId != null) {
             if (!crewMemberRepository.existsByIdCrewIdAndIdUserId(crewId, creator.getId())) {
                 throw new IllegalStateException("You must be a member of the crew to create a task in it");
             }
+            // If assignee provided, verify they are also a crew member
+            if (assignee != null && !crewMemberRepository.existsByIdCrewIdAndIdUserId(crewId, assignee.getId())) {
+                throw new IllegalArgumentException("Assignee must be a member of the crew");
+            }
+            // Spec: self-assign is allowed in crews (no check needed)
         }
         // Personal tasks can be assigned to anyone (including self)
         else if (!isPersonal) {
@@ -123,6 +128,7 @@ public class TaskAssignmentService {
                 }
             }
             
+            // Spec: org tasks cannot be self-assigned (crew check is above, not here)
             if (creator.getId().equals(assignee.getId())) {
                 throw new IllegalArgumentException("Org tasks cannot be self-assigned. Use a personal task instead, or assign to another member.");
             }
@@ -138,7 +144,7 @@ public class TaskAssignmentService {
         Task task = new Task();
         task.setTitle(title);
         task.setDescription(description);
-        task.setAssignee(assignee);
+        task.setAssignee(assignee); // null for unclaimed crew tasks
         task.setCreator(creator);
 
         // Team/Org scoping
@@ -167,21 +173,23 @@ public class TaskAssignmentService {
             task.setTeam(team);
             task.setOrg(team.getOrganization());
             isPersonal = false; // Team tasks cannot be personal
-        } else if (!isPersonal) {
-            // If no teamId and not personal, task must have org scope via creator's org membership
+        } else if (!isPersonal && crewId == null) {
+            // If no teamId, not personal, and not crew, task must have org scope
             var memberships = membershipRepository.findByUserId(creator.getId());
             if (!memberships.isEmpty()) {
                 task.setOrg(memberships.get(0).getOrganization());
             } else {
                 // If creator has no org (Super Admin), use assignee's org!
-                var assigneeMemberships = membershipRepository.findByUserId(assignee.getId());
-                if (!assigneeMemberships.isEmpty()) {
-                    task.setOrg(assigneeMemberships.get(0).getOrganization());
+                if (assignee != null) {
+                    var assigneeMemberships = membershipRepository.findByUserId(assignee.getId());
+                    if (!assigneeMemberships.isEmpty()) {
+                        task.setOrg(assigneeMemberships.get(0).getOrganization());
+                    }
                 }
             }
             // RT-M02 fix: org task - ensure crew is NULL (mutual exclusivity)
             task.setCrew(null);
-        } else {
+        } else if (isPersonal) {
             // RT-M02 fix: personal task - ensure org/team/crew are all NULL
             task.setOrg(null);
             task.setTeam(null);
@@ -193,10 +201,6 @@ public class TaskAssignmentService {
         }
 
         // Crew scoping + RT-M02 fix: make personal/crew/org mutually exclusive
-        // at the entity level. Spec flowchart says crew tasks must have
-        // organization_id=NULL and team_id=NULL. Previously, if the creator
-        // happened to belong to an org AND a crew, a crew task could inherit
-        // the creator's org via the membership lookup above.
         if (crewId != null) {
             com.example.taskflow.domain.Crew crew = crewRepository.findById(crewId)
                     .orElseThrow(() -> new IllegalArgumentException("Crew not found"));
@@ -210,11 +214,19 @@ public class TaskAssignmentService {
         task.setDueDate(dueDate);
         task.setTags(tags);
         task.setPersonal(isPersonal);
-        // SM-C01 fix: crew tasks now start in ASSIGNED (was TODO) so the
-        // completeCrewTask endpoint can move them ASSIGNED -> COMPLETED.
-        // Spec state machine: crew tasks follow the no-review path
-        // ASSIGNED --> COMPLETED.
-        task.setCurrentStatus(isPersonal ? TaskStatus.TODO : (crewId != null ? TaskStatus.ASSIGNED : TaskStatus.ASSIGNED));
+
+        // Spec state machine:
+        //   Personal tasks: TODO -> COMPLETED
+        //   Crew tasks: TODO (unclaimed) -> ASSIGNED (claimed/nudged) -> COMPLETED
+        //   Org tasks:  ASSIGNED -> SUBMITTED -> APPROVED/REJECTED
+        if (isPersonal) {
+            task.setCurrentStatus(TaskStatus.TODO);
+        } else if (crewId != null) {
+            // Crew: unclaimed (no assignee) = TODO, nudged (with assignee) = ASSIGNED
+            task.setCurrentStatus(assignee != null ? TaskStatus.ASSIGNED : TaskStatus.TODO);
+        } else {
+            task.setCurrentStatus(TaskStatus.ASSIGNED);
+        }
 
         // B-16b: Wire projectId
         if (projectId != null) {
@@ -228,16 +240,19 @@ public class TaskAssignmentService {
         Task savedTask = taskRepository.save(task);
         taskAuditService.recordStatus(savedTask, null, savedTask.getCurrentStatus().name(), savedTask.getCurrentStatus().name(), creator, null);
 
-        notificationService.createAndSend(
-            assignee,
-            creator,
-            com.example.taskflow.notification.NotificationEvent.TASK_ASSIGNED,
-            "You have a new task: " + title,
-            description,
-            savedTask,
-            null,
-            creator
-        );
+        // Only notify if there's an assignee (crew tasks may be unclaimed)
+        if (assignee != null) {
+            notificationService.createAndSend(
+                assignee,
+                creator,
+                com.example.taskflow.notification.NotificationEvent.TASK_ASSIGNED,
+                "You have a new task: " + title,
+                description,
+                savedTask,
+                null,
+                creator
+            );
+        }
 
         return mapToTaskResponseDTO(savedTask);
     }

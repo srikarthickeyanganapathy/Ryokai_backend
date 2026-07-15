@@ -2,6 +2,16 @@ package com.example.taskflow.dto;
 
 import java.time.LocalDateTime;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+/**
+ * Leave request API DTO.
+ * <p>
+ * Spec ER names {@code decided_by}/{@code decided_at}; DB/entity use
+ * {@code reviewed_by_id}/{@code reviewed_at}. JSON exposes both via aliases
+ * so clients may use either name.
+ */
 public class LeaveRequestDTO {
     private Long id;
     private Long userId;
@@ -11,8 +21,15 @@ public class LeaveRequestDTO {
     private String reason;
     private String status;       // PENDING, APPROVED, REJECTED
     private String adminComment;
+
+    @JsonProperty("reviewedBy")
+    @JsonAlias({"decidedBy", "decided_by"})
     private String reviewedBy;
+
     private LocalDateTime createdAt;
+
+    @JsonProperty("reviewedAt")
+    @JsonAlias({"decidedAt", "decided_at"})
     private LocalDateTime reviewedAt;
 
     public LeaveRequestDTO() {}
@@ -53,8 +70,17 @@ public class LeaveRequestDTO {
     public void setAdminComment(String adminComment) { this.adminComment = adminComment; }
     public String getReviewedBy() { return reviewedBy; }
     public void setReviewedBy(String reviewedBy) { this.reviewedBy = reviewedBy; }
+
+    /** Spec alias for reviewedBy */
+    @JsonProperty("decidedBy")
+    public String getDecidedBy() { return reviewedBy; }
+
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getReviewedAt() { return reviewedAt; }
     public void setReviewedAt(LocalDateTime reviewedAt) { this.reviewedAt = reviewedAt; }
+
+    /** Spec alias for reviewedAt */
+    @JsonProperty("decidedAt")
+    public LocalDateTime getDecidedAt() { return reviewedAt; }
 }

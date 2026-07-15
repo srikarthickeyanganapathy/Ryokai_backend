@@ -52,6 +52,7 @@ public class TaskWorkflowService {
     private final OrganizationMembershipRepository membershipRepository;
     private final OrganizationRepository organizationRepository;
     private final TeamRepository teamRepository;
+    private final com.example.taskflow.repository.TaskEvidenceRepository taskEvidenceRepository;
 
     @Value("${app.reminders.timezone:Asia/Kolkata}")
     private String timezoneProperty;
@@ -69,7 +70,8 @@ public class TaskWorkflowService {
                                TaskStatusHistoryRepository taskStatusHistoryRepository,
                                OrganizationMembershipRepository membershipRepository,
                                OrganizationRepository organizationRepository,
-                               TeamRepository teamRepository) {
+                               TeamRepository teamRepository,
+                               com.example.taskflow.repository.TaskEvidenceRepository taskEvidenceRepository) {
         this.taskRepository = taskRepository;
         this.taskAuditService = taskAuditService;
         this.roleStrategyFactory = roleStrategyFactory;
@@ -82,6 +84,7 @@ public class TaskWorkflowService {
         this.membershipRepository = membershipRepository;
         this.organizationRepository = organizationRepository;
         this.teamRepository = teamRepository;
+        this.taskEvidenceRepository = taskEvidenceRepository;
     }
 
     @PostConstruct
@@ -112,20 +115,21 @@ public class TaskWorkflowService {
                     });
 
             if (isSuperAdmin) {
-                // Super Admin: privacy boundary ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â only sees own personal tasks, not org data
-                Page<Task> page = taskRepository.findVisibleForEmployee(user, pageable);
+                // Super Admin: privacy boundary — only sees own personal tasks + own crew tasks, not org data
+                Page<Task> page = taskRepository.findVisibleForEmployee(user, user.getId(), pageable);
                 List<Task> personalOnly = page.stream()
-                        .filter(task -> task.isPersonal() && task.getCreator() != null
+                        .filter(task -> (task.isPersonal() && task.getCreator() != null
                                 && task.getCreator().getId().equals(user.getId()))
+                                || (task.getCrew() != null))
                         .collect(java.util.stream.Collectors.toList());
                 return batchMapList(personalOnly, pageable, personalOnly.size());
             }
 
-            // Director/Admin: only see tasks within their org + their own personal tasks
+            // Director/Admin: org tasks + own personal + crew tasks they belong to
             var memberships = membershipRepository.findByUserId(user.getId());
             if (!memberships.isEmpty()) {
                 Long orgId = memberships.get(0).getOrganization().getId();
-                Page<Task> page = taskRepository.findByOrganizationIdOrCreatedBy(orgId, user, pageable);
+                Page<Task> page = taskRepository.findByOrganizationIdOrCreatedBy(orgId, user, user.getId(), pageable);
                 Page<TaskResponseDTO> result = batchMapTasks(page);
                 if (scope != null) {
                     List<TaskResponseDTO> filtered = result.getContent().stream()
@@ -148,30 +152,45 @@ public class TaskWorkflowService {
         }
 
         if (strategy.canAssign(user)) {
-            // Manager: see assigned/created tasks (B-12: personal-task filter pushed to DB query)
-            Page<Task> page = taskRepository.findVisibleForManager(user, pageable);
+            // Manager: assigned/created + crew tasks (B-12/P1)
+            Page<Task> page = taskRepository.findVisibleForManager(user, user.getId(), pageable);
             List<Task> filteredTasks = page.stream()
-                    .filter(task -> {
-                        // B-05: Scope filter
-                        if ("personal".equals(scope)) return task.isPersonal() && task.getCreator() != null && task.getCreator().getId().equals(user.getId());
-                        if ("org".equals(scope)) return !task.isPersonal();
-                        return true;
-                    })
+                    .filter(task -> entityScopeFilter(task, user, scope))
                     .collect(java.util.stream.Collectors.toList());
             return batchMapList(filteredTasks, pageable, scope != null ? filteredTasks.size() : page.getTotalElements());
         }
 
-        // Employee: see only own assigned tasks + own personal tasks (B-12: personal filter in DB)
-        Page<Task> page = taskRepository.findVisibleForEmployee(user, pageable);
+        // Employee: own assigned + personal + crew tasks
+        Page<Task> page = taskRepository.findVisibleForEmployee(user, user.getId(), pageable);
         List<Task> filteredTasks = page.stream()
-                .filter(task -> {
-                    // B-05: Scope filter
-                    if ("personal".equals(scope)) return task.isPersonal() && task.getCreator() != null && task.getCreator().getId().equals(user.getId());
-                    if ("org".equals(scope)) return !task.isPersonal();
-                    return true;
-                })
+                .filter(task -> entityScopeFilter(task, user, scope))
                 .collect(java.util.stream.Collectors.toList());
         return batchMapList(filteredTasks, pageable, scope != null ? filteredTasks.size() : page.getTotalElements());
+    }
+
+    /** Scope filter on entity before DTO mapping. personal | org | crew | null(all) */
+    private boolean entityScopeFilter(Task task, User user, String scope) {
+        if (scope == null) return true;
+        if ("personal".equals(scope)) {
+            return task.isPersonal() && task.getCreator() != null
+                    && task.getCreator().getId().equals(user.getId());
+        }
+        if ("crew".equals(scope)) {
+            return task.getCrew() != null;
+        }
+        if ("org".equals(scope)) {
+            return !task.isPersonal() && task.getCrew() == null;
+        }
+        return true;
+    }
+
+    @Transactional(readOnly = true)
+    public TaskResponseDTO getTaskForUser(Long taskId, User user) {
+        Task task = getTask(taskId);
+        if (!roleStrategyFactory.getStrategy(user).canViewTask(user, task)) {
+            throw new com.example.taskflow.exception.UnauthorizedActionException("You are not authorized to view this task.");
+        }
+        return mapToTaskResponseDTO(task);
     }
 
     @Transactional
@@ -207,10 +226,18 @@ public class TaskWorkflowService {
             return dto;
         }
 
-        // Check dependencies
+        // Spec: crew tasks have NO review pipeline. Use /complete-crew instead.
+        if (task.getCrew() != null) {
+            throw new IllegalStateException("Crew tasks do not have a review pipeline. Use /complete-crew to complete a crew task.");
+        }
+
+        // Check dependencies — treat APPROVED (org) or COMPLETED (personal/crew) as done
         boolean hasIncompleteDependencies = taskDependencyRepository.findByTask_Id(taskId).stream()
             .map(TaskDependency::getDependsOn)
-            .anyMatch(blockingTask -> blockingTask.getCurrentStatus() != TaskStatus.APPROVED);
+            .anyMatch(blockingTask -> {
+                TaskStatus s = blockingTask.getCurrentStatus();
+                return s != TaskStatus.APPROVED && s != TaskStatus.COMPLETED;
+            });
 
         if (hasIncompleteDependencies) {
             throw new IllegalStateException("Cannot submit task. One or more dependencies are not completed.");
@@ -243,6 +270,11 @@ public class TaskWorkflowService {
         RoleStrategy strategy = roleStrategyFactory.getStrategy(reviewer);
 
         validateReviewer(reviewer, task);
+
+        // Defensive: crew tasks should never reach SUBMITTED, but guard anyway
+        if (task.getCrew() != null) {
+            throw new IllegalStateException("Crew tasks cannot be approved. Use /complete-crew instead.");
+        }
 
         if (task.getCurrentStatus() != TaskStatus.SUBMITTED) {
             throw new IllegalStateException("Only SUBMITTED tasks can be approved");
@@ -287,6 +319,11 @@ public class TaskWorkflowService {
         Task task = getTask(taskId);
         validateReviewer(reviewer, task);
 
+        // Defensive: crew tasks should never reach SUBMITTED, but guard anyway
+        if (task.getCrew() != null) {
+            throw new IllegalStateException("Crew tasks cannot be rejected. They have no review pipeline.");
+        }
+
         if (task.getCurrentStatus() != TaskStatus.SUBMITTED) {
             throw new IllegalStateException("Only SUBMITTED tasks can be rejected");
         }
@@ -312,13 +349,17 @@ public class TaskWorkflowService {
 
     // --- Helper Methods ---
 
-    /** B-05: Scope filter for getTasksForUser */
+    /** B-05: Scope filter for getTasksForUser (DTO-level, for admin/director paths) */
     private boolean scopeFilter(TaskResponseDTO dto, User user, String scope) {
+        if (scope == null) return true;
         if ("personal".equals(scope)) {
             return dto.isPersonal() && user.getUsername().equals(dto.getCreator());
         }
+        if ("crew".equals(scope)) {
+            return dto.getCrewId() != null;
+        }
         if ("org".equals(scope)) {
-            return !dto.isPersonal();
+            return !dto.isPersonal() && dto.getCrewId() == null;
         }
         return true;
     }
@@ -328,13 +369,9 @@ public class TaskWorkflowService {
         if (!strategy.canReview(reviewer, task)) {
             throw new com.example.taskflow.exception.UnauthorizedActionException("You are not authorized to review this task.");
         }
-        // SM-M02 fix: defensive check - creator cannot review their own task.
-        // (EmployeeStrategy.canReview already blocks this, but we double-check
-        // here so the invariant holds even if a future strategy implementation
-        // forgets the guard.)
-        if (task.getCreator() != null && task.getCreator().getId().equals(reviewer.getId())) {
-            throw new com.example.taskflow.exception.UnauthorizedActionException("You cannot review a task you created (no self-review).");
-        }
+        // Spec: the assignor (creator) CAN review — only the assignee is
+        // blocked from self-review. EmployeeStrategy.canReview already
+        // enforces this (assignee != reviewer), so no creator block here.
         // Org boundary check: reviewer must be in the same org as the task
         if (task.getOrg() != null) {
             boolean inSameOrg = membershipRepository.existsByUserAndOrganization(reviewer, task.getOrg());
@@ -443,7 +480,25 @@ public class TaskWorkflowService {
             comment.getId(),
             comment.getAuthor().getUsername(),
             comment.getComment(),
-            comment.getCreatedAt()
+            comment.getParent() != null ? comment.getParent().getId() : null,
+            java.util.Collections.emptyList(),
+            comment.getCreatedAt(),
+            comment.getUpdatedAt()
+        );
+    }
+
+    private TaskCommentDTO mapToTaskCommentDTOWithReplies(TaskComment comment) {
+        List<TaskCommentDTO> replies = comment.getReplies() != null
+                ? comment.getReplies().stream().map(this::mapToTaskCommentDTO).collect(java.util.stream.Collectors.toList())
+                : java.util.Collections.emptyList();
+        return new TaskCommentDTO(
+            comment.getId(),
+            comment.getAuthor().getUsername(),
+            comment.getComment(),
+            comment.getParent() != null ? comment.getParent().getId() : null,
+            replies,
+            comment.getCreatedAt(),
+            comment.getUpdatedAt()
         );
     }
 
@@ -461,6 +516,11 @@ public class TaskWorkflowService {
 
     @Transactional
     public TaskCommentDTO addComment(Long taskId, User user, String text) {
+        return addComment(taskId, user, text, null);
+    }
+
+    @Transactional
+    public TaskCommentDTO addComment(Long taskId, User user, String text, Long parentId) {
         Task task = getTask(taskId);
 
         TaskComment comment = new TaskComment();
@@ -468,8 +528,19 @@ public class TaskWorkflowService {
         comment.setAuthor(user);
         comment.setComment(text);
         comment.setCreatedAt(LocalDateTime.now());
+
+        if (parentId != null) {
+            TaskComment parent = taskCommentRepository.findById(parentId)
+                    .orElseThrow(() -> new IllegalArgumentException("Parent comment not found: " + parentId));
+            if (!parent.getTask().getId().equals(taskId)) {
+                throw new IllegalArgumentException("Parent comment does not belong to this task");
+            }
+            comment.setParent(parent);
+        }
+
         TaskComment saved = taskCommentRepository.save(comment);
-        taskAuditService.recordStatus(task, task.getCurrentStatus().name(), task.getCurrentStatus().name(), "COMMENTED", user, null, java.util.Map.of("comment", text));
+        taskAuditService.recordStatus(task, task.getCurrentStatus().name(), task.getCurrentStatus().name(), "COMMENTED", user, null,
+                java.util.Map.of("comment", text, "parentId", parentId != null ? parentId : "null"));
         
         Set<User> participants = new HashSet<>();
         if (task.getAssignee() != null) participants.add(task.getAssignee());
@@ -486,8 +557,10 @@ public class TaskWorkflowService {
 
     @Transactional(readOnly = true)
     public Page<TaskCommentDTO> getComments(Long taskId, User user, Pageable pageable) {
-        Task task = getTask(taskId);
-        return taskCommentRepository.findByTaskIdOrderByCreatedAtAsc(taskId, pageable).map(this::mapToTaskCommentDTO);
+        getTask(taskId); // ensure exists
+        // Return top-level comments only; replies are nested under parent
+        return taskCommentRepository.findByTaskIdAndParentIsNullOrderByCreatedAtAsc(taskId, pageable)
+                .map(this::mapToTaskCommentDTOWithReplies);
     }
 
 
@@ -706,6 +779,7 @@ public class TaskWorkflowService {
         taskDependencyRepository.deleteByTaskId(taskId);
         taskDependencyRepository.deleteByDependsOnId(taskId);
         checklistItemRepository.deleteByTaskId(taskId);
+        taskEvidenceRepository.deleteByTask_Id(taskId);
 
         taskRepository.delete(task);
     }
@@ -839,11 +913,10 @@ public class TaskWorkflowService {
     }
 
     /**
-     * SM-C01 fix: Complete a crew task (ASSIGNED -> COMPLETED).
-     * Spec state machine for crew tasks: ASSIGNED --> COMPLETED (no review pipeline).
-     * Any crew member can complete a crew task (flat structure, per spec flowchart).
-     * Previously crew tasks were initialised to TODO with no completion path -
-     * they were permanently stuck.
+     * Complete a crew task. Supports both:
+     *   - ASSIGNED -> COMPLETED (task was claimed/nudged, now completed)
+     *   - TODO -> COMPLETED (implicit claim + complete in one step)
+     * Spec: any crew member can complete any crew task (flat structure).
      */
     @Transactional
     public TaskResponseDTO completeCrewTask(Long taskId, User user) {
@@ -861,18 +934,24 @@ public class TaskWorkflowService {
         if (task.getCurrentStatus() == TaskStatus.COMPLETED) {
             return mapToTaskResponseDTO(task); // Already completed - no-op
         }
-        if (task.getCurrentStatus() != TaskStatus.ASSIGNED) {
-            throw new IllegalStateException("Only ASSIGNED crew tasks can be completed. Current status: " + task.getCurrentStatus());
+        if (task.getCurrentStatus() != TaskStatus.ASSIGNED && task.getCurrentStatus() != TaskStatus.TODO) {
+            throw new IllegalStateException("Only TODO or ASSIGNED crew tasks can be completed. Current status: " + task.getCurrentStatus());
         }
 
         TaskStatus fromStatus = task.getCurrentStatus();
+
+        // If completing from TODO (unclaimed), auto-set assignee to the completer
+        // (implicit claim + complete in one step)
+        if (fromStatus == TaskStatus.TODO && task.getAssignee() == null) {
+            task.setAssignee(user);
+        }
+
         task.setCurrentStatus(TaskStatus.COMPLETED);
         Task updated = taskRepository.save(task);
         taskAuditService.recordStatus(updated, fromStatus.name(), "COMPLETED", "COMPLETED", user,
                 "Crew task marked complete by " + user.getUsername());
 
         // Notify all crew members (except the completer) that the task is done
-        // We rely on the crew relationship being loaded; if not, we skip notification.
         try {
             if (task.getCrew() != null && task.getCrew().getMembers() != null) {
                 for (com.example.taskflow.domain.CrewMember cm : task.getCrew().getMembers()) {
@@ -890,6 +969,56 @@ public class TaskWorkflowService {
             // Best-effort notification - do not fail the completion
             org.slf4j.LoggerFactory.getLogger(TaskWorkflowService.class)
                 .warn("Failed to notify crew members of task completion: {}", e.getMessage());
+        }
+
+        TaskResponseDTO dto = mapToTaskResponseDTO(updated);
+        realtimeBroadcaster.broadcastTaskUpdate(dto, updated.getId());
+        return dto;
+    }
+
+    /**
+     * Claim an unclaimed crew task. Transitions TODO -> ASSIGNED.
+     * Spec: crew tasks use a claiming model — anyone creates a task,
+     * anyone claims it (first-taker wins via @Version optimistic lock).
+     */
+    @Transactional
+    public TaskResponseDTO claimTask(Long taskId, User user) {
+        Task task = getTask(taskId);
+
+        if (task.getCrew() == null) {
+            throw new IllegalArgumentException("Only crew tasks can be claimed. Org tasks are assigned, personal tasks are self-owned.");
+        }
+
+        if (task.getCurrentStatus() != TaskStatus.TODO) {
+            throw new IllegalStateException("Only unclaimed (TODO) crew tasks can be claimed. Current status: " + task.getCurrentStatus());
+        }
+
+        if (task.getAssignee() != null) {
+            throw new IllegalStateException("This task has already been claimed by " + task.getAssignee().getUsername());
+        }
+
+        // Verify the claimer is a crew member
+        if (!task.getCrew().getMembers().stream()
+                .anyMatch(cm -> cm.getUser().getId().equals(user.getId()))) {
+            throw new com.example.taskflow.exception.UnauthorizedActionException("You must be a member of this crew to claim a task.");
+        }
+
+        TaskStatus fromStatus = task.getCurrentStatus();
+        task.setAssignee(user);
+        task.setCurrentStatus(TaskStatus.ASSIGNED);
+        Task updated = taskRepository.save(task); // @Version provides optimistic lock (first-taker wins)
+
+        taskAuditService.recordStatus(updated, fromStatus.name(), "ASSIGNED", "CLAIMED", user,
+                "Task claimed by " + user.getUsername(),
+                java.util.Map.of("claimedBy", user.getUsername()));
+
+        // Notify the task creator that someone claimed it
+        if (task.getCreator() != null && !task.getCreator().getId().equals(user.getId())) {
+            notificationService.createAndSend(task.getCreator(), user,
+                com.example.taskflow.notification.NotificationEvent.TASK_ASSIGNED,
+                "Task Claimed",
+                "Crew task " + task.getTitle() + " was claimed by " + user.getUsername() + ".",
+                updated, "crew-task-claimed:" + task.getId(), user);
         }
 
         TaskResponseDTO dto = mapToTaskResponseDTO(updated);

@@ -23,8 +23,13 @@ import lombok.Setter;
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor
 public class OrganizationInvite {
 
+    /**
+     * Spec ER uses REJECTED; historical code used DECLINED.
+     * Both are accepted; new declines may write either (service uses DECLINED).
+     * REJECTED is kept as a synonym for API/spec compatibility.
+     */
     public enum InviteStatus {
-        PENDING, ACCEPTED, DECLINED, EXPIRED, REVOKED
+        PENDING, ACCEPTED, DECLINED, REJECTED, EXPIRED, REVOKED
     }
 
     @Id

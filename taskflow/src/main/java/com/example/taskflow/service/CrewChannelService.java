@@ -192,19 +192,21 @@ public class CrewChannelService {
             throw new IllegalStateException("Message does not belong to the specified crew/channel.");
         }
 
-        // Create a new task in the crew
-        // isPersonal=false, crewId=crewId
+        // Create a new task in the crew (11-arg overload: teamId, projectId, crewId).
+        // Assignee defaults to converter so the task is claimable/visible immediately;
+        // other crew members can reassign via the normal crew flat workflow.
         TaskResponseDTO taskDTO = taskAssignmentService.assignTask(
             dto.getTitle(),
             dto.getDescription() != null ? dto.getDescription() : "Converted from message: " + msg.getContent(),
-            null, // assignee initially null
-            user, // creator
-            null, // no project
-            null, // no due date
-            null, // tags
+            user,  // assignee: converter (must be non-null)
+            user,  // creator
+            null,  // priority (defaults to MEDIUM)
+            null,  // dueDate
+            null,  // tags
             false, // not personal
-            null, // no teamId
-            crewId
+            null,  // teamId
+            null,  // projectId
+            crewId // crewId
         );
 
         Task task = taskRepository.findById(taskDTO.getId()).orElseThrow();

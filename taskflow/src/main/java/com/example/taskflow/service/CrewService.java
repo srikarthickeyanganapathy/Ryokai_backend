@@ -148,6 +148,28 @@ public class CrewService {
 
     @Transactional
     public CrewInviteDTO inviteMember(Long crewId, User user, String email) {
+        if (email == null || email.isBlank()) {
+            throw new IllegalArgumentException("Email is required for email invites. Use the public-link endpoint for link invites.");
+        }
+        return createInvite(crewId, user, email.trim());
+    }
+
+    /**
+     * P2: PUBLIC_LINK invite — email is null so anyone with the invite UUID can join.
+     * Allowed when crew visibility is PUBLIC_LINK, or when a member explicitly creates a shareable link.
+     */
+    @Transactional
+    public CrewInviteDTO createPublicLinkInvite(Long crewId, User user) {
+        Crew crew = getCrewEntity(crewId);
+        validateMembership(crewId, user);
+        if (crew.getVisibility() != com.example.taskflow.domain.CrewVisibility.PUBLIC_LINK) {
+            // Still allow creator to mint a one-off shareable link for INVITE_ONLY crews
+            validateCreator(crew, user);
+        }
+        return createInvite(crewId, user, null);
+    }
+
+    private CrewInviteDTO createInvite(Long crewId, User user, String email) {
         Crew crew = getCrewEntity(crewId);
         validateMembership(crewId, user);
 
@@ -159,9 +181,9 @@ public class CrewService {
         CrewInvite invite = new CrewInvite();
         invite.setCrew(crew);
         invite.setInvitedBy(user);
-        invite.setEmail(email);
+        invite.setEmail(email); // null = anyone with link
         invite.setExpiresAt(LocalDateTime.now().plusDays(7));
-        
+
         CrewInvite saved = inviteRepository.save(invite);
         return mapToInviteDTO(saved);
     }
@@ -178,6 +200,14 @@ public class CrewService {
             throw new CrewInviteExpiredException("Invite expired.");
         }
 
+        // Email-targeted invites: require matching email when the invite has one
+        if (invite.getEmail() != null && !invite.getEmail().isBlank()) {
+            if (user.getEmail() == null || !invite.getEmail().equalsIgnoreCase(user.getEmail())) {
+                throw new com.example.taskflow.exception.UnauthorizedActionException(
+                        "This invite is for " + invite.getEmail() + ". Sign in with that email to accept.");
+            }
+        }
+
         Crew crew = invite.getCrew();
         long currentMembers = crewMemberRepository.findByIdCrewId(crew.getId()).size();
         if (currentMembers >= crew.getMemberCap()) {
@@ -192,10 +222,9 @@ public class CrewService {
             member.setUser(user);
             member.setRole(CrewRole.MEMBER);
             crewMemberRepository.save(member);
-            
-            // We use string 'CREW_JOINED' instead of adding to enum to avoid modifying NotificationEvent unnecessarily
-            notificationService.createAndSend(invite.getInvitedBy(), user, 
-                com.example.taskflow.notification.NotificationEvent.ORG_MEMBER_JOINED, // fallback enum
+
+            notificationService.createAndSend(invite.getInvitedBy(), user,
+                com.example.taskflow.notification.NotificationEvent.ORG_MEMBER_JOINED,
                 "New Crew Member", user.getUsername() + " joined " + crew.getName(), null, "crew:" + crew.getId(), user);
         }
 

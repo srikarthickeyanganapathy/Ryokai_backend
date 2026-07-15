@@ -13,4 +13,6 @@ public interface TaskEvidenceRepository extends JpaRepository<TaskEvidence, Long
     List<TaskEvidence> findByTask_Id(Long taskId);
 
     List<TaskEvidence> findByAddedBy_Id(Long userId);
+
+    void deleteByTask_Id(Long taskId);
 }

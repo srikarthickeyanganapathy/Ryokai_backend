@@ -34,16 +34,27 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     @Query("SELECT t FROM Task t WHERE t.assignee = :user OR t.creator = :user")
     Page<Task> findByAssigneeOrCreator(@Param("user") User user, Pageable pageable);
 
-    // B-12: Manager/Employee queries with personal-task filter at DB level
-    @EntityGraph(attributePaths = {"assignee","creator","reviewer","org","team","project"})
-    @Query("SELECT t FROM Task t WHERE (t.assignee = :user OR t.creator = :user) " +
-           "AND (t.isPersonal = false OR (t.isPersonal = true AND t.creator = :user))")
-    Page<Task> findVisibleForManager(@Param("user") User user, Pageable pageable);
+    // B-12: Manager/Employee queries with personal-task filter at DB level.
+    // P1: also include all tasks for crews the user belongs to (visible to all members).
+    // Subquery avoids DISTINCT+JOIN pagination inflation.
+    @EntityGraph(attributePaths = {"assignee","creator","reviewer","org","team","project","crew"})
+    @Query("SELECT t FROM Task t WHERE " +
+           "((t.assignee = :user OR t.creator = :user) " +
+           " AND (t.isPersonal = false OR (t.isPersonal = true AND t.creator = :user))) " +
+           "OR (t.crew.id IN (SELECT cm.id.crewId FROM CrewMember cm WHERE cm.id.userId = :userId))")
+    Page<Task> findVisibleForManager(@Param("user") User user, @Param("userId") Long userId, Pageable pageable);
 
-    @EntityGraph(attributePaths = {"assignee","creator","reviewer","org","team","project"})
-    @Query("SELECT t FROM Task t WHERE t.assignee = :user " +
-           "AND (t.isPersonal = false OR (t.isPersonal = true AND t.creator = :user))")
-    Page<Task> findVisibleForEmployee(@Param("user") User user, Pageable pageable);
+    @EntityGraph(attributePaths = {"assignee","creator","reviewer","org","team","project","crew"})
+    @Query("SELECT t FROM Task t WHERE " +
+           "(t.assignee = :user " +
+           " AND (t.isPersonal = false OR (t.isPersonal = true AND t.creator = :user))) " +
+           "OR (t.crew.id IN (SELECT cm.id.crewId FROM CrewMember cm WHERE cm.id.userId = :userId))")
+    Page<Task> findVisibleForEmployee(@Param("user") User user, @Param("userId") Long userId, Pageable pageable);
+
+    /** Crew-scoped listing: all tasks in a crew (caller must already be a member). */
+    @EntityGraph(attributePaths = {"assignee","creator","reviewer","org","team","project","crew"})
+    @Query("SELECT t FROM Task t WHERE t.crew.id = :crewId")
+    Page<Task> findByCrewId(@Param("crewId") Long crewId, Pageable pageable);
 
     // Employee counts
     long countByAssigneeIdAndArchivedFalse(Long userId);
@@ -81,9 +92,13 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
                            Pageable pageable);
 
     // Org-scoped task queries (Fix #3: data isolation for Director/Admin)
-    @EntityGraph(attributePaths = {"assignee","creator","reviewer","org","team","project"})
-    @Query("SELECT t FROM Task t WHERE (t.org.id = :orgId) OR (t.org IS NULL AND t.creator = :user)")
-    Page<Task> findByOrganizationIdOrCreatedBy(@Param("orgId") Long orgId, @Param("user") User user, Pageable pageable);
+    // P1: also include crew tasks for crews the user belongs to
+    @EntityGraph(attributePaths = {"assignee","creator","reviewer","org","team","project","crew"})
+    @Query("SELECT t FROM Task t WHERE (t.org.id = :orgId) " +
+           "OR (t.org IS NULL AND t.crew IS NULL AND t.creator = :user) " +
+           "OR (t.crew.id IN (SELECT cm.id.crewId FROM CrewMember cm WHERE cm.id.userId = :userId))")
+    Page<Task> findByOrganizationIdOrCreatedBy(@Param("orgId") Long orgId, @Param("user") User user,
+                                               @Param("userId") Long userId, Pageable pageable);
 
     // Org-scoped count methods for DashboardService (Fix #4)
     long countByOrgIdAndArchivedFalse(Long orgId);

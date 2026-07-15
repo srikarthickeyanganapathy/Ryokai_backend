@@ -72,6 +72,12 @@ public class SuperAdminStrategy implements RoleStrategy {
         return isOwnPersonalTask(user, task);
     }
 
+    @Override
+    public boolean canEditDependency(User user, Task task) {
+        if (task == null || user == null) return false;
+        return isOwnPersonalTask(user, task);
+    }
+
     // --- Private helpers ---
 
     private boolean isOwnTask(User user, Task task) {

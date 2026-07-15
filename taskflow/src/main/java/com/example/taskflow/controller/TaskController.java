@@ -36,8 +36,11 @@ import com.example.taskflow.dto.TaskResponseDTO;
 import com.example.taskflow.dto.TaskUpdateRequestDTO;
 import com.example.taskflow.dto.TaskReassignRequestDTO;
 import com.example.taskflow.dto.BulkAssignRequestDTO;
+import com.example.taskflow.dto.TaskEvidenceDTO;
+import com.example.taskflow.dto.TaskEvidenceRequestDTO;
 import com.example.taskflow.service.TaskAssignmentService;
 import com.example.taskflow.service.TaskAuditService;
+import com.example.taskflow.service.TaskEvidenceService;
 import com.example.taskflow.service.TaskWorkflowService;
 import com.example.taskflow.service.UserService;
 
@@ -49,15 +52,18 @@ public class TaskController {
     private final TaskAssignmentService taskAssignmentService;
     private final TaskWorkflowService taskWorkflowService;
     private final TaskAuditService taskAuditService;
+    private final TaskEvidenceService taskEvidenceService;
     private final UserService userService;
 
     public TaskController(TaskAssignmentService taskAssignmentService,
             TaskWorkflowService taskWorkflowService,
             TaskAuditService taskAuditService,
+            TaskEvidenceService taskEvidenceService,
             UserService userService) {
         this.taskAssignmentService = taskAssignmentService;
         this.taskWorkflowService = taskWorkflowService;
         this.taskAuditService = taskAuditService;
+        this.taskEvidenceService = taskEvidenceService;
         this.userService = userService;
     }
 
@@ -78,21 +84,30 @@ public class TaskController {
         return ResponseEntity.ok(taskWorkflowService.getTasksForUser(getCurrentUser(userDetails), safePage, scope));
     }
 
+    // P2: GET single task by id (permission-gated VIEW)
+    @GetMapping("/{taskId}")
+    @PreAuthorize("hasPermission(#taskId, 'Task', 'VIEW')")
+    public ResponseEntity<TaskResponseDTO> getTask(@PathVariable @Min(1) Long taskId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(taskWorkflowService.getTaskForUser(taskId, getCurrentUser(userDetails)));
+    }
+
     @PostMapping("/assign")
     @PreAuthorize("hasPermission(null, 'Task', 'ASSIGN')")
     public ResponseEntity<TaskResponseDTO> assignTask(@Valid @RequestBody TaskRequestDTO request,
             @AuthenticationPrincipal UserDetails userDetails) {
         User creator = getCurrentUser(userDetails);
-        // The DTO contains the assignee username
+
+        // Option B: /assign is org-only. Crew tasks use POST /api/crews/{crewId}/tasks.
+        if (request.getCrewId() != null) {
+            throw new IllegalArgumentException("Crew tasks cannot be created via /assign. Use POST /api/crews/{crewId}/tasks instead.");
+        }
+
         if (request.getAssigneeUsername() == null || request.getAssigneeUsername().isBlank()) {
-            throw new IllegalArgumentException("Assignee username is required for non-personal tasks");
+            throw new IllegalArgumentException("Assignee username is required for org tasks");
         }
         User assignee = userService.getCurrentUser(request.getAssigneeUsername());
 
-        // RT-M01 fix: previously crewId from the DTO was silently dropped -
-        // the 10-arg overload delegated to the 11-arg overload with crewId=null,
-        // so even if a frontend sent {"crewId": 5} the task was created as
-        // either personal or org-scoped. Now we pass crewId through.
         TaskResponseDTO response = taskAssignmentService.assignTask(
                 request.getTitle(),
                 request.getDescription(),
@@ -104,7 +119,7 @@ public class TaskController {
                 request.isPersonal(),
                 null, // teamId: not applicable for single assign - use bulk assign for teams
                 request.getProjectId(),
-                request.getCrewId());  // RT-M01 fix: was silently dropped
+                null); // crewId: always null — crew tasks go through CrewController
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -207,8 +222,34 @@ public class TaskController {
     public ResponseEntity<TaskCommentDTO> addComment(@PathVariable @Min(1) Long taskId,
             @Valid @RequestBody CommentRequestDTO request, @AuthenticationPrincipal UserDetails userDetails) {
         TaskCommentDTO response = taskWorkflowService.addComment(taskId, getCurrentUser(userDetails),
-                request.getText());
+                request.getText(), request.getParentId());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    // P1: Task evidence
+    @GetMapping("/{taskId}/evidence")
+    @PreAuthorize("hasPermission(#taskId, 'Task', 'VIEW')")
+    public ResponseEntity<List<TaskEvidenceDTO>> listEvidence(@PathVariable @Min(1) Long taskId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(taskEvidenceService.listEvidence(taskId, getCurrentUser(userDetails)));
+    }
+
+    @PostMapping("/{taskId}/evidence")
+    @PreAuthorize("hasPermission(#taskId, 'Task', 'EDIT')")
+    public ResponseEntity<TaskEvidenceDTO> addEvidence(@PathVariable @Min(1) Long taskId,
+            @Valid @RequestBody TaskEvidenceRequestDTO request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(taskEvidenceService.addEvidence(taskId, request, getCurrentUser(userDetails)));
+    }
+
+    @DeleteMapping("/{taskId}/evidence/{evidenceId}")
+    @PreAuthorize("hasPermission(#taskId, 'Task', 'EDIT')")
+    public ResponseEntity<Void> deleteEvidence(@PathVariable @Min(1) Long taskId,
+            @PathVariable @Min(1) Long evidenceId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        taskEvidenceService.deleteEvidence(taskId, evidenceId, getCurrentUser(userDetails));
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{id}/history")
@@ -312,15 +353,22 @@ public class TaskController {
         return ResponseEntity.ok(taskWorkflowService.recallTask(taskId, getCurrentUser(userDetails)));
     }
 
-    // SM-C01 fix: spec state machine for crew tasks is ASSIGNED -> COMPLETED
-    // (no review pipeline). Previously crew tasks were initialised to TODO and
-    // no endpoint could move them to COMPLETED - they were permanently stuck.
-    // Crew tasks now initialise to ASSIGNED (see TaskAssignmentService) and any
-    // crew member can complete them via this endpoint.
+    // Spec state machine for crew tasks: TODO (unclaimed) → ASSIGNED (claimed) → COMPLETED
+    // Any crew member can complete a crew task via this endpoint.
+    // Also supports TODO → COMPLETED (implicit claim + complete in one step).
     @PostMapping("/{taskId}/complete-crew")
     @PreAuthorize("hasPermission(#taskId, 'Task', 'EDIT')")
     public ResponseEntity<TaskResponseDTO> completeCrewTask(@PathVariable @Min(1) Long taskId,
             @AuthenticationPrincipal UserDetails userDetails) {
         return ResponseEntity.ok(taskWorkflowService.completeCrewTask(taskId, getCurrentUser(userDetails)));
+    }
+
+    // Spec: crew tasks use a claiming model — anyone creates, anyone claims (first-taker wins).
+    // Transitions an unclaimed crew task from TODO → ASSIGNED with the claimer as assignee.
+    @PostMapping("/{taskId}/claim")
+    @PreAuthorize("hasPermission(#taskId, 'Task', 'EDIT')")
+    public ResponseEntity<TaskResponseDTO> claimTask(@PathVariable @Min(1) Long taskId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(taskWorkflowService.claimTask(taskId, getCurrentUser(userDetails)));
     }
 }

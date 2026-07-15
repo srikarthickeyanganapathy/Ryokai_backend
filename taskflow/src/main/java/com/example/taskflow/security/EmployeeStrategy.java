@@ -73,11 +73,8 @@ public class EmployeeStrategy implements RoleStrategy {
         // Assignee cannot review their own work
         if (task.getAssignee() != null && task.getAssignee().getId().equals(user.getId())) return false;
 
-        // SM-M02 fix: creator cannot review their own task (spec:
-        // "creator ≠ reviewer (no self-review)"). Previously only the
-        // assignee was blocked; a creator who held MANAGER+ role in the
-        // same org could approve or reject their own submission.
-        if (task.getCreator() != null && task.getCreator().getId().equals(user.getId())) return false;
+        // Spec: the assignor (creator) CAN review — only the assignee
+        // is blocked from self-review.
 
         // Must be in the SAME org as the task
         if (task.getOrg() == null) return false;
@@ -222,6 +219,28 @@ public class EmployeeStrategy implements RoleStrategy {
 
         // Assignee can archive (they can also edit, but they cannot delete)
         if (task.getAssignee() != null && task.getAssignee().getId().equals(user.getId())) return true;
+
+        return false;
+    }
+
+    /**
+     * Spec: dependencies are "assignor-locked" — only the task creator
+     * (assignor) and org admin/director can add/remove dependencies.
+     * The assignee is explicitly blocked.
+     */
+    @Override
+    public boolean canEditDependency(User user, Task task) {
+        if (task == null || user == null) return false;
+
+        // Creator (assignor) can always edit dependencies
+        if (task.getCreator() != null && task.getCreator().getId().equals(user.getId())) return true;
+
+        // Crew tasks: only creator can edit dependencies (flat structure, but
+        // dependencies are still creator-locked)
+        if (task.getCrew() != null) return false;
+
+        // Org admin/director can edit dependencies in their org (governance override)
+        if (task.getOrg() != null && isOrgAdminOrAbove(user, task)) return true;
 
         return false;
     }

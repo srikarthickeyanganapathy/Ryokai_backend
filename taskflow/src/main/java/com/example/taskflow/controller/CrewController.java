@@ -27,9 +27,11 @@ import com.example.taskflow.dto.CrewMessageRequestDTO;
 import com.example.taskflow.dto.CrewRequestDTO;
 import com.example.taskflow.dto.CrewResponseDTO;
 import com.example.taskflow.dto.ProjectSummaryDTO;
+import com.example.taskflow.dto.CrewTaskRequestDTO;
 import com.example.taskflow.dto.TaskResponseDTO;
 import com.example.taskflow.service.CrewChannelService;
 import com.example.taskflow.service.CrewService;
+import com.example.taskflow.service.TaskAssignmentService;
 import com.example.taskflow.service.UserService;
 
 import jakarta.validation.Valid;
@@ -40,11 +42,14 @@ public class CrewController {
 
     private final CrewService crewService;
     private final CrewChannelService crewChannelService;
+    private final TaskAssignmentService taskAssignmentService;
     private final UserService userService;
 
-    public CrewController(CrewService crewService, CrewChannelService crewChannelService, UserService userService) {
+    public CrewController(CrewService crewService, CrewChannelService crewChannelService,
+                          TaskAssignmentService taskAssignmentService, UserService userService) {
         this.crewService = crewService;
         this.crewChannelService = crewChannelService;
+        this.taskAssignmentService = taskAssignmentService;
         this.userService = userService;
     }
 
@@ -101,6 +106,18 @@ public class CrewController {
         String email = payload.get("email");
         if (email == null || email.isBlank()) throw new IllegalArgumentException("Email is required");
         return ResponseEntity.ok(crewService.inviteMember(crewId, getCurrentUser(userDetails), email));
+    }
+
+    /**
+     * P2: PUBLIC_LINK invite — creates an invite with email=null.
+     * Anyone authenticated who has the invite UUID can accept it.
+     * Allowed for PUBLIC_LINK crews (any member) or INVITE_ONLY (creator only).
+     */
+    @PostMapping("/{crewId}/invite/link")
+    public ResponseEntity<CrewInviteDTO> createPublicLinkInvite(@PathVariable Long crewId,
+                                                                @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(crewService.createPublicLinkInvite(crewId, getCurrentUser(userDetails)));
     }
 
     @PostMapping("/invites/{inviteId}/accept")
@@ -215,5 +232,32 @@ public class CrewController {
                                                                 @Valid @RequestBody ConvertToTaskRequestDTO dto,
                                                                 @AuthenticationPrincipal UserDetails userDetails) {
         return ResponseEntity.ok(crewChannelService.convertMessageToTask(crewId, channelId, messageId, getCurrentUser(userDetails), dto));
+    }
+
+    // --- Crew Tasks ---
+
+    /**
+     * Create a crew task. Crew tasks have no assignee (claim-based model).
+     * The task starts as TODO (unclaimed). Any crew member can later claim it
+     * via POST /api/tasks/{taskId}/claim.
+     */
+    @PostMapping("/{crewId}/tasks")
+    public ResponseEntity<TaskResponseDTO> createCrewTask(@PathVariable Long crewId,
+                                                          @Valid @RequestBody CrewTaskRequestDTO dto,
+                                                          @AuthenticationPrincipal UserDetails userDetails) {
+        User creator = getCurrentUser(userDetails);
+        TaskResponseDTO response = taskAssignmentService.assignTask(
+                dto.getTitle(),
+                dto.getDescription(),
+                null,    // no assignee — crew tasks are unclaimed
+                creator,
+                dto.getPriority(),
+                dto.getDueDate(),
+                dto.getTags(),
+                false,   // not personal
+                null,    // no teamId
+                dto.getProjectId(),
+                crewId); // crewId from path
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 }
