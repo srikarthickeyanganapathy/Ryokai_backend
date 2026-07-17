@@ -36,72 +36,17 @@ public class DataSeeder {
     @Value("${app.seed-demo-data:false}")
     private boolean seedDemoData;
 
-    @Value("${app.super-admin.email:admin@taskflow.com}")
-    private String superAdminEmail;
-
-    @Value("${app.super-admin.password:#{null}}")
-    private String superAdminPassword;
-
-    private final Environment environment;
-
-    public DataSeeder(Environment environment) {
-        this.environment = environment;
-    }
-
     @Bean
     @Transactional
-    public CommandLineRunner initData(RoleRepository roleRepository,
-                                      PermissionRepository permissionRepository,
-                                      UserRepository userRepository,
-                                      PasswordEncoder passwordEncoder) {
+    public CommandLineRunner initData(PermissionRepository permissionRepository) {
         return args -> {
             // ====================================================================
-            // Always bootstrap: Permissions + SUPER_ADMIN role + Super Admin user
+            // Always bootstrap: Permissions
             // ====================================================================
 
             // Seed Permissions
             for (PermissionType type : PermissionType.values()) {
                 createPermissionIfNotFound(type.name(), type.getDescription(), permissionRepository);
-            }
-
-            // Seed SUPER_ADMIN role
-            Set<Permission> adminPerms = getPermissions(permissionRepository,
-                Arrays.stream(PermissionType.values()).map(pt -> pt.name()).toArray(String[]::new));
-            createRoleIfNotFound("SUPER_ADMIN", "Super Administrator with all permissions", adminPerms, roleRepository);
-
-            // Bootstrap Super Admin account from env vars
-            if (superAdminPassword != null && !superAdminPassword.isBlank()) {
-                createUserIfNotFound(superAdminEmail, superAdminPassword, "SUPER_ADMIN",
-                        roleRepository, userRepository, passwordEncoder);
-                logger.info("Super Admin account bootstrapped: {}", superAdminEmail);
-            } else if (seedDemoData) {
-                // Dev fallback — only if demo data seeding is enabled
-                createUserIfNotFound("admin@demo", "password123", "SUPER_ADMIN",
-                        roleRepository, userRepository, passwordEncoder);
-                logger.info("Demo Super Admin created: admin@demo / password123");
-            } else {
-                logger.warn("No Super Admin password configured (app.super-admin.password). " +
-                        "Set SUPER_ADMIN_PASSWORD env var to bootstrap the admin account.");
-            }
-
-            if (seedDemoData) {
-                logger.info("Demo data seeding enabled.");
-            }
-
-            // Safety net: warn loudly if default dev credentials are active in prod
-            for (String profile : environment.getActiveProfiles()) {
-                if ("prod".equalsIgnoreCase(profile)) {
-                    if ("admin@demo".equals(superAdminEmail) || "password123".equals(superAdminPassword)) {
-                        logger.warn("\n" +
-                                "============================================================\n" +
-                                "  ⚠  SECURITY WARNING: Super Admin is using default dev     \n" +
-                                "  credentials in PROD profile!                              \n" +
-                                "  Set SUPER_ADMIN_EMAIL and SUPER_ADMIN_PASSWORD env vars    \n" +
-                                "  immediately!                                              \n" +
-                                "============================================================");
-                    }
-                    break;
-                }
             }
         };
     }

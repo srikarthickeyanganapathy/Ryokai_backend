@@ -35,20 +35,26 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     Page<Task> findByAssigneeOrCreator(@Param("user") User user, Pageable pageable);
 
     // B-12: Manager/Employee queries with personal-task filter at DB level.
-    // P1: also include all tasks for crews the user belongs to (visible to all members).
-    // Subquery avoids DISTINCT+JOIN pagination inflation.
+    // Updated: Now includes tasks from Teams the user is a member or observer of,
+    // and Projects belonging to those Teams.
     @EntityGraph(attributePaths = {"assignee","creator","reviewer","org","team","project","crew"})
     @Query("SELECT t FROM Task t WHERE " +
-           "((t.assignee = :user OR t.creator = :user) " +
-           " AND (t.isPersonal = false OR (t.isPersonal = true AND t.creator = :user))) " +
-           "OR (t.crew.id IN (SELECT cm.id.crewId FROM CrewMember cm WHERE cm.id.userId = :userId))")
+           "(t.assignee = :user OR t.creator = :user) " +
+           "OR (t.crew.id IN (SELECT cm.id.crewId FROM CrewMember cm WHERE cm.id.userId = :userId)) " +
+           "OR (t.team.id IN (SELECT tm.id.teamId FROM TeamMember tm WHERE tm.id.userId = :userId)) " +
+           "OR (t.project.team.id IN (SELECT tm.id.teamId FROM TeamMember tm WHERE tm.id.userId = :userId)) " +
+           "OR (t.team.id IN (SELECT tobs.id.teamId FROM TeamObserver tobs WHERE tobs.id.userId = :userId)) " +
+           "OR (t.project.team.id IN (SELECT tobs.id.teamId FROM TeamObserver tobs WHERE tobs.id.userId = :userId))")
     Page<Task> findVisibleForManager(@Param("user") User user, @Param("userId") Long userId, Pageable pageable);
 
     @EntityGraph(attributePaths = {"assignee","creator","reviewer","org","team","project","crew"})
     @Query("SELECT t FROM Task t WHERE " +
-           "(t.assignee = :user " +
-           " AND (t.isPersonal = false OR (t.isPersonal = true AND t.creator = :user))) " +
-           "OR (t.crew.id IN (SELECT cm.id.crewId FROM CrewMember cm WHERE cm.id.userId = :userId))")
+           "(t.assignee = :user OR t.creator = :user) " +
+           "OR (t.crew.id IN (SELECT cm.id.crewId FROM CrewMember cm WHERE cm.id.userId = :userId)) " +
+           "OR (t.team.id IN (SELECT tm.id.teamId FROM TeamMember tm WHERE tm.id.userId = :userId)) " +
+           "OR (t.project.team.id IN (SELECT tm.id.teamId FROM TeamMember tm WHERE tm.id.userId = :userId)) " +
+           "OR (t.team.id IN (SELECT tobs.id.teamId FROM TeamObserver tobs WHERE tobs.id.userId = :userId)) " +
+           "OR (t.project.team.id IN (SELECT tobs.id.teamId FROM TeamObserver tobs WHERE tobs.id.userId = :userId))")
     Page<Task> findVisibleForEmployee(@Param("user") User user, @Param("userId") Long userId, Pageable pageable);
 
     /** Crew-scoped listing: all tasks in a crew (caller must already be a member). */
@@ -114,10 +120,16 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     long countByProjectId(Long projectId);
     long countByProjectIdAndCurrentStatus(Long projectId, TaskStatus status);
     long countByProjectIdAndCurrentStatusIn(Long projectId, java.util.Collection<TaskStatus> statuses);
+
+    @EntityGraph(attributePaths = {"assignee","creator","reviewer","org","team","project"})
+    Page<Task> findByProjectId(Long projectId, Pageable pageable);
     
     // Team-scoped counts
     @Query("SELECT COUNT(t) FROM Task t WHERE t.team.id = :teamId")
     long countByTeamId(@Param("teamId") Long teamId);
+
+    @Query("SELECT t FROM Task t WHERE t.org.id = :orgId")
+    List<Task> findByOrgId(@Param("orgId") Long orgId);
 
     @org.springframework.data.jpa.repository.Modifying
     @Query("UPDATE Task t SET t.project = NULL WHERE t.project.id = :projectId")

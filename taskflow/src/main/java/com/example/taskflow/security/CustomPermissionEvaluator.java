@@ -15,7 +15,11 @@ import com.example.taskflow.repository.ProjectRepository;
 import com.example.taskflow.repository.TaskRepository;
 import com.example.taskflow.repository.UserRepository;
 import com.example.taskflow.repository.OrganizationMembershipRepository;
+import com.example.taskflow.repository.CrewMemberRepository;
+import com.example.taskflow.repository.CrewProjectRepository;
+import com.example.taskflow.repository.TeamMemberRepository;
 import com.example.taskflow.service.PermissionService;
+import com.example.taskflow.domain.CrewProject;
 import org.springframework.security.core.userdetails.UserDetails;
 
 @Component
@@ -28,8 +32,11 @@ public class CustomPermissionEvaluator implements PermissionEvaluator {
     private final ProjectRepository projectRepository;
     private final OrganizationMembershipRepository membershipRepository;
     private final OrganizationRepository organizationRepository;
+    private final TeamMemberRepository teamMemberRepository;
+    private final CrewMemberRepository crewMemberRepository;
+    private final CrewProjectRepository crewProjectRepository;
 
-    public CustomPermissionEvaluator(RoleStrategyFactory roleStrategyFactory, TaskRepository taskRepository, PermissionService permissionService, UserRepository userRepository, ProjectRepository projectRepository, OrganizationMembershipRepository membershipRepository, OrganizationRepository organizationRepository) {
+    public CustomPermissionEvaluator(RoleStrategyFactory roleStrategyFactory, TaskRepository taskRepository, PermissionService permissionService, UserRepository userRepository, ProjectRepository projectRepository, OrganizationMembershipRepository membershipRepository, OrganizationRepository organizationRepository, TeamMemberRepository teamMemberRepository, CrewMemberRepository crewMemberRepository, CrewProjectRepository crewProjectRepository) {
         this.roleStrategyFactory = roleStrategyFactory;
         this.taskRepository = taskRepository;
         this.permissionService = permissionService;
@@ -37,6 +44,9 @@ public class CustomPermissionEvaluator implements PermissionEvaluator {
         this.projectRepository = projectRepository;
         this.membershipRepository = membershipRepository;
         this.organizationRepository = organizationRepository;
+        this.teamMemberRepository = teamMemberRepository;
+        this.crewMemberRepository = crewMemberRepository;
+        this.crewProjectRepository = crewProjectRepository;
     }
 
     private User getUser(Authentication auth) {
@@ -130,16 +140,20 @@ public class CustomPermissionEvaluator implements PermissionEvaluator {
                 return false;
             }
             return switch (perm) {
-                case "CREATE" -> true;   // any authenticated user
+                case "CREATE" -> true;   // any authenticated user (PROJECT_CREATE is enforced at the service level)
                 case "READ" -> project != null && (
                     (project.getCreatedBy() != null && project.getCreatedBy().getId().equals(user.getId()))
                     || (project.getOrganization() != null
                         && membershipRepository.existsByUserAndOrganization(user, project.getOrganization()))
+                    || (project.getTeam() != null
+                        && teamMemberRepository.existsByIdTeamIdAndIdUserId(project.getTeam().getId(), user.getId()))
+                    || isUserMemberOfSharedCrew(user.getId(), project.getId())
                     || permissionService.hasPermission(user, "SUPER_ADMIN_OVERRIDE_CHECK")
                 );
-                case "EDIT", "DELETE" -> project != null
-                    && project.getCreatedBy() != null
-                    && project.getCreatedBy().getId().equals(user.getId());
+                case "EDIT", "DELETE" -> project != null && (
+                    (project.getCreatedBy() != null && project.getCreatedBy().getId().equals(user.getId()))
+                    || (project.getOrganization() != null && permissionService.hasPermission(user, "PROJECT_MANAGE"))
+                );
                 default -> false;
             };
         }
@@ -197,21 +211,12 @@ public class CustomPermissionEvaluator implements PermissionEvaluator {
         RoleStrategy strategy = roleStrategyFactory.getStrategy(user);
 
         return switch (permission) {
-            case "VIEW", "TASK_VIEW", "READ", "TASK_READ" -> strategy.canViewTask(user, task);
+            case "VIEW", "TASK_VIEW", "READ", "TASK_READ", "COMMENT" -> strategy.canViewTask(user, task);
             case "REVIEW", "TASK_REVIEW" -> strategy.canReview(user, task);
             case "ASSIGN", "TASK_ASSIGN" -> strategy.canAssign(user);
-            case "EDIT", "TASK_EDIT" -> strategy.canEdit(user, task);
+            case "EDIT", "TASK_EDIT", "CHECKLIST_EDIT" -> strategy.canEdit(user, task);
             case "DELETE", "TASK_DELETE" -> strategy.canDelete(user, task);
             case "REASSIGN", "TASK_REASSIGN" -> strategy.canReassign(user, task);
-            case "COMMENT", "TASK_COMMENT" -> {
-                // Personal tasks: only creator can comment
-                if (task != null && task.isPersonal() && task.getOrg() == null) {
-                    boolean isCreator = task.getCreator() != null && task.getCreator().getId().equals(user.getId());
-                    yield isCreator;
-                }
-                yield strategy.canViewTask(user, task);
-            }
-            case "CHECKLIST_EDIT", "TASK_CHECKLIST_EDIT" -> strategy.canEdit(user, task);
             case "DEPENDENCY_EDIT", "TASK_DEPENDENCY_EDIT" -> strategy.canEditDependency(user, task);
             // Evidence uses EDIT privilege (adder / task editor)
             case "EVIDENCE_EDIT", "TASK_EVIDENCE_EDIT" -> strategy.canEdit(user, task);
@@ -221,5 +226,13 @@ public class CustomPermissionEvaluator implements PermissionEvaluator {
             case "ARCHIVE", "TASK_ARCHIVE" -> strategy.canArchive(user, task);
             default -> false;
         };
+    }
+
+    private boolean isUserMemberOfSharedCrew(Long userId, Long projectId) {
+        java.util.List<CrewProject> crewProjects = crewProjectRepository.findByIdProjectId(projectId);
+        if (crewProjects.isEmpty()) return false;
+        return crewProjects.stream().anyMatch(cp -> 
+            crewMemberRepository.existsByIdCrewIdAndIdUserId(cp.getCrew().getId(), userId)
+        );
     }
 }

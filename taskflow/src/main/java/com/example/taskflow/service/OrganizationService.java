@@ -42,6 +42,8 @@ public class OrganizationService {
     private final com.example.taskflow.repository.PermissionRepository permissionRepository;
     private final RoleService roleService;
     private final com.example.taskflow.repository.TeamMemberRepository teamMemberRepository;
+    private final com.example.taskflow.repository.ProjectRepository projectRepository;
+    private final com.example.taskflow.repository.OrganizationInviteRepository inviteRepository;
 
     public OrganizationService(OrganizationRepository organizationRepository,
             OrganizationMembershipRepository membershipRepository,
@@ -55,7 +57,9 @@ public class OrganizationService {
             RoleRepository roleRepository,
                        com.example.taskflow.repository.PermissionRepository permissionRepository,
             RoleService roleService,
-            com.example.taskflow.repository.TeamMemberRepository teamMemberRepository) {
+            com.example.taskflow.repository.TeamMemberRepository teamMemberRepository,
+            com.example.taskflow.repository.ProjectRepository projectRepository,
+            com.example.taskflow.repository.OrganizationInviteRepository inviteRepository) {
         this.organizationRepository = organizationRepository;
         this.membershipRepository = membershipRepository;
         this.leaveRequestRepository = leaveRequestRepository;
@@ -69,6 +73,8 @@ public class OrganizationService {
         this.permissionRepository = permissionRepository;
         this.roleService = roleService;
         this.teamMemberRepository = teamMemberRepository;
+        this.projectRepository = projectRepository;
+        this.inviteRepository = inviteRepository;
     }
 
     // ========================================================================
@@ -94,13 +100,13 @@ public class OrganizationService {
                 .orElseThrow(() -> new UnauthorizedActionException("You are not a member of this organization"));
     }
 
-    private OrganizationMembership requireAdminMembership(User user, Organization org) {
+    private OrganizationMembership requirePermission(User user, Organization org, String permission) {
         if (isSuperAdmin(user))
             return null; // Super Admin bypasses
         OrganizationMembership membership = membershipRepository.findByUserAndOrganization(user, org)
                 .orElseThrow(() -> new UnauthorizedActionException("You are not a member of this organization"));
-        if (!membership.getOrgRole().isBuiltinAdmin()) {
-            throw new UnauthorizedActionException("Only the Organization Admin can perform this action");
+        if (membership.getOrgRole() == null || membership.getOrgRole().getPermissions().stream().noneMatch(p -> p.getName().equals(permission))) {
+            throw new UnauthorizedActionException("This action requires the " + permission + " permission.");
         }
         return membership;
     }
@@ -156,27 +162,13 @@ public class OrganizationService {
         org.setCreatedBy(adminUser);
         Organization saved = organizationRepository.save(org);
 
-        // Create built-in roles for the organization dynamically
-        // RB-M03 fix: previously org ADMIN and DIRECTOR roles were created with
-        // NO permissions, making the permission table decorative for those roles
-        // and forcing org-admin operations to gate entirely on name-based
-        // Role.isBuiltinAdmin() checks. Now we seed ADMIN and DIRECTOR with
-        // the full TASK_* set + USER_MANAGE + ROLE_MANAGE so that
-        // PermissionService.hasPermission() actually works for org admins.
+        // Seed only the ADMIN role with all permissions for the creator
         java.util.Set<com.example.taskflow.domain.Permission> adminPerms = loadPermissionsByName(
-            "TASK_VIEW", "TASK_CREATE", "TASK_ASSIGN", "TASK_EDIT", "TASK_DELETE",
-            "TASK_REVIEW", "TASK_COMMENT", "TASK_CHECKLIST_EDIT", "TASK_DEPENDENCY_EDIT",
-            "TASK_REASSIGN", "TASK_ARCHIVE", "USER_MANAGE", "ROLE_MANAGE");
-        java.util.Set<com.example.taskflow.domain.Permission> directorPerms = loadPermissionsByName(
-            "TASK_VIEW", "TASK_CREATE", "TASK_ASSIGN", "TASK_EDIT", "TASK_DELETE",
-            "TASK_REVIEW", "TASK_COMMENT", "TASK_CHECKLIST_EDIT", "TASK_DEPENDENCY_EDIT",
-            "TASK_REASSIGN", "TASK_ARCHIVE", "USER_MANAGE");
-        java.util.Set<com.example.taskflow.domain.Permission> managerPerms = loadPermissionsByName(
-            "TASK_VIEW", "TASK_CREATE", "TASK_ASSIGN", "TASK_EDIT", "TASK_REVIEW",
-            "TASK_COMMENT", "TASK_CHECKLIST_EDIT", "TASK_DEPENDENCY_EDIT",
-            "TASK_REASSIGN", "TASK_ARCHIVE");
-        java.util.Set<com.example.taskflow.domain.Permission> employeePerms = loadPermissionsByName(
-            "TASK_VIEW", "TASK_CREATE", "TASK_COMMENT", "TASK_CHECKLIST_EDIT");
+            "TASK_VIEW", "TASK_ASSIGN", "TASK_EDIT", "TASK_DELETE",
+            "TASK_REVIEW", "TASK_DEPENDENCY_EDIT",
+            "TASK_REASSIGN", "TASK_ARCHIVE", "ROLE_MANAGE",
+            "ORG_MEMBER_INVITE", "ORG_MEMBER_REMOVE", "LEAVE_REQUEST_MANAGE",
+            "TEAM_CREATE", "TEAM_MANAGE", "PROJECT_CREATE", "PROJECT_MANAGE");
 
         Role adminRole = new Role();
         adminRole.setName("ADMIN");
@@ -184,31 +176,8 @@ public class OrganizationService {
         adminRole.setBuiltin(true);
         adminRole.setOrganization(saved);
         adminRole.setPermissions(adminPerms);
+        adminRole.setPriority(0);
         roleRepository.save(adminRole);
-
-        Role directorRole = new Role();
-        directorRole.setName("DIRECTOR");
-        directorRole.setDescription("Organization Director");
-        directorRole.setBuiltin(true);
-        directorRole.setOrganization(saved);
-        directorRole.setPermissions(directorPerms);
-        roleRepository.save(directorRole);
-
-        Role managerRole = new Role();
-        managerRole.setName("MANAGER");
-        managerRole.setDescription("Organization Manager");
-        managerRole.setBuiltin(true);
-        managerRole.setOrganization(saved);
-        managerRole.setPermissions(managerPerms);
-        roleRepository.save(managerRole);
-
-        Role employeeRole = new Role();
-        employeeRole.setName("EMPLOYEE");
-        employeeRole.setDescription("Organization Employee");
-        employeeRole.setBuiltin(true);
-        employeeRole.setOrganization(saved);
-        employeeRole.setPermissions(employeePerms);
-        roleRepository.save(employeeRole);
 
         OrganizationMembership membership = new OrganizationMembership();
         membership.setUser(adminUser);
@@ -231,12 +200,8 @@ public class OrganizationService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException("User not found: " + userId));
 
-        // Only the organization ADMIN can invite members
-        OrganizationMembership inviterMembership = membershipRepository.findByUserAndOrganization(invitedBy, org)
-                .orElseThrow(() -> new UnauthorizedActionException("You are not a member of this organization"));
-        if (!inviterMembership.getOrgRole().isBuiltinAdmin()) {
-            throw new UnauthorizedActionException("Only the Organization Admin can invite members");
-        }
+        // Use explicit permission to invite members
+        OrganizationMembership inviterMembership = requirePermission(invitedBy, org, "ORG_MEMBER_INVITE");
 
         // Cannot invite if user is already in ANY organization
         if (!membershipRepository.findByUserId(user.getId()).isEmpty()) {
@@ -304,12 +269,8 @@ public class OrganizationService {
         Organization org = organizationRepository.findById(orgId)
                 .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + orgId));
 
-        // Validate admin is the org ADMIN
-        OrganizationMembership adminMembership = membershipRepository.findByUserAndOrganization(adminUser, org)
-                .orElseThrow(() -> new UnauthorizedActionException("You are not a member of this organization"));
-        if (!adminMembership.getOrgRole().isBuiltinAdmin()) {
-            throw new UnauthorizedActionException("Only the Organization Admin can approve leave requests");
-        }
+        // Use explicit permission
+        OrganizationMembership adminMembership = requirePermission(adminUser, org, "LEAVE_REQUEST_MANAGE");
 
         LeaveRequest request = leaveRequestRepository.findById(requestId)
                 .orElseThrow(() -> new IllegalArgumentException("Leave request not found: " + requestId));
@@ -371,11 +332,8 @@ public class OrganizationService {
         Organization org = organizationRepository.findById(orgId)
                 .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + orgId));
 
-        OrganizationMembership adminMembership = membershipRepository.findByUserAndOrganization(adminUser, org)
-                .orElseThrow(() -> new UnauthorizedActionException("You are not a member of this organization"));
-        if (!adminMembership.getOrgRole().isBuiltinAdmin()) {
-            throw new UnauthorizedActionException("Only the Organization Admin can reject leave requests");
-        }
+        // Use explicit permission
+        OrganizationMembership adminMembership = requirePermission(adminUser, org, "LEAVE_REQUEST_MANAGE");
 
         LeaveRequest request = leaveRequestRepository.findById(requestId)
                 .orElseThrow(() -> new IllegalArgumentException("Leave request not found: " + requestId));
@@ -412,7 +370,7 @@ public class OrganizationService {
         OrganizationMembership membership = membershipRepository.findByUserAndOrganization(user, org)
                 .orElseThrow(() -> new UnauthorizedActionException("You are not a member of this organization"));
 
-        if (membership.getOrgRole().isBuiltinAdmin()) {
+        if (membership.getOrgRole().getPermissions().stream().anyMatch(p -> p.getName().equals("LEAVE_REQUEST_MANAGE"))) {
             return leaveRequestRepository.findByOrganizationId(orgId).stream()
                     .map(this::mapToLeaveRequestDTO)
                     .collect(Collectors.toList());
@@ -446,12 +404,8 @@ public class OrganizationService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException("User not found: " + userId));
 
-        // Only ADMIN can remove members
-        OrganizationMembership removerMembership = membershipRepository.findByUserAndOrganization(removedBy, org)
-                .orElseThrow(() -> new UnauthorizedActionException("You are not a member of this organization"));
-        if (!removerMembership.getOrgRole().isBuiltinAdmin()) {
-            throw new UnauthorizedActionException("Only the Organization Admin can remove members");
-        }
+        // Use explicit permission
+        OrganizationMembership removerMembership = requirePermission(removedBy, org, "ORG_MEMBER_REMOVE");
 
         // Fix #10: Block self-removal ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â admin must use the leave request workflow
         if (removedBy.getId().equals(userId)) {
@@ -491,7 +445,7 @@ public class OrganizationService {
                 .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + orgId));
 
         // Fix #1: Only org ADMIN can change roles
-        requireAdminMembership(callerUser, org);
+        requirePermission(callerUser, org, "ROLE_MANAGE");
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException("User not found: " + userId));
@@ -501,6 +455,10 @@ public class OrganizationService {
 
         Role newRole = roleRepository.findById(newRoleId)
                 .orElseThrow(() -> new IllegalArgumentException("Role not found"));
+
+        if (newRole.isBuiltinAdmin()) {
+            throw new IllegalArgumentException("Only one Admin is allowed in the organization. You cannot promote another member to Admin. Use the Transfer Ownership flow instead.");
+        }
 
         // RB-M01 fix: verify the new role actually belongs to this organization.
         // Previously an org admin could pass the ID of a role from ANOTHER org
@@ -582,10 +540,10 @@ public class OrganizationService {
         Organization org = organizationRepository.findById(orgId)
                 .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + orgId));
         requireActiveOrganization(org);
-        requireAdminMembership(caller, org);
+        requirePermission(caller, org, "ROLE_MANAGE");
         
         com.example.taskflow.dto.RoleCreateRequestDTO orgRequest = new com.example.taskflow.dto.RoleCreateRequestDTO(
-            request.name(), request.description(), orgId);
+            request.name(), request.description(), orgId, request.priority());
             
         return roleService.createRole(orgRequest, caller);
     }
@@ -595,7 +553,7 @@ public class OrganizationService {
         Organization org = organizationRepository.findById(orgId)
                 .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + orgId));
         requireActiveOrganization(org);
-        requireAdminMembership(caller, org);
+        requirePermission(caller, org, "ROLE_MANAGE");
         
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new IllegalArgumentException("Role not found"));
@@ -611,7 +569,7 @@ public class OrganizationService {
         Organization org = organizationRepository.findById(orgId)
                 .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + orgId));
         requireActiveOrganization(org);
-        requireAdminMembership(caller, org);
+        requirePermission(caller, org, "ROLE_MANAGE");
         
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new IllegalArgumentException("Role not found"));
@@ -627,7 +585,7 @@ public class OrganizationService {
         Organization org = organizationRepository.findById(orgId)
                 .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + orgId));
         requireActiveOrganization(org);
-        requireAdminMembership(caller, org);
+        requirePermission(caller, org, "ROLE_MANAGE");
         
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new IllegalArgumentException("Role not found"));
@@ -655,11 +613,15 @@ public class OrganizationService {
     }
 
     private MembershipResponseDTO mapToMembershipDTO(OrganizationMembership membership) {
+        java.util.List<String> permissions = membership.getOrgRole() != null && membership.getOrgRole().getPermissions() != null
+                ? membership.getOrgRole().getPermissions().stream().map(com.example.taskflow.domain.Permission::getName).collect(Collectors.toList())
+                : java.util.Collections.emptyList();
         return new MembershipResponseDTO(
                 membership.getId(),
                 membership.getUser().getId(),
                 membership.getUser().getUsername(),
-                membership.getOrgRole().getName(),
+                membership.getOrgRole() != null ? membership.getOrgRole().getName() : null,
+                permissions,
                 membership.getJoinedAt());
     }
 
@@ -688,5 +650,88 @@ public class OrganizationService {
             permissionRepository.findByName(name).ifPresent(perms::add);
         }
         return perms;
+    }
+
+    @Transactional
+    public void leaveOrDissolveOrganization(Long orgId, User adminUser, Long successorUserId, boolean dissolve) {
+        Organization org = organizationRepository.findById(orgId)
+                .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + orgId));
+        requireActiveOrganization(org);
+
+        // Require that the caller is the Admin of the organization
+        OrganizationMembership adminMembership = membershipRepository.findByUserAndOrganization(adminUser, org)
+                .orElseThrow(() -> new UnauthorizedActionException("You are not a member of this organization"));
+        if (!adminMembership.getOrgRole().isBuiltinAdmin()) {
+            throw new UnauthorizedActionException("Only the Organization Admin can perform this action");
+        }
+
+        List<OrganizationMembership> allMemberships = membershipRepository.findByOrganizationId(orgId);
+        boolean isAlone = allMemberships.size() <= 1;
+
+        if (isAlone || dissolve) {
+            // Dissolve the organization completely
+            
+            // 1. Delete tasks in this organization
+            List<Task> orgTasks = taskRepository.findByOrgId(orgId);
+            taskRepository.deleteAll(orgTasks);
+
+            // 2. Delete projects in this organization
+            List<com.example.taskflow.domain.Project> orgProjects = projectRepository.findByOrganizationId(orgId);
+            projectRepository.deleteAll(orgProjects);
+
+            // 3. Delete invites in this organization
+            List<com.example.taskflow.domain.OrganizationInvite> invites = inviteRepository.findByOrganizationId(orgId);
+            inviteRepository.deleteAll(invites);
+
+            // 4. Delete leave requests in this organization
+            List<LeaveRequest> leaveRequests = leaveRequestRepository.findByOrganizationId(orgId);
+            leaveRequestRepository.deleteAll(leaveRequests);
+
+            // 5. Delete the organization (cascades delete to memberships, teams, custom roles)
+            organizationRepository.delete(org);
+            
+            auditService.record("ORG_DISSOLVED", adminUser, "ORGANIZATION", orgId,
+                    null, null, "Dissolved organization: " + org.getName());
+        } else {
+            // Transfer ownership to another member, then admin leaves
+            if (successorUserId == null) {
+                throw new IllegalArgumentException("A successor must be specified to transfer ownership of the organization.");
+            }
+
+            User successor = userRepository.findById(successorUserId)
+                    .orElseThrow(() -> new UserNotFoundException("Successor user not found: " + successorUserId));
+
+            OrganizationMembership successorMembership = membershipRepository.findByUserAndOrganization(successor, org)
+                    .orElseThrow(() -> new IllegalArgumentException("Successor is not a member of this organization."));
+
+            // Change successor's role to ADMIN (built-in Admin role)
+            Role adminRole = roleRepository.findByNameAndOrganizationId("ADMIN", orgId)
+                    .orElseThrow(() -> new IllegalStateException("ADMIN role not found in organization"));
+
+            successorMembership.setOrgRole(adminRole);
+            membershipRepository.save(successorMembership);
+
+            // Reassign leaving admin's active tasks to the new admin
+            taskRepository.findByAssignee(adminUser).stream()
+                    .filter(t -> t.getOrg() != null && t.getOrg().getId().equals(orgId))
+                    .filter(t -> t.getCurrentStatus() != com.example.taskflow.domain.TaskStatus.COMPLETED)
+                    .forEach(task -> {
+                        String oldStatus = task.getCurrentStatus().name();
+                        task.setAssignee(successor);
+                        task.setCurrentStatus(com.example.taskflow.domain.TaskStatus.ASSIGNED);
+                        Task updated = taskRepository.save(task);
+                        taskAuditService.recordStatus(updated, oldStatus, "ASSIGNED", "REASSIGNED", adminUser, "Reassigned due to admin transfer");
+                    });
+
+            // Remove leaving admin from teams
+            removeUserFromOrgTeams(adminUser, orgId);
+
+            // Delete admin's membership
+            membershipRepository.delete(adminMembership);
+
+            auditService.record("ORG_ADMIN_TRANSFERRED", adminUser, "ORGANIZATION", orgId,
+                    adminUser.getUsername(), successor.getUsername(),
+                    "Transferred admin role to " + successor.getUsername() + " and left organization");
+        }
     }
 }

@@ -200,8 +200,8 @@ public class CrewChannelService {
             dto.getDescription() != null ? dto.getDescription() : "Converted from message: " + msg.getContent(),
             user,  // assignee: converter (must be non-null)
             user,  // creator
-            null,  // priority (defaults to MEDIUM)
-            null,  // dueDate
+            dto.getPriority(), // priority
+            dto.getDueDate(),  // dueDate
             null,  // tags
             false, // not personal
             null,  // teamId

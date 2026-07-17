@@ -205,6 +205,45 @@ public class OrganizationController {
     }
 
     // ========================================================================
+    // TEAM OBSERVERS ENDPOINTS
+    // ========================================================================
+
+    @GetMapping("/teams/{teamId}/observers")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<com.example.taskflow.dto.UserSummaryDTO>> getTeamObservers(
+            @PathVariable @Min(1) Long teamId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User user = getCurrentUser(userDetails);
+        List<User> observers = teamService.getTeamObservers(teamId, user);
+        List<com.example.taskflow.dto.UserSummaryDTO> dtos = observers.stream()
+                .map(u -> new com.example.taskflow.dto.UserSummaryDTO(u.getId(), u.getUsername()))
+                .collect(java.util.stream.Collectors.toList());
+        return ResponseEntity.ok(dtos);
+    }
+
+    @PostMapping("/teams/{teamId}/observers")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Void> addTeamObserver(
+            @PathVariable @Min(1) Long teamId,
+            @RequestBody TeamMemberRequestDTO body,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User user = getCurrentUser(userDetails);
+        teamService.addObserver(teamId, body.getUserId(), user);
+        return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    @DeleteMapping("/teams/{teamId}/observers/{userId}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Void> removeTeamObserver(
+            @PathVariable @Min(1) Long teamId,
+            @PathVariable @Min(1) Long userId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User user = getCurrentUser(userDetails);
+        teamService.removeObserver(teamId, userId, user);
+        return ResponseEntity.noContent().build();
+    }
+
+    // ========================================================================
     // LEAVE REQUEST ENDPOINTS
     // ========================================================================
 
@@ -218,6 +257,17 @@ public class OrganizationController {
         String reason = body != null ? body.getReason() : null;
         LeaveRequestDTO response = organizationService.requestLeave(id, user, reason);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PostMapping("/{id}/admin-leave")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Void> leaveOrDissolveOrganization(
+            @PathVariable @Min(1) Long id,
+            @Valid @RequestBody com.example.taskflow.dto.AdminLeaveRequestDTO request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User user = getCurrentUser(userDetails);
+        organizationService.leaveOrDissolveOrganization(id, user, request.getSuccessorUserId(), request.isDissolve());
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/{id}/leave/{requestId}/approve")

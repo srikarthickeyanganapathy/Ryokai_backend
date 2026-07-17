@@ -47,6 +47,11 @@ public class SuperAdminStrategy implements RoleStrategy {
     }
     
     @Override
+    public boolean canViewAllTasks(User user) {
+        return false;
+    }
+    
+    @Override
     public boolean canEdit(User user, Task task) {
         if (task == null || user == null) return false;
         return isOwnPersonalTask(user, task);

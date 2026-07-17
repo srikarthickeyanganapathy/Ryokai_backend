@@ -78,10 +78,12 @@ public class TaskController {
     @GetMapping
     public ResponseEntity<Page<TaskResponseDTO>> getTasks(Pageable pageable,
             @RequestParam(required = false) String scope,
+            @RequestParam(required = false) Long projectId,
+            @RequestParam(required = false) Long crewId,
             @AuthenticationPrincipal UserDetails userDetails) {
         Pageable safePage = PageRequest.of(pageable.getPageNumber(), Math.min(pageable.getPageSize(), 100),
                 pageable.getSort());
-        return ResponseEntity.ok(taskWorkflowService.getTasksForUser(getCurrentUser(userDetails), safePage, scope));
+        return ResponseEntity.ok(taskWorkflowService.getTasksForUser(getCurrentUser(userDetails), safePage, scope, projectId, crewId));
     }
 
     // P2: GET single task by id (permission-gated VIEW)
@@ -218,7 +220,7 @@ public class TaskController {
     }
 
     @PostMapping("/{taskId}/comments")
-    @PreAuthorize("hasPermission(#taskId, 'Task', 'COMMENT')")
+    @PreAuthorize("hasPermission(#taskId, 'Task', 'VIEW')")
     public ResponseEntity<TaskCommentDTO> addComment(@PathVariable @Min(1) Long taskId,
             @Valid @RequestBody CommentRequestDTO request, @AuthenticationPrincipal UserDetails userDetails) {
         TaskCommentDTO response = taskWorkflowService.addComment(taskId, getCurrentUser(userDetails),
@@ -264,7 +266,7 @@ public class TaskController {
     }
 
     @PostMapping("/{taskId}/checklists")
-    @PreAuthorize("hasPermission(#taskId, 'Task', 'CHECKLIST_EDIT')")
+    @PreAuthorize("hasPermission(#taskId, 'Task', 'EDIT')")
     public ResponseEntity<ChecklistItemDTO> addChecklistItem(@PathVariable @Min(1) Long taskId,
             @Valid @RequestBody ChecklistItemRequestDTO request, @AuthenticationPrincipal UserDetails userDetails) {
         ChecklistItemDTO response = taskWorkflowService.addChecklistItem(taskId, request.getText(),
@@ -273,14 +275,14 @@ public class TaskController {
     }
 
     @PostMapping("/{taskId}/checklists/{itemId}/toggle")
-    @PreAuthorize("hasPermission(#taskId, 'Task', 'CHECKLIST_EDIT')")
+    @PreAuthorize("hasPermission(#taskId, 'Task', 'EDIT')")
     public ResponseEntity<ChecklistItemDTO> toggleChecklistItem(@PathVariable @Min(1) Long taskId,
             @PathVariable @Min(1) Long itemId, @AuthenticationPrincipal UserDetails userDetails) {
         return ResponseEntity.ok(taskWorkflowService.toggleChecklistItem(taskId, itemId, getCurrentUser(userDetails)));
     }
 
     @DeleteMapping("/{taskId}/checklists/{itemId}")
-    @PreAuthorize("hasPermission(#taskId, 'Task', 'CHECKLIST_EDIT')")
+    @PreAuthorize("hasPermission(#taskId, 'Task', 'EDIT')")
     public ResponseEntity<Void> deleteChecklistItem(@PathVariable @Min(1) Long taskId,
             @PathVariable @Min(1) Long itemId, @AuthenticationPrincipal UserDetails userDetails) {
         taskWorkflowService.deleteChecklistItem(taskId, itemId, getCurrentUser(userDetails));
@@ -288,7 +290,7 @@ public class TaskController {
     }
 
     @PutMapping("/{taskId}/checklists/order")
-    @PreAuthorize("hasPermission(#taskId, 'Task', 'CHECKLIST_EDIT')")
+    @PreAuthorize("hasPermission(#taskId, 'Task', 'EDIT')")
     public ResponseEntity<Void> reorderChecklistItems(@PathVariable @Min(1) Long taskId,
             @RequestBody java.util.List<Long> itemIds, @AuthenticationPrincipal UserDetails userDetails) {
         taskWorkflowService.reorderChecklistItems(taskId, itemIds, getCurrentUser(userDetails));

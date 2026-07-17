@@ -11,6 +11,9 @@ import com.example.taskflow.exception.UnauthorizedActionException;
 import com.example.taskflow.exception.UserNotFoundException;
 import com.example.taskflow.repository.OrganizationMembershipRepository;
 import com.example.taskflow.repository.OrganizationRepository;
+import com.example.taskflow.repository.TeamObserverRepository;
+import com.example.taskflow.domain.TeamObserver;
+import com.example.taskflow.domain.TeamObserverId;
 import com.example.taskflow.repository.TeamMemberRepository;
 import com.example.taskflow.repository.TeamRepository;
 import com.example.taskflow.repository.UserRepository;
@@ -31,6 +34,7 @@ public class TeamService {
     private final TaskRepository taskRepository;
     private final NotificationService notificationService;
     private final TeamMemberRepository teamMemberRepository;
+    private final TeamObserverRepository teamObserverRepository;
 
     public TeamService(TeamRepository teamRepository,
                        OrganizationRepository organizationRepository,
@@ -38,7 +42,8 @@ public class TeamService {
                        OrganizationMembershipRepository membershipRepository,
                        TaskRepository taskRepository,
                        NotificationService notificationService,
-                       TeamMemberRepository teamMemberRepository) {
+                       TeamMemberRepository teamMemberRepository,
+                       TeamObserverRepository teamObserverRepository) {
         this.teamRepository = teamRepository;
         this.organizationRepository = organizationRepository;
         this.userRepository = userRepository;
@@ -46,6 +51,7 @@ public class TeamService {
         this.taskRepository = taskRepository;
         this.notificationService = notificationService;
         this.teamMemberRepository = teamMemberRepository;
+        this.teamObserverRepository = teamObserverRepository;
     }
 
     // ========================================================================
@@ -57,10 +63,10 @@ public class TeamService {
                 .orElseThrow(() -> new UnauthorizedActionException("You are not a member of this organization"));
     }
 
-    private void requireManagerOrAbove(User caller, Organization org) {
+    private void requirePermission(User caller, Organization org, String permission) {
         OrganizationMembership membership = requireOrgMembership(caller, org);
-        if (membership.getOrgRole() == null || !membership.getOrgRole().isBuiltinManagerOrAbove()) {
-            throw new UnauthorizedActionException("Only Managers, Directors, or Admins can manage teams");
+        if (membership.getOrgRole() == null || membership.getOrgRole().getPermissions().stream().noneMatch(p -> p.getName().equals(permission))) {
+            throw new UnauthorizedActionException("This action requires the " + permission + " permission.");
         }
     }
 
@@ -74,7 +80,7 @@ public class TeamService {
                 .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + orgId));
 
         // Auth: caller must be a member of the org with MANAGER+ role
-        requireManagerOrAbove(createdBy, org);
+        requirePermission(createdBy, org, "TEAM_CREATE");
 
         Team team = new Team();
         team.setName(name);
@@ -94,7 +100,7 @@ public class TeamService {
         Organization org = team.getOrganization();
 
         // Auth: caller must be MANAGER+ in the same org
-        requireManagerOrAbove(caller, org);
+        requirePermission(caller, org, "TEAM_MANAGE");
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException("User not found: " + userId));
@@ -138,7 +144,7 @@ public class TeamService {
         Organization org = team.getOrganization();
 
         // Auth: caller must be MANAGER+ in the same org
-        requireManagerOrAbove(caller, org);
+        requirePermission(caller, org, "TEAM_MANAGE");
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException("User not found: " + userId));
@@ -177,7 +183,7 @@ public class TeamService {
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new IllegalArgumentException("Team not found: " + teamId));
         // Auth: caller must be MANAGER+ in the same org
-        requireManagerOrAbove(caller, team.getOrganization());
+        requirePermission(caller, team.getOrganization(), "TEAM_MANAGE");
 
         if (name != null && !name.isBlank()) team.setName(name);
         if (description != null) team.setDescription(description);
@@ -190,7 +196,7 @@ public class TeamService {
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new IllegalArgumentException("Team not found: " + teamId));
         // Auth: caller must be MANAGER+ in the same org
-        requireManagerOrAbove(caller, team.getOrganization());
+        requirePermission(caller, team.getOrganization(), "TEAM_MANAGE");
         
         long taskCount = taskRepository.countByTeamId(teamId);
         if (taskCount > 0) {
@@ -220,6 +226,61 @@ public class TeamService {
         return memberships.stream()
                 .map(tm -> mapToResponseDTO(tm.getTeam()))
                 .collect(Collectors.toList());
+    }
+
+    // ========================================================================
+    // TEAM OBSERVERS
+    // ========================================================================
+
+    @Transactional(readOnly = true)
+    public List<User> getTeamObservers(Long teamId, User caller) {
+        Team team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new IllegalArgumentException("Team not found: " + teamId));
+        requireOrgMembership(caller, team.getOrganization());
+        
+        return teamObserverRepository.findByTeam(team).stream()
+                .map(TeamObserver::getUser)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public void addObserver(Long teamId, Long userId, User caller) {
+        Team team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new IllegalArgumentException("Team not found: " + teamId));
+        requirePermission(caller, team.getOrganization(), "TEAM_MANAGE");
+        
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException("User not found: " + userId));
+        
+        if (!membershipRepository.existsByUserAndOrganization(user, team.getOrganization())) {
+            throw new IllegalArgumentException("User must be in the same organization.");
+        }
+        
+        if (teamMemberRepository.existsByIdTeamIdAndIdUserId(teamId, userId)) {
+            throw new IllegalArgumentException("User is already a full member of this team.");
+        }
+        
+        if (teamObserverRepository.existsByIdTeamIdAndIdUserId(teamId, userId)) {
+            throw new IllegalArgumentException("User is already an observer of this team.");
+        }
+        
+        TeamObserver observer = new TeamObserver(new TeamObserverId(teamId, userId), team, user, java.time.LocalDateTime.now());
+        teamObserverRepository.save(observer);
+    }
+
+    @Transactional
+    public void removeObserver(Long teamId, Long userId, User caller) {
+        Team team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new IllegalArgumentException("Team not found: " + teamId));
+        requirePermission(caller, team.getOrganization(), "TEAM_MANAGE");
+        
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException("User not found: " + userId));
+                
+        TeamObserver observer = teamObserverRepository.findByTeamAndUser(team, user)
+                .orElseThrow(() -> new IllegalArgumentException("User is not an observer of this team."));
+                
+        teamObserverRepository.delete(observer);
     }
 
     private TeamResponseDTO mapToResponseDTO(Team team) {

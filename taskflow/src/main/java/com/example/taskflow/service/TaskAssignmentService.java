@@ -10,6 +10,7 @@ import com.example.taskflow.domain.TaskStatus;
 import com.example.taskflow.domain.Team;
 import com.example.taskflow.domain.User;
 import com.example.taskflow.domain.Project;
+import com.example.taskflow.domain.OrganizationMembership;
 import com.example.taskflow.dto.TaskResponseDTO;
 import com.example.taskflow.repository.TaskRepository;
 import com.example.taskflow.repository.OrganizationRepository;
@@ -121,10 +122,20 @@ public class TaskAssignmentService {
                 
                 // Verify same org
                 Long creatorOrgId = creatorMembership.get(0).getOrganization().getId();
-                boolean sameOrg = assigneeMembership.stream()
-                        .anyMatch(m -> m.getOrganization().getId().equals(creatorOrgId));
-                if (!sameOrg) {
-                    throw new IllegalArgumentException("Assignee must be a member of your organization");
+                OrganizationMembership creatorOrgMem = creatorMembership.get(0);
+
+                OrganizationMembership assigneeOrgMem = assigneeMembership.stream()
+                        .filter(m -> m.getOrganization().getId().equals(creatorOrgId))
+                        .findFirst()
+                        .orElseThrow(() -> new IllegalArgumentException("Assignee must be a member of your organization"));
+
+                // Enforce Role Priority Assignment Guard (0 is top, lower priority value = higher power)
+                if (creatorOrgMem.getOrgRole() != null && assigneeOrgMem.getOrgRole() != null) {
+                    Integer creatorPriority = creatorOrgMem.getOrgRole().getPriority();
+                    Integer assigneePriority = assigneeOrgMem.getOrgRole().getPriority();
+                    if (creatorPriority >= assigneePriority) {
+                        throw new IllegalArgumentException("You do not have enough power (role priority) to assign tasks to this user.");
+                    }
                 }
             }
             

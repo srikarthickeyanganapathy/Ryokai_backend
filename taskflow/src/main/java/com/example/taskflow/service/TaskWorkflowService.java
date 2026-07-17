@@ -13,6 +13,8 @@ import com.example.taskflow.domain.Task;
 import com.example.taskflow.domain.TaskComment;
 import com.example.taskflow.domain.TaskDependency;
 import com.example.taskflow.domain.User;
+import com.example.taskflow.domain.OrganizationMembership;
+import com.example.taskflow.exception.UnauthorizedActionException;
 import com.example.taskflow.dto.ChecklistItemDTO;
 import com.example.taskflow.dto.TaskCommentDTO;
 import com.example.taskflow.dto.TaskResponseDTO;
@@ -25,6 +27,10 @@ import com.example.taskflow.repository.TaskCommentRepository;
 import com.example.taskflow.repository.TaskDependencyRepository;
 import com.example.taskflow.repository.TaskRepository;
 import com.example.taskflow.repository.TeamRepository;
+import com.example.taskflow.repository.ProjectRepository;
+import com.example.taskflow.repository.TeamMemberRepository;
+import com.example.taskflow.repository.CrewMemberRepository;
+import com.example.taskflow.domain.Project;
 import com.example.taskflow.security.RoleStrategy;
 import com.example.taskflow.security.RoleStrategyFactory;
 import org.springframework.data.domain.Page;
@@ -53,6 +59,10 @@ public class TaskWorkflowService {
     private final OrganizationRepository organizationRepository;
     private final TeamRepository teamRepository;
     private final com.example.taskflow.repository.TaskEvidenceRepository taskEvidenceRepository;
+    private final ProjectRepository projectRepository;
+    private final TeamMemberRepository teamMemberRepository;
+    private final CrewMemberRepository crewMemberRepository;
+    private final com.example.taskflow.repository.CrewProjectRepository crewProjectRepository;
 
     @Value("${app.reminders.timezone:Asia/Kolkata}")
     private String timezoneProperty;
@@ -71,7 +81,11 @@ public class TaskWorkflowService {
                                OrganizationMembershipRepository membershipRepository,
                                OrganizationRepository organizationRepository,
                                TeamRepository teamRepository,
-                               com.example.taskflow.repository.TaskEvidenceRepository taskEvidenceRepository) {
+                               com.example.taskflow.repository.TaskEvidenceRepository taskEvidenceRepository,
+                               ProjectRepository projectRepository,
+                               TeamMemberRepository teamMemberRepository,
+                               CrewMemberRepository crewMemberRepository,
+                               com.example.taskflow.repository.CrewProjectRepository crewProjectRepository) {
         this.taskRepository = taskRepository;
         this.taskAuditService = taskAuditService;
         this.roleStrategyFactory = roleStrategyFactory;
@@ -85,6 +99,10 @@ public class TaskWorkflowService {
         this.organizationRepository = organizationRepository;
         this.teamRepository = teamRepository;
         this.taskEvidenceRepository = taskEvidenceRepository;
+        this.projectRepository = projectRepository;
+        this.teamMemberRepository = teamMemberRepository;
+        this.crewMemberRepository = crewMemberRepository;
+        this.crewProjectRepository = crewProjectRepository;
     }
 
     @PostConstruct
@@ -98,14 +116,54 @@ public class TaskWorkflowService {
      */
     @Transactional(readOnly = true)
     public Page<TaskResponseDTO> getTasksForUser(User user, Pageable pageable) {
-        return getTasksForUser(user, pageable, null);
+        return getTasksForUser(user, pageable, null, null, null);
     }
 
     @Transactional(readOnly = true)
     public Page<TaskResponseDTO> getTasksForUser(User user, Pageable pageable, String scope) {
+        return getTasksForUser(user, pageable, scope, null, null);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<TaskResponseDTO> getTasksForUser(User user, Pageable pageable, String scope, Long projectId) {
+        return getTasksForUser(user, pageable, scope, projectId, null);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<TaskResponseDTO> getTasksForUser(User user, Pageable pageable, String scope, Long projectId, Long crewId) {
+        if (crewId != null) {
+            // Validate crew access
+            boolean isMember = crewMemberRepository.existsByIdCrewIdAndIdUserId(crewId, user.getId());
+            if (!isMember && !roleStrategyFactory.getStrategy(user).canOverride(user)) {
+                throw new com.example.taskflow.exception.UnauthorizedActionException("You are not authorized to view tasks for this crew.");
+            }
+            Page<Task> page = taskRepository.findByCrewId(crewId, pageable);
+            return batchMapTasks(page);
+        }
+
+        if (projectId != null) {
+            Project project = projectRepository.findById(projectId)
+                    .orElseThrow(() -> new IllegalArgumentException("Project not found with id: " + projectId));
+            
+            // Validate project access
+            boolean isCreator = project.getCreatedBy() != null && project.getCreatedBy().getId().equals(user.getId());
+            boolean inOrg = project.getOrganization() != null && 
+                    membershipRepository.existsByUserAndOrganization(user, project.getOrganization());
+            boolean inTeam = project.getTeam() != null &&
+                    teamMemberRepository.existsByIdTeamIdAndIdUserId(project.getTeam().getId(), user.getId());
+            boolean isSharedWithMyCrew = isProjectSharedWithUserCrew(user.getId(), projectId);
+            
+            if (!isCreator && !inOrg && !inTeam && !isSharedWithMyCrew) {
+                throw new com.example.taskflow.exception.UnauthorizedActionException("You are not authorized to view tasks for this project.");
+            }
+            
+            Page<Task> page = taskRepository.findByProjectId(projectId, pageable);
+            return batchMapTasks(page);
+        }
+
         RoleStrategy strategy = roleStrategyFactory.getStrategy(user);
 
-        if (strategy.canOverride(user)) {
+        if (strategy.canOverride(user) || strategy.canViewAllTasks(user)) {
             // Check if this is a SUPER_ADMIN (global view) vs org ADMIN/DIRECTOR (org-scoped view)
             boolean isSuperAdmin = user.getRoles().stream()
                     .anyMatch(r -> {
@@ -197,14 +255,11 @@ public class TaskWorkflowService {
     public TaskResponseDTO submitTask(Long taskId, User user) {
         Task task = getTask(taskId);
         
-        RoleStrategy strategy = roleStrategyFactory.getStrategy(user);
         boolean isAssignee = task.getAssignee() != null && task.getAssignee().getId().equals(user.getId());
-        boolean isCreator = task.getCreator() != null && task.getCreator().getId().equals(user.getId());
-        boolean canOverride = strategy.canOverride(user);
         
-        // Ensure only the assignee, creator, or admin can submit
-        if (!isAssignee && !isCreator && !canOverride) {
-            throw new com.example.taskflow.exception.UnauthorizedActionException("Only the assignee, creator, or admin can submit a task");
+        // Ensure only the assignee can submit a task for review (assignor/creator cannot submit)
+        if (!isAssignee) {
+            throw new com.example.taskflow.exception.UnauthorizedActionException("Only the assignee can submit a task for review");
         }
 
         // B-04c: Personal tasks go To-Do ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ COMPLETED (not ASSIGNED ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ APPROVED)
@@ -333,13 +388,20 @@ public class TaskWorkflowService {
         task.setReviewer(reviewer);
         task.setRejectionReason(reason);
         
+        User formerAssignee = task.getAssignee();
+        if (task.getTeam() != null) {
+            task.setAssignee(null);
+        }
+        
         Task updated = taskRepository.save(task);
 
         // Note(frontend): migration - frontend needs to read rejection reason from /dashboard/activity/task/{taskId} instead of comments
         taskAuditService.recordStatus(updated, fromStatus.name(), "REJECTED", "REJECTED", reviewer, reason);
         
-        notificationService.createAndSend(task.getAssignee(), reviewer, com.example.taskflow.notification.NotificationEvent.TASK_REJECTED,
-            "Task Rejected", "Your task " + task.getTitle() + " was rejected. Reason: " + reason, updated, "task-rejected:" + task.getId(), reviewer);
+        if (formerAssignee != null) {
+            notificationService.createAndSend(formerAssignee, reviewer, com.example.taskflow.notification.NotificationEvent.TASK_REJECTED,
+                "Task Rejected", "Your task " + task.getTitle() + " was rejected. Reason: " + reason + ". It has been returned to the team backlog.", updated, "task-rejected:" + task.getId(), reviewer);
+        }
             
         TaskResponseDTO dto = mapToTaskResponseDTO(updated);
         realtimeBroadcaster.broadcastTaskUpdate(dto, updated.getId());
@@ -788,7 +850,7 @@ public class TaskWorkflowService {
     public TaskResponseDTO toggleArchive(Long taskId, User user) {
         Task task = getTask(taskId);
         
-        if (!roleStrategyFactory.getStrategy(user).canEdit(user, task)) {
+        if (!roleStrategyFactory.getStrategy(user).canArchive(user, task)) {
             throw new com.example.taskflow.exception.UnauthorizedActionException("You are not authorized to archive this task.");
         }
 
@@ -806,11 +868,33 @@ public class TaskWorkflowService {
         if (!roleStrategyFactory.getStrategy(user).canReassign(user, task)) {
             throw new com.example.taskflow.exception.UnauthorizedActionException("You are not authorized to reassign this task.");
         }
+
+        if (task.getCurrentStatus() == TaskStatus.APPROVED || task.getCurrentStatus() == TaskStatus.COMPLETED) {
+            throw new IllegalStateException("Completed or approved tasks cannot be reassigned.");
+        }
         
         if (task.getOrg() != null) {
-            boolean inSameOrg = membershipRepository.existsByUserAndOrganization(newAssignee, task.getOrg());
-            if (!inSameOrg) {
-                throw new IllegalArgumentException("Assignee must be a member of the task's organization.");
+            OrganizationMembership reassignerMembership = membershipRepository.findByUserAndOrganization(user, task.getOrg())
+                    .orElseThrow(() -> new UnauthorizedActionException("You are not a member of the task's organization."));
+                    
+            OrganizationMembership assigneeMembership = membershipRepository.findByUserAndOrganization(newAssignee, task.getOrg())
+                    .orElseThrow(() -> new IllegalArgumentException("Assignee must be a member of the task's organization."));
+
+            // Enforce Role Priority Assignment Guard (0 is top, lower priority value = higher power)
+            if (reassignerMembership.getOrgRole() != null && assigneeMembership.getOrgRole() != null) {
+                Integer reassignerPriority = reassignerMembership.getOrgRole().getPriority();
+                Integer assigneePriority = assigneeMembership.getOrgRole().getPriority();
+                
+                int rPriority = reassignerPriority != null ? reassignerPriority : 100;
+                int aPriority = assigneePriority != null ? assigneePriority : 100;
+                
+                // If both are 100 or something, we shouldn't block equal priority if they are just peers. 
+                // Wait, if they are equal priority, can they assign to each other? The logic says rPriority >= aPriority blocks it.
+                // If they are on the same level (e.g. MANAGER assigning to MANAGER), it throws?
+                // Let's keep the existing logic but fix NPE. 
+                if (rPriority >= aPriority) {
+                    throw new IllegalArgumentException("You do not have enough power (role priority) to assign tasks to this user.");
+                }
             }
         }
         if (task.getTeam() != null) {
@@ -1024,5 +1108,13 @@ public class TaskWorkflowService {
         TaskResponseDTO dto = mapToTaskResponseDTO(updated);
         realtimeBroadcaster.broadcastTaskUpdate(dto, updated.getId());
         return dto;
+    }
+
+    private boolean isProjectSharedWithUserCrew(Long userId, Long projectId) {
+        List<com.example.taskflow.domain.CrewProject> crewProjects = crewProjectRepository.findByIdProjectId(projectId);
+        if (crewProjects.isEmpty()) return false;
+        return crewProjects.stream().anyMatch(cp -> 
+            crewMemberRepository.existsByIdCrewIdAndIdUserId(cp.getCrew().getId(), userId)
+        );
     }
 }

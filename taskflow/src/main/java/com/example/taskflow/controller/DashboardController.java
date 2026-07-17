@@ -41,9 +41,12 @@ public class DashboardController {
     }
 
     @GetMapping("/stats")
-    public ResponseEntity<DashboardStatsDTO> getStats(@AuthenticationPrincipal UserDetails userDetails) {
+    public ResponseEntity<DashboardStatsDTO> getStats(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam(required = false, defaultValue = "PERSONAL") String scope,
+            @RequestParam(required = false) Long orgId) {
         User user = userService.getCurrentUser(userDetails.getUsername());
-        return ResponseEntity.ok(dashboardService.getStats(user));
+        return ResponseEntity.ok(dashboardService.getStats(user, scope, orgId));
     }
 
     @GetMapping("/activity")

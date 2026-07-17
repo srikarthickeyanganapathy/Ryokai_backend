@@ -14,13 +14,16 @@ public class EmployeeStrategy implements RoleStrategy {
     private final OrganizationMembershipRepository membershipRepository;
     private final TeamRepository teamRepository;
     private final com.example.taskflow.repository.CrewMemberRepository crewMemberRepository;
+    private final com.example.taskflow.repository.CrewProjectRepository crewProjectRepository;
 
     public EmployeeStrategy(OrganizationMembershipRepository membershipRepository,
                             TeamRepository teamRepository,
-                            com.example.taskflow.repository.CrewMemberRepository crewMemberRepository) {
+                            com.example.taskflow.repository.CrewMemberRepository crewMemberRepository,
+                            com.example.taskflow.repository.CrewProjectRepository crewProjectRepository) {
         this.membershipRepository = membershipRepository;
         this.teamRepository = teamRepository;
         this.crewMemberRepository = crewMemberRepository;
+        this.crewProjectRepository = crewProjectRepository;
     }
 
     // ====================================================================
@@ -33,15 +36,7 @@ public class EmployeeStrategy implements RoleStrategy {
         return m != null ? m.getOrgRole() : null;
     }
 
-    private boolean isOrgAdminOrAbove(User user, Task task) {
-        Role role = getOrgRoleInTask(user, task);
-        return role != null && role.isBuiltinDirectorOrAbove();
-    }
 
-    private boolean isOrgManagerOrAbove(User user, Task task) {
-        Role role = getOrgRoleInTask(user, task);
-        return role != null && role.isBuiltinManagerOrAbove();
-    }
 
     private boolean isInSameTeam(User user, Task task) {
         if (task.getTeam() == null) return false;
@@ -55,10 +50,9 @@ public class EmployeeStrategy implements RoleStrategy {
 
     @Override
     public boolean canAssign(User user) {
-        // Only org members with MANAGER/DIRECTOR/ADMIN can assign
         return membershipRepository.findByUserId(user.getId()).stream()
                 .filter(m -> m.getOrgRole() != null)
-                .anyMatch(m -> m.getOrgRole().isBuiltinManagerOrAbove());
+                .anyMatch(m -> hasPermission(m.getOrgRole(), "TASK_ASSIGN"));
     }
 
     @Override
@@ -73,39 +67,59 @@ public class EmployeeStrategy implements RoleStrategy {
         // Assignee cannot review their own work
         if (task.getAssignee() != null && task.getAssignee().getId().equals(user.getId())) return false;
 
-        // Spec: the assignor (creator) CAN review — only the assignee
-        // is blocked from self-review.
-
         // Must be in the SAME org as the task
         if (task.getOrg() == null) return false;
         OrganizationMembership m = membershipRepository
                 .findByUserAndOrganization(user, task.getOrg()).orElse(null);
         if (m == null || m.getOrgRole() == null) return false;
 
-        // Managers and above can review tasks inherently (aligning with frontend canReview flag)
-        if (m.getOrgRole().isBuiltinManagerOrAbove()) {
-            return true;
+        // Verify reviewer has STRICTLY more power than assignee (revisor priority < assignee priority)
+        if (task.getAssignee() != null) {
+            OrganizationMembership assigneeMembership = membershipRepository
+                    .findByUserAndOrganization(task.getAssignee(), task.getOrg()).orElse(null);
+            if (assigneeMembership != null && assigneeMembership.getOrgRole() != null) {
+                Integer reviewerPriority = m.getOrgRole().getPriority();
+                Integer assigneePriority = assigneeMembership.getOrgRole().getPriority();
+                if (reviewerPriority >= assigneePriority) {
+                    return false; // Reviewer does not have more power
+                }
+            }
         }
 
-        // Permission-based fallback: check if the user's org role has TASK_REVIEW permission
-        return m.getOrgRole().getPermissions().stream()
-                .anyMatch(p -> "TASK_REVIEW".equals(p.getName()));
+        // Permission-based evaluation: check if the user's org role has TASK_REVIEW permission
+        return hasPermission(m.getOrgRole(), "TASK_REVIEW");
     }
 
     @Override
     public boolean canOverride(User user) {
+        // No hardcoded priority. SUPER_ADMIN is evaluated upstream, so this is just for internal task overrides.
+        // For backwards compatibility on task overrides, we check if they have ROLE_MANAGE as a proxy for high-level power.
         return membershipRepository.findByUserId(user.getId()).stream()
                 .filter(m -> m.getOrgRole() != null)
-                .anyMatch(m -> m.getOrgRole().isBuiltinDirectorOrAbove());
+                .anyMatch(m -> hasPermission(m.getOrgRole(), "ROLE_MANAGE"));
+    }
+
+    private boolean hasPermission(Role role, String permName) {
+        if (role == null || role.getPermissions() == null) return false;
+        return role.getPermissions().stream().anyMatch(p -> permName.equals(p.getName()));
+    }
+
+    @Override
+    public boolean canViewAllTasks(User user) {
+        return membershipRepository.findByUserId(user.getId()).stream()
+                .filter(m -> m.getOrgRole() != null)
+                .anyMatch(m -> hasPermission(m.getOrgRole(), "TASK_VIEW"));
     }
 
     @Override
     public boolean canViewTask(User user, Task task) {
         if (task == null || user == null) return false;
 
-        // Personal tasks: only creator can see
+        // Personal tasks: only creator can see, unless shared with user's crew
         if (task.isPersonal() && task.getOrg() == null && task.getCrew() == null) {
-            return task.getCreator() != null && task.getCreator().getId().equals(user.getId());
+            boolean isCreator = task.getCreator() != null && task.getCreator().getId().equals(user.getId());
+            if (isCreator) return true;
+            return isTaskProjectSharedWithUserCrew(user, task);
         }
 
         // Crew tasks: all crew members can view
@@ -120,8 +134,9 @@ public class EmployeeStrategy implements RoleStrategy {
                 return false;
             }
 
-            // Admin/Director: can see ALL tasks in the org (transparency/oversight)
-            if (isOrgAdminOrAbove(user, task)) return true;
+            // Permission check: can see ALL tasks in the org if they have TASK_VIEW explicitly
+            Role orgRole = getOrgRoleInTask(user, task);
+            if (hasPermission(orgRole, "TASK_VIEW")) return true;
 
             // Creator or assignee can always see their own tasks
             boolean isCreator = task.getCreator() != null && task.getCreator().getId().equals(user.getId());
@@ -137,8 +152,11 @@ public class EmployeeStrategy implements RoleStrategy {
             return true;
         }
 
-        // Fallback: only the assignee
-        return task.getAssignee() != null && task.getAssignee().getId().equals(user.getId());
+        // Fallback: only the assignee or if project is shared with crew
+        boolean isAssignee = task.getAssignee() != null && task.getAssignee().getId().equals(user.getId());
+        if (isAssignee) return true;
+
+        return isTaskProjectSharedWithUserCrew(user, task);
     }
 
     @Override
@@ -154,17 +172,32 @@ public class EmployeeStrategy implements RoleStrategy {
             return crewMemberRepository.existsByIdCrewIdAndIdUserId(task.getCrew().getId(), user.getId());
         }
 
+        // Shared project tasks: all crew members can edit
+        if (isTaskProjectSharedWithUserCrew(user, task)) {
+            return true;
+        }
+
         // Assignee can edit their own task
         if (task.getAssignee() != null && task.getAssignee().getId().equals(user.getId())) return true;
 
-        // Org admin/director/manager can edit tasks in their org
-        if (task.getOrg() != null && isOrgManagerOrAbove(user, task)) {
-            Role role = getOrgRoleInTask(user, task);
-            if (role != null && role.isBuiltinDirectorOrAbove()) return true;
-            if (role != null && role.isBuiltinManagerOrAbove()) return isInSameTeam(user, task);
+        // Explicit permission check
+        Role orgRole = getOrgRoleInTask(user, task);
+        if (orgRole != null && hasPermission(orgRole, "TASK_EDIT")) {
+            // Must be in same team unless they have high-level overrides
+            if (hasPermission(orgRole, "ROLE_MANAGE") || hasPermission(orgRole, "PROJECT_MANAGE")) return true;
+            return isInSameTeam(user, task);
         }
 
         return false;
+    }
+
+    private boolean isTaskProjectSharedWithUserCrew(User user, Task task) {
+        if (task == null || task.getProject() == null) return false;
+        java.util.List<com.example.taskflow.domain.CrewProject> crewProjects = crewProjectRepository.findByIdProjectId(task.getProject().getId());
+        if (crewProjects.isEmpty()) return false;
+        return crewProjects.stream().anyMatch(cp -> 
+            crewMemberRepository.existsByIdCrewIdAndIdUserId(cp.getCrew().getId(), user.getId())
+        );
     }
 
     @Override
@@ -177,8 +210,11 @@ public class EmployeeStrategy implements RoleStrategy {
         // Crew tasks: only creator can delete (already handled above, so if it's a crew task and not creator, deny)
         if (task.getCrew() != null) return false;
 
-        // Org admin/director can delete any task in their org
-        if (task.getOrg() != null && isOrgAdminOrAbove(user, task)) return true;
+        // Explicit permission check
+        if (task.getOrg() != null) {
+            Role orgRole = getOrgRoleInTask(user, task);
+            if (hasPermission(orgRole, "TASK_DELETE")) return true;
+        }
 
         return false;
     }
@@ -193,8 +229,16 @@ public class EmployeeStrategy implements RoleStrategy {
         // Crew tasks: flat structure, only creator can explicitly reassign
         if (task.getCrew() != null) return false;
 
-        // Org admin/director can reassign any task in their org
-        if (task.getOrg() != null && isOrgAdminOrAbove(user, task)) return true;
+        // Shared project tasks: all crew members can reassign
+        if (isTaskProjectSharedWithUserCrew(user, task)) {
+            return true;
+        }
+
+        // Explicit permission check
+        if (task.getOrg() != null) {
+            Role orgRole = getOrgRoleInTask(user, task);
+            if (hasPermission(orgRole, "TASK_REASSIGN")) return true;
+        }
 
         return false;
     }
@@ -214,8 +258,11 @@ public class EmployeeStrategy implements RoleStrategy {
         // Crew tasks: only creator can archive (already handled above, so deny)
         if (task.getCrew() != null) return false;
 
-        // Org admin/director/manager can archive any task in their org
-        if (task.getOrg() != null && isOrgManagerOrAbove(user, task)) return true;
+        // Explicit permission check
+        if (task.getOrg() != null) {
+            Role orgRole = getOrgRoleInTask(user, task);
+            if (hasPermission(orgRole, "TASK_ARCHIVE")) return true;
+        }
 
         // Assignee can archive (they can also edit, but they cannot delete)
         if (task.getAssignee() != null && task.getAssignee().getId().equals(user.getId())) return true;
@@ -239,8 +286,11 @@ public class EmployeeStrategy implements RoleStrategy {
         // dependencies are still creator-locked)
         if (task.getCrew() != null) return false;
 
-        // Org admin/director can edit dependencies in their org (governance override)
-        if (task.getOrg() != null && isOrgAdminOrAbove(user, task)) return true;
+        // Explicit permission check
+        if (task.getOrg() != null) {
+            Role orgRole = getOrgRoleInTask(user, task);
+            if (hasPermission(orgRole, "TASK_DEPENDENCY_EDIT")) return true;
+        }
 
         return false;
     }

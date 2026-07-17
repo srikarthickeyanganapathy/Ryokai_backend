@@ -39,7 +39,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws")
-                .setAllowedOrigins("http://localhost:5173", "https://tasksflowstf.netlify.app", "http://localhost:8080")
+                .setAllowedOrigins("http://localhost:5173", "https://tasksflowstf.netlify.app", "http://localhost:8080", "https://cp38tvq6-5173.inc1.devtunnels.ms/**")
                 .addInterceptors(webSocketHandshakeInterceptor);
     }
 

@@ -34,7 +34,7 @@ public class RoleService {
     private final AuditService auditService;
 
     // Define core roles that cannot be renamed
-    private static final Set<String> CORE_ROLES = Set.of("SUPER_ADMIN", "DIRECTOR", "MANAGER", "ADMIN", "EMPLOYEE");
+    private static final Set<String> CORE_ROLES = Set.of("SUPER_ADMIN", "ADMIN");
 
     public RoleService(RoleRepository roleRepository, 
                        PermissionRepository permissionRepository,
@@ -60,7 +60,8 @@ public class RoleService {
             : new HashSet<>();
         return new RoleResponseDTO(r.getId(), r.getName(), r.getDescription(), perms,
                 r.getOrganization() != null ? r.getOrganization().getId() : null,
-                r.getOrganization() != null ? r.getOrganization().getName() : null);
+                r.getOrganization() != null ? r.getOrganization().getName() : null,
+                r.getPriority());
     }
 
     public List<RoleResponseDTO> getAllRoles() {
@@ -100,6 +101,9 @@ public class RoleService {
         Role role = new Role();
         role.setName(request.name());
         role.setDescription(request.description());
+        if (request.priority() != null) {
+            role.setPriority(request.priority());
+        }
         
         if (request.organizationId() != null) {
             Organization org = organizationRepository.findById(request.organizationId())

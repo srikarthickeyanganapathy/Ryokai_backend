@@ -80,6 +80,10 @@ public class OrganizationInviteService {
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new IllegalArgumentException("Role not found"));
 
+        if (role.isBuiltinAdmin()) {
+            throw new IllegalArgumentException("Only one Admin is allowed in the organization. You cannot invite another Admin.");
+        }
+
         // RB-M02 fix: verify the role belongs to the inviting organization.
         // Previously an org admin could attach a role from ANOTHER org (or a
         // global builtin) to an invite, leaking foreign permission grants.
@@ -124,6 +128,10 @@ public class OrganizationInviteService {
 
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new IllegalArgumentException("Role not found"));
+
+        if (role.isBuiltinAdmin()) {
+            throw new IllegalArgumentException("Only one Admin is allowed in the organization. You cannot invite another Admin.");
+        }
 
         // RB-M02 fix: same cross-org role check as createInAppInvite above.
         if (role.getOrganization() == null

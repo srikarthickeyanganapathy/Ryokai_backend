@@ -12,4 +12,8 @@ public class ConvertToTaskRequestDTO {
     private String title;
 
     private String description;
+    
+    private com.example.taskflow.domain.TaskPriority priority;
+    
+    private java.time.LocalDate dueDate;
 }

@@ -95,7 +95,7 @@ public class CrewService {
         member.setCrew(savedCrew);
         member.setUser(user);
         member.setRole(CrewRole.CREATOR);
-        crewMemberRepository.save(member);
+        crewMemberRepository.saveAndFlush(member);
 
         // Auto-create #general channel
         CrewChannel general = new CrewChannel();
@@ -193,19 +193,19 @@ public class CrewService {
         CrewInvite invite = inviteRepository.findById(inviteId)
                 .orElseThrow(() -> new ResourceNotFoundException("Invite not found"));
 
-        if (invite.getUsedAt() != null) {
-            throw new IllegalStateException("Invite already used.");
-        }
-        if (invite.getExpiresAt().isBefore(LocalDateTime.now())) {
-            throw new CrewInviteExpiredException("Invite expired.");
-        }
-
-        // Email-targeted invites: require matching email when the invite has one
+        // Email-targeted invites: single-use enforcement
         if (invite.getEmail() != null && !invite.getEmail().isBlank()) {
+            if (invite.getUsedAt() != null) {
+                throw new IllegalStateException("Invite already used.");
+            }
             if (user.getEmail() == null || !invite.getEmail().equalsIgnoreCase(user.getEmail())) {
                 throw new com.example.taskflow.exception.UnauthorizedActionException(
                         "This invite is for " + invite.getEmail() + ". Sign in with that email to accept.");
             }
+        }
+
+        if (invite.getExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new CrewInviteExpiredException("Invite expired.");
         }
 
         Crew crew = invite.getCrew();
@@ -228,8 +228,11 @@ public class CrewService {
                 "New Crew Member", user.getUsername() + " joined " + crew.getName(), null, "crew:" + crew.getId(), user);
         }
 
-        invite.setUsedAt(LocalDateTime.now());
-        inviteRepository.save(invite);
+        // Email-targeted invites: mark as used
+        if (invite.getEmail() != null && !invite.getEmail().isBlank()) {
+            invite.setUsedAt(LocalDateTime.now());
+            inviteRepository.save(invite);
+        }
 
         return mapToResponseDTO(crew, user);
     }
@@ -283,8 +286,8 @@ public class CrewService {
             throw new com.example.taskflow.exception.UnauthorizedActionException("Only the project owner can share it.");
         }
 
-        if (project.getOrganization() != null) {
-            throw new IllegalStateException("Cannot share organization projects with a Crew. Only personal projects can be shared.");
+        if (project.getOrganization() != null || project.getTeam() != null) {
+            throw new IllegalStateException("Cannot share organization or team projects with a Crew. Only personal projects can be shared.");
         }
 
         CrewProjectId cpId = new CrewProjectId(crewId, projectId);
@@ -293,6 +296,8 @@ public class CrewService {
             cp.setId(cpId);
             cp.setCrew(getCrewEntity(crewId));
             cp.setProject(project);
+            cp.setAddedBy(actor); // Fix: Set addedBy to resolve database constraint violation
+            cp.setAddedAt(LocalDateTime.now()); // Set addedAt explicitly
             crewProjectRepository.save(cp);
         }
     }

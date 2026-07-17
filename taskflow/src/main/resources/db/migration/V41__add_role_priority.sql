@@ -1,0 +1,2 @@
+ALTER TABLE roles ADD COLUMN priority INTEGER DEFAULT 100;
+UPDATE roles SET priority = 0 WHERE name = 'ADMIN';

@@ -64,11 +64,22 @@ public class PermissionService {
             //    This is where ADMIN/DIRECTOR/MANAGER/EMPLOYEE/custom role
             //    permissions actually live.
             for (OrganizationMembership m : membershipRepository.findByUserId(user.getId())) {
-                if (m.getOrgRole() != null && m.getOrgRole().getPermissions() != null) {
-                    m.getOrgRole().getPermissions().stream()
-                        .filter(p -> p != null && p.getName() != null)
-                        .map(Permission::getName)
-                        .forEach(perms::add);
+                if (m.getOrgRole() != null) {
+                    if ("ADMIN".equals(m.getOrgRole().getName())) {
+                        perms.add("TASK_VIEW"); perms.add("TASK_ASSIGN");
+                        perms.add("TASK_EDIT"); perms.add("TASK_DELETE"); perms.add("TASK_REVIEW");
+                        perms.add("TASK_DEPENDENCY_EDIT");
+                        perms.add("TASK_REASSIGN"); perms.add("TASK_ARCHIVE");
+                        perms.add("ROLE_MANAGE");
+                        perms.add("ORG_MEMBER_INVITE"); perms.add("ORG_MEMBER_REMOVE"); perms.add("LEAVE_REQUEST_MANAGE");
+                        perms.add("TEAM_CREATE"); perms.add("TEAM_MANAGE"); perms.add("PROJECT_CREATE");
+                        perms.add("PROJECT_MANAGE");
+                    } else if (m.getOrgRole().getPermissions() != null) {
+                        m.getOrgRole().getPermissions().stream()
+                            .filter(p -> p != null && p.getName() != null)
+                            .map(Permission::getName)
+                            .forEach(perms::add);
+                    }
                 }
             }
 

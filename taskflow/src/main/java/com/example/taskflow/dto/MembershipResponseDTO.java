@@ -14,5 +14,6 @@ public class MembershipResponseDTO {
     private Long userId;
     private String username;
     private String orgRole;
+    private java.util.List<String> permissions;
     private LocalDateTime joinedAt;
 }

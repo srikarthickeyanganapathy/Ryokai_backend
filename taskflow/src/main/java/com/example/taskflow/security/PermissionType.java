@@ -2,18 +2,21 @@ package com.example.taskflow.security;
 
 public enum PermissionType {
     TASK_VIEW("View tasks"),
-    TASK_CREATE("Create new tasks"),
     TASK_ASSIGN("Assign tasks to users"),
     TASK_EDIT("Edit task details"),
     TASK_DELETE("Delete tasks"),
     TASK_REVIEW("Review submitted tasks"),
-    TASK_COMMENT("Add comments to tasks"),
-    TASK_CHECKLIST_EDIT("Edit task checklists"),
     TASK_DEPENDENCY_EDIT("Edit task dependencies"),
     TASK_REASSIGN("Reassign tasks to different users"),
     TASK_ARCHIVE("Archive tasks"),
-    USER_MANAGE("Manage user accounts"),
-    ROLE_MANAGE("Manage roles and permissions");
+    ROLE_MANAGE("Manage roles and permissions"),
+    ORG_MEMBER_INVITE("Invite users to the organization"),
+    ORG_MEMBER_REMOVE("Remove users from the organization"),
+    LEAVE_REQUEST_MANAGE("Manage leave requests"),
+    TEAM_CREATE("Create new teams"),
+    TEAM_MANAGE("Manage team settings and rosters"),
+    PROJECT_CREATE("Create new projects"),
+    PROJECT_MANAGE("Manage global project metadata");
 
     private final String description;
 

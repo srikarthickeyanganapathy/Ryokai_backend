@@ -10,12 +10,21 @@ import com.example.taskflow.domain.Organization;
 import com.example.taskflow.domain.Project;
 import com.example.taskflow.domain.Team;
 import com.example.taskflow.domain.User;
+import com.example.taskflow.domain.Task;
+import com.example.taskflow.domain.TaskPriority;
+import com.example.taskflow.domain.TaskStatus;
 import com.example.taskflow.dto.ProjectRequestDTO;
 import com.example.taskflow.dto.ProjectResponseDTO;
 import com.example.taskflow.repository.OrganizationRepository;
 import com.example.taskflow.repository.ProjectRepository;
 import com.example.taskflow.repository.TaskRepository;
+import com.example.taskflow.domain.CrewMember;
+import com.example.taskflow.domain.CrewProject;
+import com.example.taskflow.repository.CrewMemberRepository;
+import com.example.taskflow.repository.CrewProjectRepository;
 import com.example.taskflow.repository.TeamRepository;
+import com.example.taskflow.repository.TeamMemberRepository;
+import com.example.taskflow.repository.OrganizationMembershipRepository;
 
 @Service
 public class ProjectService {
@@ -24,18 +33,37 @@ public class ProjectService {
     private final TaskRepository taskRepository;
     private final OrganizationRepository organizationRepository;
     private final TeamRepository teamRepository;
-    private final com.example.taskflow.repository.OrganizationMembershipRepository membershipRepository;
+    private final OrganizationMembershipRepository membershipRepository;
+    private final TeamMemberRepository teamMemberRepository;
+    private final CrewMemberRepository crewMemberRepository;
+    private final CrewProjectRepository crewProjectRepository;
+    private final PermissionService permissionService;
 
     public ProjectService(ProjectRepository projectRepository,
                           TaskRepository taskRepository,
                           OrganizationRepository organizationRepository,
                           TeamRepository teamRepository,
-                          com.example.taskflow.repository.OrganizationMembershipRepository membershipRepository) {
+                          OrganizationMembershipRepository membershipRepository,
+                          TeamMemberRepository teamMemberRepository,
+                          CrewMemberRepository crewMemberRepository,
+                          CrewProjectRepository crewProjectRepository,
+                          PermissionService permissionService) {
         this.projectRepository = projectRepository;
         this.taskRepository = taskRepository;
         this.organizationRepository = organizationRepository;
         this.teamRepository = teamRepository;
         this.membershipRepository = membershipRepository;
+        this.teamMemberRepository = teamMemberRepository;
+        this.crewMemberRepository = crewMemberRepository;
+        this.crewProjectRepository = crewProjectRepository;
+        this.permissionService = permissionService;
+    }
+
+    private boolean hasOrgPermission(User user, Organization org, String permission) {
+        if (user.getRoles() != null && user.getRoles().stream().anyMatch(r -> r.getName().equals("ROLE_SUPER_ADMIN") || r.getName().equals("SUPER_ADMIN"))) return true;
+        return membershipRepository.findByUserAndOrganization(user, org)
+                .map(m -> m.getOrgRole() != null && m.getOrgRole().getPermissions().stream().anyMatch(p -> p.getName().equals(permission)))
+                .orElse(false);
     }
 
     @Transactional(readOnly = true)
@@ -68,15 +96,22 @@ public class ProjectService {
         project.setCreatedBy(currentUser);
         project.setStatus(Project.ProjectStatus.ACTIVE);
 
-        if (dto.getOrganizationId() != null) {
-            Organization org = organizationRepository.findById(dto.getOrganizationId())
-                    .orElseThrow(() -> new RuntimeException("Organization not found"));
-            project.setOrganization(org);
-        }
         if (dto.getTeamId() != null) {
             Team team = teamRepository.findById(dto.getTeamId())
                     .orElseThrow(() -> new RuntimeException("Team not found"));
+            if (!hasOrgPermission(currentUser, team.getOrganization(), "PROJECT_CREATE")) {
+                throw new org.springframework.security.access.AccessDeniedException("You do not have permission to create organizational projects.");
+            }
             project.setTeam(team);
+            // Automatically set organization to team's organization
+            project.setOrganization(team.getOrganization());
+        } else if (dto.getOrganizationId() != null) {
+            Organization org = organizationRepository.findById(dto.getOrganizationId())
+                    .orElseThrow(() -> new RuntimeException("Organization not found"));
+            if (!hasOrgPermission(currentUser, org, "PROJECT_CREATE")) {
+                throw new org.springframework.security.access.AccessDeniedException("You do not have permission to create organizational projects.");
+            }
+            project.setOrganization(org);
         }
 
         project = projectRepository.save(project);
@@ -91,15 +126,16 @@ public class ProjectService {
         if (dto.getName() != null) project.setName(dto.getName());
         if (dto.getDescription() != null) project.setDescription(dto.getDescription());
         if (dto.getDueDate() != null) project.setDueDate(dto.getDueDate());
-        if (dto.getOrganizationId() != null) {
-            Organization org = organizationRepository.findById(dto.getOrganizationId())
-                    .orElseThrow(() -> new RuntimeException("Organization not found"));
-            project.setOrganization(org);
-        }
+        
         if (dto.getTeamId() != null) {
             Team team = teamRepository.findById(dto.getTeamId())
                     .orElseThrow(() -> new RuntimeException("Team not found"));
             project.setTeam(team);
+            project.setOrganization(team.getOrganization());
+        } else if (dto.getOrganizationId() != null) {
+            Organization org = organizationRepository.findById(dto.getOrganizationId())
+                    .orElseThrow(() -> new RuntimeException("Organization not found"));
+            project.setOrganization(org);
         }
 
         project = projectRepository.save(project);
@@ -114,11 +150,17 @@ public class ProjectService {
         projectRepository.delete(project);
     }
 
+
+
     private ProjectResponseDTO toResponseDTO(Project p) {
         long total = taskRepository.countByProjectId(p.getId());
         long completed = taskRepository.countByProjectIdAndCurrentStatusIn(
-                p.getId(), java.util.List.of(com.example.taskflow.domain.TaskStatus.APPROVED, com.example.taskflow.domain.TaskStatus.COMPLETED));
+                p.getId(), java.util.List.of(TaskStatus.APPROVED, TaskStatus.COMPLETED));
         int progress = total > 0 ? (int) Math.round((completed * 100.0) / total) : 0;
+
+        List<Long> sharedCrews = crewProjectRepository.findByIdProjectId(p.getId()).stream()
+                .map(cp -> cp.getCrew().getId())
+                .collect(Collectors.toList());
 
         ProjectResponseDTO dto = new ProjectResponseDTO();
         dto.setId(p.getId());
@@ -136,6 +178,7 @@ public class ProjectService {
         dto.setProgress(progress);
         dto.setCreatedAt(p.getCreatedAt());
         dto.setUpdatedAt(p.getUpdatedAt());
+        dto.setSharedCrewIds(sharedCrews);
         return dto;
     }
 }

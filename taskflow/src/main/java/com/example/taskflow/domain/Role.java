@@ -50,6 +50,9 @@ public class Role {
     @Column(name = "is_builtin", nullable = false)
     private boolean builtin = false;
 
+    @Column(name = "priority", nullable = false)
+    private Integer priority = 100;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

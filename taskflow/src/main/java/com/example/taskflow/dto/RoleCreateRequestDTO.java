@@ -13,5 +13,7 @@ public record RoleCreateRequestDTO(
     @Size(max = 255, message = "Description cannot exceed 255 characters")
     String description,
     
-    Long organizationId
+    Long organizationId,
+
+    Integer priority
 ) {}

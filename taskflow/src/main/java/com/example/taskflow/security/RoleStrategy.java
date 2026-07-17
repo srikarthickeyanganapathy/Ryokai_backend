@@ -12,6 +12,8 @@ public interface RoleStrategy {
     boolean canOverride(User user);
 
     boolean canViewTask(User user, Task task);
+    
+    boolean canViewAllTasks(User user);
 
     boolean canEdit(User user, Task task);
 

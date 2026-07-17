@@ -29,4 +29,5 @@ public class ProjectResponseDTO {
     private int progress;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private java.util.List<Long> sharedCrewIds;
 }
