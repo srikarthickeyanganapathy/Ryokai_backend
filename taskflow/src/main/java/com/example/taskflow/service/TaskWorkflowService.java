@@ -725,6 +725,16 @@ public class TaskWorkflowService {
             throw new IllegalArgumentException("A task cannot depend on itself");
         }
 
+        // Validate both tasks belong to the same organization
+        if (task.getOrg() != null && dependsOnTask.getOrg() != null) {
+            if (!task.getOrg().getId().equals(dependsOnTask.getOrg().getId())) {
+                throw new IllegalArgumentException("Cannot add dependency between tasks in different organizations");
+            }
+        } else if (task.getOrg() != null || dependsOnTask.getOrg() != null) {
+            // One is personal/crew and the other is org
+            throw new IllegalArgumentException("Cannot mix personal/crew tasks and organization tasks in dependencies");
+        }
+
         if (taskDependencyRepository.existsByTask_IdAndDependsOn_Id(taskId, dependsOnId)) {
             throw new IllegalArgumentException("Dependency already exists");
         }
@@ -902,6 +912,14 @@ public class TaskWorkflowService {
                     .anyMatch(m -> m.getId().equals(newAssignee.getId()));
             if (!isTeamMember) {
                 throw new IllegalArgumentException("Assignee is not a member of team: " + task.getTeam().getName());
+            }
+        }
+        
+        if (task.getProject() != null && task.getProject().getTeam() != null) {
+            boolean isProjectTeamMember = task.getProject().getTeam().getMembers().stream()
+                    .anyMatch(m -> m.getId().equals(newAssignee.getId()));
+            if (!isProjectTeamMember) {
+                throw new IllegalArgumentException("Assignee is not a member of the project's team");
             }
         }
         

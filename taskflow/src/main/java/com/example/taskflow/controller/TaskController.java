@@ -119,9 +119,9 @@ public class TaskController {
                 request.getDueDate(),
                 request.getTags(),
                 request.isPersonal(),
-                null, // teamId: not applicable for single assign - use bulk assign for teams
+                request.getTeamId(),
                 request.getProjectId(),
-                null); // crewId: always null — crew tasks go through CrewController
+                null); // crewId: always null - crew tasks go through CrewController
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 

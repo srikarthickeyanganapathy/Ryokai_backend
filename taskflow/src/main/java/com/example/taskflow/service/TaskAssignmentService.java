@@ -243,6 +243,21 @@ public class TaskAssignmentService {
         if (projectId != null) {
             Project project = projectRepository.findById(projectId)
                     .orElseThrow(() -> new IllegalArgumentException("Project not found: " + projectId));
+            
+            // Validate project belongs to the same organization
+            if (task.getOrg() != null && project.getOrganization() != null && !project.getOrganization().getId().equals(task.getOrg().getId())) {
+                throw new IllegalArgumentException("Project does not belong to the same organization as the task");
+            }
+            
+            // Validate assignee is in the project's team if project is team-scoped
+            if (project.getTeam() != null && assignee != null) {
+                boolean isProjectTeamMember = project.getTeam().getMembers().stream()
+                        .anyMatch(m -> m.getId().equals(assignee.getId()));
+                if (!isProjectTeamMember) {
+                    throw new IllegalArgumentException("Assignee is not a member of the project's team");
+                }
+            }
+            
             task.setProject(project);
         }
 

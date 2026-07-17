@@ -130,11 +130,17 @@ public class ProjectService {
         if (dto.getTeamId() != null) {
             Team team = teamRepository.findById(dto.getTeamId())
                     .orElseThrow(() -> new RuntimeException("Team not found"));
+            if (!hasOrgPermission(currentUser, team.getOrganization(), "PROJECT_CREATE")) {
+                throw new org.springframework.security.access.AccessDeniedException("You do not have permission to create or move projects to this team.");
+            }
             project.setTeam(team);
             project.setOrganization(team.getOrganization());
         } else if (dto.getOrganizationId() != null) {
             Organization org = organizationRepository.findById(dto.getOrganizationId())
                     .orElseThrow(() -> new RuntimeException("Organization not found"));
+            if (!hasOrgPermission(currentUser, org, "PROJECT_CREATE")) {
+                throw new org.springframework.security.access.AccessDeniedException("You do not have permission to create or move projects to this organization.");
+            }
             project.setOrganization(org);
         }
 

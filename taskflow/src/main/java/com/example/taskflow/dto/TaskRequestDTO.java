@@ -21,6 +21,7 @@ public class TaskRequestDTO {
     private String tags;
     @JsonProperty("isPersonal")
     private boolean isPersonal = false;
+    private Long teamId;
     private Long projectId;
     private Long crewId;
 
@@ -50,6 +51,9 @@ public class TaskRequestDTO {
 
     public boolean isPersonal() { return isPersonal; }
     public void setPersonal(boolean personal) { isPersonal = personal; }
+
+    public Long getTeamId() { return teamId; }
+    public void setTeamId(Long teamId) { this.teamId = teamId; }
 
     public Long getProjectId() { return projectId; }
     public void setProjectId(Long projectId) { this.projectId = projectId; }
