@@ -143,6 +143,7 @@ public class CustomPermissionEvaluator implements PermissionEvaluator {
                         && membershipRepository.existsByUserAndOrganization(user, project.getOrganization()))
                     || (project.getTeam() != null
                         && teamMemberRepository.existsByIdTeamIdAndIdUserId(project.getTeam().getId(), user.getId()))
+                    || projectRepository.isProjectSharedWithUser(project.getId(), user.getId())
                     || permissionService.hasPermission(user, "SUPER_ADMIN_OVERRIDE_CHECK")
                 );
                 case "EDIT", "DELETE" -> project != null && (

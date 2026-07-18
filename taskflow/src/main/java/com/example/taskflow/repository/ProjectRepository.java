@@ -24,4 +24,7 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
             @Param("teamId") Long teamId);
 
     List<Project> findByCreatedById(Long createdById);
+
+    @Query("SELECT CASE WHEN COUNT(p) > 0 THEN true ELSE false END FROM Project p JOIN p.sharedCrews c JOIN CrewMember cm ON cm.crew.id = c.id WHERE p.id = :projectId AND cm.user.id = :userId")
+    boolean isProjectSharedWithUser(@Param("projectId") Long projectId, @Param("userId") Long userId);
 }
