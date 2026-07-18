@@ -27,7 +27,7 @@ public class User {
     @Column(unique = true, nullable = false, length = 50)
     private String username;
 
-    // ✨ FIXED: Standard name 'password' makes integration easier
+    //  -  FIXED: Standard name 'password' makes integration easier
     @com.fasterxml.jackson.annotation.JsonIgnore
     @Column(nullable = false)
     private String password;
@@ -66,7 +66,7 @@ public class User {
     @Column(name = "token_version", nullable = false)
     private Integer tokenVersion = 0;
 
-    // ✨ FIXED: Changed to ManyToMany for Security Compatibility
+    //  -  FIXED: Changed to ManyToMany for Security Compatibility
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
         name = "user_roles",

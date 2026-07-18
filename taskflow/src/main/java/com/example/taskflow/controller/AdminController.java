@@ -52,7 +52,7 @@ public class AdminController {
     }
 
     /**
-     * Suspend an organization Ã¢â‚¬â€ prevents all members from performing org operations.
+     * Suspend an organization  -  prevents all members from performing org operations.
      */
     @PostMapping("/organizations/{id}/suspend")
     public ResponseEntity<OrganizationResponseDTO> suspendOrganization(@PathVariable Long id) {

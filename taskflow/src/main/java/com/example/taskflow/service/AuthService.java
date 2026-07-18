@@ -32,7 +32,7 @@ public class AuthService {
     private final RefreshTokenService refreshTokenService;
     private final SecurityAuditService securityAuditService;
 
-    // sendWelcomeEmail was removed — it was injected but never referenced in this service.
+    // sendWelcomeEmail was removed  -  it was injected but never referenced in this service.
 
     public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder,
                        EmailService emailService, JwtUtil jwtUtil, RefreshTokenService refreshTokenService,

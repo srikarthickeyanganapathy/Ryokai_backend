@@ -78,7 +78,7 @@ public class OrganizationService {
     }
 
     // ========================================================================
-    // HELPERS ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â Super Admin detection & membership validation
+    // HELPERS  -  Super Admin detection & membership validation
     // ========================================================================
 
     private boolean isSuperAdmin(User user) {
@@ -168,7 +168,8 @@ public class OrganizationService {
             "TASK_REVIEW", "TASK_DEPENDENCY_EDIT",
             "TASK_REASSIGN", "TASK_ARCHIVE", "ROLE_MANAGE",
             "ORG_MEMBER_INVITE", "ORG_MEMBER_REMOVE", "LEAVE_REQUEST_MANAGE",
-            "TEAM_CREATE", "TEAM_MANAGE", "PROJECT_CREATE", "PROJECT_MANAGE");
+            "TEAM_CREATE", "TEAM_MANAGE", "PROJECT_CREATE", "PROJECT_MANAGE",
+            "TASK_OVERRIDE");
 
         Role adminRole = new Role();
         adminRole.setName("ADMIN");
@@ -283,7 +284,7 @@ public class OrganizationService {
             throw new IllegalStateException("This leave request has already been " + request.getStatus());
         }
 
-        // Fix #11: Block self-approval ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â admin cannot approve their own leave request
+        // Fix #11: Block self-approval  -  admin cannot approve their own leave request
         User leavingUser = request.getUser();
         if (adminUser.getId().equals(leavingUser.getId())) {
             throw new UnauthorizedActionException(
@@ -293,17 +294,15 @@ public class OrganizationService {
         // Fix #12: Last-admin guard
         ensureNotLastAdmin(org, leavingUser);
 
-        // Fix #9: Reassign ONLY non-completed tasks to the org admin
-        taskRepository.findByAssignee(leavingUser).stream()
-                .filter(t -> t.getOrg() != null && t.getOrg().getId().equals(orgId))
-                .filter(t -> t.getCurrentStatus() != com.example.taskflow.domain.TaskStatus.COMPLETED)
-                .forEach(task -> {
-                    String oldStatus = task.getCurrentStatus().name();
-                    task.setAssignee(adminUser);
-                    task.setCurrentStatus(com.example.taskflow.domain.TaskStatus.ASSIGNED);
-                    Task updated = taskRepository.save(task);
-                    taskAuditService.recordStatus(updated, oldStatus, "ASSIGNED", "REASSIGNED", adminUser, "Reassigned due to member leaving org");
-                });
+        // Block leave approval if the user has pending (non-terminal) tasks
+        // Bug #8 Fix: org tasks terminate at APPROVED, not COMPLETED — use isTerminal()
+        boolean hasPendingTasks = taskRepository.findByAssignee(leavingUser).stream()
+                .anyMatch(t -> t.getOrg() != null && t.getOrg().getId().equals(orgId) &&
+                               !t.getCurrentStatus().isTerminal());
+        
+        if (hasPendingTasks) {
+            throw new IllegalStateException("Cannot approve leave request because the user has pending tasks. Please reassign their tasks first.");
+        }
 
         // Fix #8: Remove from all teams within this org
         removeUserFromOrgTeams(leavingUser, orgId);
@@ -407,7 +406,7 @@ public class OrganizationService {
         // Use explicit permission
         OrganizationMembership removerMembership = requirePermission(removedBy, org, "ORG_MEMBER_REMOVE");
 
-        // Fix #10: Block self-removal ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â admin must use the leave request workflow
+        // Fix #10: Block self-removal  -  admin must use the leave request workflow
         if (removedBy.getId().equals(userId)) {
             throw new UnauthorizedActionException(
                     "Admins cannot remove themselves directly. Use the leave request workflow instead.");
@@ -419,23 +418,21 @@ public class OrganizationService {
         // Fix #12: Last-admin guard
         ensureNotLastAdmin(org, user);
 
-        // Reassign tasks to the admin before removing
-        taskRepository.findByAssignee(user).stream()
-                .filter(t -> t.getOrg() != null && t.getOrg().getId().equals(orgId))
-                .filter(t -> t.getCurrentStatus() != com.example.taskflow.domain.TaskStatus.COMPLETED)
-                .forEach(task -> {
-                    String oldStatus = task.getCurrentStatus().name();
-                    task.setAssignee(removedBy);
-                    task.setCurrentStatus(com.example.taskflow.domain.TaskStatus.ASSIGNED);
-                    Task updated = taskRepository.save(task);
-                    taskAuditService.recordStatus(updated, oldStatus, "ASSIGNED", "REASSIGNED", removedBy, "Reassigned due to member removal");
-                });
+        // Block removal if the user has pending (non-terminal) tasks
+        // Bug #8 Fix: org tasks terminate at APPROVED, not COMPLETED — use isTerminal()
+        boolean hasPendingTasks = taskRepository.findByAssignee(user).stream()
+                .anyMatch(t -> t.getOrg() != null && t.getOrg().getId().equals(orgId) &&
+                               !t.getCurrentStatus().isTerminal());
+        
+        if (hasPendingTasks) {
+            throw new IllegalStateException("Cannot remove member because they have pending tasks. Please reassign their tasks first.");
+        }
 
         removeUserFromOrgTeams(user, orgId);
 
         membershipRepository.delete(membership);
         
-        auditService.record("ORG_MEMBER_REMOVED", removedBy, "ORGANIZATION", org.getId(),
+        auditService.recordSync("ORG_MEMBER_REMOVED", removedBy, "ORGANIZATION", org.getId(),
                 user.getUsername(), null, "Removed member " + user.getUsername() + " from organization");
     }
 
@@ -711,10 +708,11 @@ public class OrganizationService {
             successorMembership.setOrgRole(adminRole);
             membershipRepository.save(successorMembership);
 
-            // Reassign leaving admin's active tasks to the new admin
+            // Reassign leaving admin's active (non-terminal) tasks to the new admin
+            // Bug #8 Fix: org tasks terminate at APPROVED, not COMPLETED — use isTerminal()
             taskRepository.findByAssignee(adminUser).stream()
                     .filter(t -> t.getOrg() != null && t.getOrg().getId().equals(orgId))
-                    .filter(t -> t.getCurrentStatus() != com.example.taskflow.domain.TaskStatus.COMPLETED)
+                    .filter(t -> !t.getCurrentStatus().isTerminal())
                     .forEach(task -> {
                         String oldStatus = task.getCurrentStatus().name();
                         task.setAssignee(successor);
@@ -729,7 +727,7 @@ public class OrganizationService {
             // Delete admin's membership
             membershipRepository.delete(adminMembership);
 
-            auditService.record("ORG_ADMIN_TRANSFERRED", adminUser, "ORGANIZATION", orgId,
+            auditService.recordSync("ORG_ADMIN_TRANSFERRED", adminUser, "ORGANIZATION", orgId,
                     adminUser.getUsername(), successor.getUsername(),
                     "Transferred admin role to " + successor.getUsername() + " and left organization");
         }

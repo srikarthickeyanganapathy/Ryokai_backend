@@ -91,7 +91,7 @@ public class Task {
 
     /**
      * Personal tasks belong to an individual's to-do list and skip the org
-     * review workflow (SUBMITTED → APPROVED/REJECTED). They go directly to
+     * review workflow (SUBMITTED  -  APPROVED/REJECTED). They go directly to
      * COMPLETED when the user marks them done.
      */
     @Column(name = "is_personal", nullable = false)

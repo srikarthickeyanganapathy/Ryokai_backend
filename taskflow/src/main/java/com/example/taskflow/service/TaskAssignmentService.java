@@ -259,6 +259,14 @@ public class TaskAssignmentService {
             }
             
             task.setProject(project);
+            
+            // Bug #1 Fix: Ensure task inherits the project's team and org if not already set
+            if (task.getTeam() == null && project.getTeam() != null) {
+                task.setTeam(project.getTeam());
+            }
+            if (task.getOrg() == null && project.getOrganization() != null) {
+                task.setOrg(project.getOrganization());
+            }
         }
 
         // CreatedAt/UpdatedAt are handled by @CreationTimestamp / @UpdateTimestamp
@@ -284,12 +292,12 @@ public class TaskAssignmentService {
     }
 
     @Transactional
-    public List<TaskResponseDTO> bulkAssignTasks(String title, String description, List<String> assigneeUsernames, User creator, java.time.LocalDate dueDate, String tags) {
+    public com.example.taskflow.dto.BulkAssignResponseDTO bulkAssignTasks(String title, String description, List<String> assigneeUsernames, User creator, java.time.LocalDate dueDate, String tags) {
         return bulkAssignTasks(title, description, assigneeUsernames, creator, dueDate, tags, null);
     }
 
     @Transactional
-    public List<TaskResponseDTO> bulkAssignTasks(String title, String description, List<String> assigneeUsernames, User creator, java.time.LocalDate dueDate, String tags, Long teamId) {
+    public com.example.taskflow.dto.BulkAssignResponseDTO bulkAssignTasks(String title, String description, List<String> assigneeUsernames, User creator, java.time.LocalDate dueDate, String tags, Long teamId) {
         String finalTitle = title;
         String finalDescription = description;
         TaskPriority finalPriority = TaskPriority.MEDIUM;
@@ -298,7 +306,7 @@ public class TaskAssignmentService {
             throw new IllegalArgumentException("Task title is required");
         }
 
-        // Mode 1: teamId provided ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ auto-resolve all team members as assignees
+        // Mode 1: teamId provided - auto-resolve all team members as assignees
         List<String> resolvedUsernames = assigneeUsernames;
         if (teamId != null && (assigneeUsernames == null || assigneeUsernames.isEmpty())) {
             Team team = teamRepository.findById(teamId)
@@ -313,28 +321,41 @@ public class TaskAssignmentService {
         }
 
         if (resolvedUsernames == null || resolvedUsernames.isEmpty()) {
-            throw new IllegalArgumentException("No assignees resolved ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â provide teamId or assigneeUsernames");
+            throw new IllegalArgumentException("No assignees resolved - provide teamId or assigneeUsernames");
         }
 
         final String t = finalTitle;
         final String d = finalDescription;
         final TaskPriority p = finalPriority;
 
-        return resolvedUsernames.stream().map(username -> {
-            User assignee = userService.getCurrentUser(username);
+        List<TaskResponseDTO> successfulTasks = new java.util.ArrayList<>();
+        java.util.Map<String, String> failedAssignees = new java.util.HashMap<>();
 
-            return assignTask(
-                    t,
-                    d,
-                    assignee,
-                    creator,
-                    p,
-                    dueDate,
-                    tags,
-                    false, // bulk tasks are org tasks, not personal
-                    teamId
-            );
-        }).collect(Collectors.toList());
+        for (String username : resolvedUsernames) {
+            try {
+                User assignee = userService.getCurrentUser(username);
+                TaskResponseDTO result = assignTask(
+                        t,
+                        d,
+                        assignee,
+                        creator,
+                        p,
+                        dueDate,
+                        tags,
+                        false, // bulk tasks are org tasks, not personal
+                        teamId
+                );
+                successfulTasks.add(result);
+            } catch (Exception ex) {
+                failedAssignees.put(username, ex.getMessage());
+            }
+        }
+        
+        if (successfulTasks.isEmpty() && !failedAssignees.isEmpty()) {
+             throw new IllegalArgumentException("All assignments failed. Sample error: " + failedAssignees.values().iterator().next());
+        }
+
+        return new com.example.taskflow.dto.BulkAssignResponseDTO(successfulTasks, failedAssignees);
     }
 
     private TaskResponseDTO mapToTaskResponseDTO(Task task) {

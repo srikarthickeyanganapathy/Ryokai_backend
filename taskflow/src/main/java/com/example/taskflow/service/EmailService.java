@@ -52,7 +52,7 @@ public class EmailService {
      *   - email_notifications_enabled = true
      *
      * Security-critical emails (password reset, password changed, email
-     * verification) are NOT gated — they must always be delivered.
+     * verification) are NOT gated  -  they must always be delivered.
      */
     public boolean shouldSendNotificationTo(String email) {
         if (email == null || email.isBlank()) return false;
@@ -71,7 +71,7 @@ public class EmailService {
     }
 
     // ============================================================
-    // SECURITY-CRITICAL EMAILS — never gated on email_verified / email_notifications_enabled.
+    // SECURITY-CRITICAL EMAILS  -  never gated on email_verified / email_notifications_enabled.
     // These MUST be delivered: password reset, password changed, email verification.
     // ============================================================
 
@@ -89,7 +89,7 @@ public class EmailService {
             ctx.setVariable("frontendUrl", frontendUrl);
 
             String html = templateEngine.process("email/password-reset", ctx);
-            sendHtmlEmail(toEmail, "TaskFlow — Reset your password", html);
+            sendHtmlEmail(toEmail, "TaskFlow  -  Reset your password", html);
         } catch (Exception e) {
             log.error("SMTP failure: Failed to send password reset email to {}", toEmail, e);
             throw new RuntimeException("SMTP failure", e);
@@ -108,7 +108,7 @@ public class EmailService {
             ctx.setVariable("verifyLink", frontendUrl + "/verify-email?token=" + token);
 
             String html = templateEngine.process("email/verify-email", ctx);
-            sendHtmlEmail(toEmail, "TaskFlow — Verify your email", html);
+            sendHtmlEmail(toEmail, "TaskFlow  -  Verify your email", html);
         } catch (Exception e) {
             log.error("SMTP failure: Failed to send verification email to {}", toEmail, e);
         }
@@ -124,7 +124,7 @@ public class EmailService {
             ctx.setVariable("ipAddress", ipAddress);
 
             String html = templateEngine.process("email/password-changed", ctx);
-            sendHtmlEmail(toEmail, "TaskFlow — Password Changed", html);
+            sendHtmlEmail(toEmail, "TaskFlow  -  Password Changed", html);
         } catch (Exception e) {
             log.error("SMTP failure: Failed to send password changed email to {}", toEmail, e);
             throw new RuntimeException("SMTP failure", e);
@@ -132,7 +132,7 @@ public class EmailService {
     }
 
     // ============================================================
-    // NOTIFICATION EMAILS — gated on email_verified AND email_notifications_enabled.
+    // NOTIFICATION EMAILS  -  gated on email_verified AND email_notifications_enabled.
     // SEC-M02 fix: previously these were sent regardless of either flag.
     // ============================================================
 
@@ -153,7 +153,7 @@ public class EmailService {
             ctx.setVariable("dueDate", dueDate);
 
             String html = templateEngine.process("email/task-assigned", ctx);
-            sendHtmlEmail(toEmail, "TaskFlow — New Task Assigned", html);
+            sendHtmlEmail(toEmail, "TaskFlow  -  New Task Assigned", html);
         } catch (Exception e) {
             log.error("Failed to send task assignment email to {}", toEmail, e);
         }
@@ -177,7 +177,7 @@ public class EmailService {
             ctx.setVariable("reason", reason);
 
             String html = templateEngine.process("email/task-reviewed", ctx);
-            sendHtmlEmail(toEmail, "TaskFlow — Task Review " + status, html);
+            sendHtmlEmail(toEmail, "TaskFlow  -  Task Review " + status, html);
         } catch (Exception e) {
             log.error("Failed to send task review email to {}", toEmail, e);
         }
@@ -200,7 +200,7 @@ public class EmailService {
             ctx.setVariable("hoursUntilDue", hoursUntilDue);
 
             String html = templateEngine.process("email/due-date-reminder", ctx);
-            sendHtmlEmail(toEmail, "TaskFlow — Task Due Soon Reminder", html);
+            sendHtmlEmail(toEmail, "TaskFlow  -  Task Due Soon Reminder", html);
         } catch (Exception e) {
             log.error("Failed to send due date reminder email to {}", toEmail, e);
         }
@@ -222,7 +222,7 @@ public class EmailService {
             ctx.setVariable("requestUrl", frontendUrl + "/org/leave-requests?id=" + requestId);
 
             String html = templateEngine.process("email/leave-request", ctx);
-            sendHtmlEmail(toEmail, "TaskFlow — Leave Request from " + userName, html);
+            sendHtmlEmail(toEmail, "TaskFlow  -  Leave Request from " + userName, html);
         } catch (Exception e) {
             log.error("Failed to send leave request email to {}", toEmail, e);
         }

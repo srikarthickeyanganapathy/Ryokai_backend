@@ -24,7 +24,7 @@ public interface RoleStrategy {
     /**
      * RB-M04 fix: dedicated archive permission. Previously ARCHIVE was routed
      * to canDelete in CustomPermissionEvaluator, but TaskController.toggleArchive
-     * used 'EDIT' — so the ARCHIVE branch was dead code and an assignee (who can
+     * used 'EDIT'  -  so the ARCHIVE branch was dead code and an assignee (who can
      * edit but not delete) could archive a task. canArchive is intentionally
      * stricter than canEdit but looser than canDelete (creator + assignee +
      * org manager+).
@@ -32,9 +32,15 @@ public interface RoleStrategy {
     boolean canArchive(User user, Task task);
 
     /**
-     * Spec: dependencies are "assignor-locked" — only the task creator
+     * Spec: dependencies are "assignor-locked"  -  only the task creator
      * (assignor) and org admin/director can add/remove dependencies.
      * The assignee is explicitly blocked from editing dependencies.
      */
     boolean canEditDependency(User user, Task task);
+    
+    /**
+     * Centralized veto check for Team Observers.
+     * True if the user is a Team Observer on the task's team.
+     */
+    boolean isObserverVeto(User user, Task task);
 }

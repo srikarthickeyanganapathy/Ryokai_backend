@@ -30,7 +30,6 @@ import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping(value = "/api/admin", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
-@PreAuthorize("hasPermission(null, 'ROLE_MANAGE') or hasRole('SUPER_ADMIN')")
 public class RoleController {
 
     private final RoleService roleService;
@@ -44,6 +43,7 @@ public class RoleController {
     // --- Roles ---
 
     @GetMapping("/roles")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<List<RoleResponseDTO>> getAllRoles() {
         return ResponseEntity.ok(roleService.getAllRoles());
     }

@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.example.taskflow.domain.Organization;
 import com.example.taskflow.domain.Project;
+import com.example.taskflow.domain.Crew;
 import com.example.taskflow.domain.Team;
 import com.example.taskflow.domain.User;
 import com.example.taskflow.domain.Task;
@@ -19,9 +20,7 @@ import com.example.taskflow.repository.OrganizationRepository;
 import com.example.taskflow.repository.ProjectRepository;
 import com.example.taskflow.repository.TaskRepository;
 import com.example.taskflow.domain.CrewMember;
-import com.example.taskflow.domain.CrewProject;
 import com.example.taskflow.repository.CrewMemberRepository;
-import com.example.taskflow.repository.CrewProjectRepository;
 import com.example.taskflow.repository.TeamRepository;
 import com.example.taskflow.repository.TeamMemberRepository;
 import com.example.taskflow.repository.OrganizationMembershipRepository;
@@ -36,8 +35,8 @@ public class ProjectService {
     private final OrganizationMembershipRepository membershipRepository;
     private final TeamMemberRepository teamMemberRepository;
     private final CrewMemberRepository crewMemberRepository;
-    private final CrewProjectRepository crewProjectRepository;
     private final PermissionService permissionService;
+    private final com.example.taskflow.repository.TeamObserverRepository teamObserverRepository;
 
     public ProjectService(ProjectRepository projectRepository,
                           TaskRepository taskRepository,
@@ -46,8 +45,8 @@ public class ProjectService {
                           OrganizationMembershipRepository membershipRepository,
                           TeamMemberRepository teamMemberRepository,
                           CrewMemberRepository crewMemberRepository,
-                          CrewProjectRepository crewProjectRepository,
-                          PermissionService permissionService) {
+                          PermissionService permissionService,
+                          com.example.taskflow.repository.TeamObserverRepository teamObserverRepository) {
         this.projectRepository = projectRepository;
         this.taskRepository = taskRepository;
         this.organizationRepository = organizationRepository;
@@ -55,8 +54,8 @@ public class ProjectService {
         this.membershipRepository = membershipRepository;
         this.teamMemberRepository = teamMemberRepository;
         this.crewMemberRepository = crewMemberRepository;
-        this.crewProjectRepository = crewProjectRepository;
         this.permissionService = permissionService;
+        this.teamObserverRepository = teamObserverRepository;
     }
 
     private boolean hasOrgPermission(User user, Organization org, String permission) {
@@ -69,13 +68,35 @@ public class ProjectService {
     @Transactional(readOnly = true)
     public List<ProjectResponseDTO> getAllProjects(User currentUser) {
         List<Project> result = new java.util.ArrayList<>();
+        
+        // 1. Add all personal projects
         result.addAll(projectRepository.findByCreatedById(currentUser.getId()).stream()
                 .filter(p -> p.getOrganization() == null)
                 .collect(Collectors.toList()));
+                
+        // 2. Add organizational projects
         var memberships = membershipRepository.findByUserId(currentUser.getId());
         if (!memberships.isEmpty()) {
-            Long orgId = memberships.get(0).getOrganization().getId();
-            result.addAll(projectRepository.findByOrganizationId(orgId));
+            Organization org = memberships.get(0).getOrganization();
+            boolean hasProjectManage = hasOrgPermission(currentUser, org, "PROJECT_MANAGE");
+            boolean hasSuperAdminOverride = permissionService.hasPermission(currentUser, "SUPER_ADMIN_OVERRIDE_CHECK");
+
+            List<Project> orgProjects = projectRepository.findByOrganizationId(org.getId());
+            
+            for (Project p : orgProjects) {
+                if (p.getTeam() == null) {
+                    // Organization-scoped projects (no team) are visible to all org members
+                    result.add(p);
+                } else {
+                    // Team-scoped projects: check visibility
+                    boolean isTeamMember = teamMemberRepository.existsByIdTeamIdAndIdUserId(p.getTeam().getId(), currentUser.getId());
+                    boolean isTeamObserver = teamObserverRepository.existsByIdTeamIdAndIdUserId(p.getTeam().getId(), currentUser.getId());
+                    
+                    if (isTeamMember || isTeamObserver || hasProjectManage || hasSuperAdminOverride) {
+                        result.add(p);
+                    }
+                }
+            }
         }
         return result.stream().map(this::toResponseDTO).collect(Collectors.toList());
     }
@@ -127,6 +148,13 @@ public class ProjectService {
         if (dto.getDescription() != null) project.setDescription(dto.getDescription());
         if (dto.getDueDate() != null) project.setDueDate(dto.getDueDate());
         
+        boolean changingOrgOrTeam = dto.getTeamId() != null || dto.getOrganizationId() != null;
+        if (changingOrgOrTeam && project.getOrganization() != null) {
+            if (!hasOrgPermission(currentUser, project.getOrganization(), "PROJECT_MANAGE")) {
+                throw new org.springframework.security.access.AccessDeniedException("You do not have permission to move this project from its current organization.");
+            }
+        }
+
         if (dto.getTeamId() != null) {
             Team team = teamRepository.findById(dto.getTeamId())
                     .orElseThrow(() -> new RuntimeException("Team not found"));
@@ -158,15 +186,11 @@ public class ProjectService {
 
 
 
-    private ProjectResponseDTO toResponseDTO(Project p) {
+    public ProjectResponseDTO toResponseDTO(Project p) {
         long total = taskRepository.countByProjectId(p.getId());
         long completed = taskRepository.countByProjectIdAndCurrentStatusIn(
                 p.getId(), java.util.List.of(TaskStatus.APPROVED, TaskStatus.COMPLETED));
         int progress = total > 0 ? (int) Math.round((completed * 100.0) / total) : 0;
-
-        List<Long> sharedCrews = crewProjectRepository.findByIdProjectId(p.getId()).stream()
-                .map(cp -> cp.getCrew().getId())
-                .collect(Collectors.toList());
 
         ProjectResponseDTO dto = new ProjectResponseDTO();
         dto.setId(p.getId());
@@ -182,9 +206,15 @@ public class ProjectService {
         dto.setTasksTotal(total);
         dto.setTasksCompleted(completed);
         dto.setProgress(progress);
+        
+        if (p.getSharedCrews() != null) {
+            dto.setSharedCrewIds(p.getSharedCrews().stream().map(Crew::getId).collect(java.util.stream.Collectors.toList()));
+        } else {
+            dto.setSharedCrewIds(new java.util.ArrayList<>());
+        }
+        
         dto.setCreatedAt(p.getCreatedAt());
         dto.setUpdatedAt(p.getUpdatedAt());
-        dto.setSharedCrewIds(sharedCrews);
         return dto;
     }
 }

@@ -14,8 +14,6 @@ import com.example.taskflow.domain.CrewChannel;
 import com.example.taskflow.domain.CrewInvite;
 import com.example.taskflow.domain.CrewMember;
 import com.example.taskflow.domain.CrewMemberId;
-import com.example.taskflow.domain.CrewProject;
-import com.example.taskflow.domain.CrewProjectId;
 import com.example.taskflow.domain.CrewRole;
 import com.example.taskflow.domain.Project;
 import com.example.taskflow.domain.User;
@@ -24,7 +22,6 @@ import com.example.taskflow.dto.CrewInviteDTO;
 import com.example.taskflow.dto.CrewMemberDTO;
 import com.example.taskflow.dto.CrewRequestDTO;
 import com.example.taskflow.dto.CrewResponseDTO;
-import com.example.taskflow.dto.ProjectSummaryDTO;
 import com.example.taskflow.exception.CrewFullException;
 import com.example.taskflow.exception.CrewInviteExpiredException;
 import com.example.taskflow.exception.CrewNotFoundException;
@@ -32,7 +29,6 @@ import com.example.taskflow.exception.ResourceNotFoundException;
 import com.example.taskflow.repository.CrewChannelRepository;
 import com.example.taskflow.repository.CrewInviteRepository;
 import com.example.taskflow.repository.CrewMemberRepository;
-import com.example.taskflow.repository.CrewProjectRepository;
 import com.example.taskflow.repository.CrewRepository;
 import com.example.taskflow.repository.ProjectRepository;
 
@@ -43,24 +39,27 @@ public class CrewService {
     private final CrewMemberRepository crewMemberRepository;
     private final CrewChannelRepository channelRepository;
     private final CrewInviteRepository inviteRepository;
-    private final CrewProjectRepository crewProjectRepository;
     private final ProjectRepository projectRepository;
     private final NotificationService notificationService;
+    private final com.example.taskflow.repository.TaskRepository taskRepository;
+    private final ProjectService projectService;
 
     public CrewService(CrewRepository crewRepository,
                        CrewMemberRepository crewMemberRepository,
                        CrewChannelRepository channelRepository,
                        CrewInviteRepository inviteRepository,
-                       CrewProjectRepository crewProjectRepository,
                        ProjectRepository projectRepository,
-                       NotificationService notificationService) {
+                       NotificationService notificationService,
+                       com.example.taskflow.repository.TaskRepository taskRepository,
+                       ProjectService projectService) {
         this.crewRepository = crewRepository;
         this.crewMemberRepository = crewMemberRepository;
         this.channelRepository = channelRepository;
         this.inviteRepository = inviteRepository;
-        this.crewProjectRepository = crewProjectRepository;
         this.projectRepository = projectRepository;
         this.notificationService = notificationService;
+        this.taskRepository = taskRepository;
+        this.projectService = projectService;
     }
 
     private String generateSlug(String name) {
@@ -141,6 +140,11 @@ public class CrewService {
     public void deleteCrew(Long crewId, User user) {
         Crew crew = getCrewEntity(crewId);
         validateCreator(crew, user);
+        
+        if (taskRepository.existsByCrewId(crewId)) {
+            throw new IllegalStateException("Cannot delete crew: Please delete all tasks within the crew first.");
+        }
+        
         crewRepository.delete(crew);
     }
 
@@ -155,7 +159,7 @@ public class CrewService {
     }
 
     /**
-     * P2: PUBLIC_LINK invite — email is null so anyone with the invite UUID can join.
+     * P2: PUBLIC_LINK invite  -  email is null so anyone with the invite UUID can join.
      * Allowed when crew visibility is PUBLIC_LINK, or when a member explicitly creates a shareable link.
      */
     @Transactional
@@ -208,7 +212,9 @@ public class CrewService {
             throw new CrewInviteExpiredException("Invite expired.");
         }
 
-        Crew crew = invite.getCrew();
+        // Fix #8: Prevent member-cap race condition by acquiring a pessimistic write lock on the Crew entity
+        Crew crew = crewRepository.findByIdWithLock(invite.getCrew().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Crew not found"));
         long currentMembers = crewMemberRepository.findByIdCrewId(crew.getId()).size();
         if (currentMembers >= crew.getMemberCap()) {
             throw new CrewFullException("Crew member cap reached.");
@@ -266,6 +272,28 @@ public class CrewService {
         crewMemberRepository.delete(target);
     }
 
+    @Transactional
+    public void transferOwnership(Long crewId, Long newOwnerId, User actor) {
+        Crew crew = getCrewEntity(crewId);
+        validateCreator(crew, actor);
+
+        if (newOwnerId.equals(actor.getId())) {
+            throw new IllegalStateException("You are already the creator of this crew.");
+        }
+
+        CrewMember currentCreator = crewMemberRepository.findById(new CrewMemberId(crewId, actor.getId()))
+                .orElseThrow(() -> new IllegalStateException("You are not a member of this crew"));
+
+        CrewMember newCreator = crewMemberRepository.findById(new CrewMemberId(crewId, newOwnerId))
+                .orElseThrow(() -> new ResourceNotFoundException("Target user is not a member of this crew"));
+
+        currentCreator.setRole(CrewRole.MEMBER);
+        newCreator.setRole(CrewRole.CREATOR);
+
+        crewMemberRepository.save(currentCreator);
+        crewMemberRepository.save(newCreator);
+    }
+
     @Transactional(readOnly = true)
     public List<CrewMemberDTO> getMembers(Long crewId, User user) {
         validateMembership(crewId, user);
@@ -275,59 +303,6 @@ public class CrewService {
     }
 
     // --- Projects ---
-
-    @Transactional
-    public void shareProject(Long crewId, Long projectId, User actor) {
-        validateMembership(crewId, actor);
-        Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
-        
-        if (project.getCreatedBy() == null || !project.getCreatedBy().getId().equals(actor.getId())) {
-            throw new com.example.taskflow.exception.UnauthorizedActionException("Only the project owner can share it.");
-        }
-
-        if (project.getOrganization() != null || project.getTeam() != null) {
-            throw new IllegalStateException("Cannot share organization or team projects with a Crew. Only personal projects can be shared.");
-        }
-
-        CrewProjectId cpId = new CrewProjectId(crewId, projectId);
-        if (!crewProjectRepository.existsById(cpId)) {
-            CrewProject cp = new CrewProject();
-            cp.setId(cpId);
-            cp.setCrew(getCrewEntity(crewId));
-            cp.setProject(project);
-            cp.setAddedBy(actor); // Fix: Set addedBy to resolve database constraint violation
-            cp.setAddedAt(LocalDateTime.now()); // Set addedAt explicitly
-            crewProjectRepository.save(cp);
-        }
-    }
-
-    @Transactional
-    public void unshareProject(Long crewId, Long projectId, User actor) {
-        validateMembership(crewId, actor);
-        Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
-                
-        if (project.getCreatedBy() == null || !project.getCreatedBy().getId().equals(actor.getId())) {
-            throw new com.example.taskflow.exception.UnauthorizedActionException("Only the project owner can unshare it.");
-        }
-
-        crewProjectRepository.findById(new CrewProjectId(crewId, projectId))
-                .ifPresent(crewProjectRepository::delete);
-    }
-
-    @Transactional(readOnly = true)
-    public List<ProjectSummaryDTO> getCrewProjects(Long crewId, User requester) {
-        validateMembership(crewId, requester);
-        return crewProjectRepository.findByIdCrewId(crewId).stream()
-                .map(cp -> new ProjectSummaryDTO(
-                        cp.getProject().getId(),
-                        cp.getProject().getName(),
-                        cp.getProject().getDescription(),
-                        cp.getProject().getColor(),
-                        cp.getProject().getDueDate()
-                )).collect(Collectors.toList());
-    }
 
     // --- Internal Helpers ---
 
@@ -382,5 +357,78 @@ public class CrewService {
 
     private CrewInviteDTO mapToInviteDTO(CrewInvite i) {
         return new CrewInviteDTO(i.getId(), i.getEmail(), i.getCrew().getName(), i.getInvitedBy().getUsername(), i.getExpiresAt(), i.getUsedAt());
+    }
+
+    // --- Project Sharing ---
+
+    @Transactional(readOnly = true)
+    public List<com.example.taskflow.dto.ProjectResponseDTO> getCrewProjects(Long crewId, User user) {
+        Crew crew = crewRepository.findById(crewId)
+                .orElseThrow(() -> new ResourceNotFoundException("Crew not found"));
+        
+        boolean isMember = crew.getMembers().stream()
+                .anyMatch(m -> m.getUser().getId().equals(user.getId()));
+        if (!isMember) {
+            throw new IllegalArgumentException("Only crew members can view crew projects");
+        }
+
+        List<Project> sharedProjects = projectRepository.findAll().stream()
+                .filter(p -> p.getSharedCrews().contains(crew))
+                .collect(Collectors.toList());
+
+        return sharedProjects.stream()
+                .map(projectService::toResponseDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public com.example.taskflow.dto.ProjectResponseDTO shareProject(Long crewId, Long projectId, User user) {
+        Crew crew = crewRepository.findById(crewId)
+                .orElseThrow(() -> new ResourceNotFoundException("Crew not found"));
+
+        boolean isMember = crew.getMembers().stream()
+                .anyMatch(m -> m.getUser().getId().equals(user.getId()));
+        if (!isMember) {
+            throw new IllegalArgumentException("You must be a member of the crew to share a project to it");
+        }
+
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
+
+        if (!project.getCreatedBy().getId().equals(user.getId())) {
+            throw new IllegalArgumentException("You can only share projects that you created");
+        }
+
+        if (project.getOrganization() != null || project.getTeam() != null) {
+            throw new IllegalArgumentException("Only personal projects can be shared to a crew");
+        }
+
+        project.getSharedCrews().add(crew);
+        projectRepository.save(project);
+
+        return projectService.toResponseDTO(project);
+    }
+
+    @Transactional
+    public void unshareProject(Long crewId, Long projectId, User user) {
+        Crew crew = crewRepository.findById(crewId)
+                .orElseThrow(() -> new ResourceNotFoundException("Crew not found"));
+
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
+
+        // Only the project creator or a crew admin can unshare
+        boolean isProjectCreator = project.getCreatedBy().getId().equals(user.getId());
+        boolean isCrewAdmin = crew.getMembers().stream()
+                .anyMatch(m -> m.getUser().getId().equals(user.getId()) && m.getRole() == CrewRole.CREATOR);
+
+        if (!isProjectCreator && !isCrewAdmin) {
+            throw new IllegalArgumentException("You must be the project creator or a crew admin to unshare a project");
+        }
+
+        if (project.getSharedCrews().contains(crew)) {
+            project.getSharedCrews().remove(crew);
+            projectRepository.save(project);
+        }
     }
 }

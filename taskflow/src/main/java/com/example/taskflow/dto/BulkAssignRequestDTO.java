@@ -12,7 +12,7 @@ public class BulkAssignRequestDTO {
     /** Optional: if provided, auto-resolve all team members as assignees */
     private Long teamId;
 
-    /** Required if teamId is null — explicit list of usernames to assign to */
+    /** Required if teamId is null  -  explicit list of usernames to assign to */
     private List<String> assigneeUsernames;
 
     private LocalDate dueDate;

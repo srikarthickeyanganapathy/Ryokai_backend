@@ -12,7 +12,7 @@ import java.util.concurrent.TimeUnit;
  * In-memory denylist for revoked access tokens (by tokenId / jti).
  * <p>
  * Entries auto-expire after the access token TTL, since an expired JWT
- * would be rejected by signature validation anyway — no need to keep
+ * would be rejected by signature validation anyway  -  no need to keep
  * stale denylist entries.
  * <p>
  * Trade-off: In a multi-instance deployment, this cache is per-instance.

@@ -60,12 +60,8 @@ public class OrganizationInviteService {
         User invitee = userRepository.findById(inviteeUserId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found: " + inviteeUserId));
 
-        // Auth: caller must be org ADMIN
-        OrganizationMembership inviterMembership = membershipRepository.findByUserAndOrganization(invitedBy, org)
-                .orElseThrow(() -> new UnauthorizedActionException("You are not a member of this organization"));
-        if (!inviterMembership.getOrgRole().isBuiltinAdmin()) {
-            throw new UnauthorizedActionException("Only the Organization Admin can send invites");
-        }
+        // Auth: caller must have ORG_MEMBER_INVITE permission
+        requirePermission(invitedBy, org, "ORG_MEMBER_INVITE");
 
         // Cannot invite if already a member
         if (membershipRepository.existsByUserAndOrganization(invitee, org)) {
@@ -120,11 +116,7 @@ public class OrganizationInviteService {
         Organization org = organizationRepository.findById(orgId)
                 .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + orgId));
 
-        OrganizationMembership inviterMembership = membershipRepository.findByUserAndOrganization(invitedBy, org)
-                .orElseThrow(() -> new UnauthorizedActionException("You are not a member of this organization"));
-        if (!inviterMembership.getOrgRole().isBuiltinAdmin()) {
-            throw new UnauthorizedActionException("Only the Organization Admin can create shareable links");
-        }
+        requirePermission(invitedBy, org, "ORG_MEMBER_INVITE");
 
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new IllegalArgumentException("Role not found"));
@@ -172,11 +164,7 @@ public class OrganizationInviteService {
     public List<OrganizationInviteDTO> getOrgInvites(Long orgId, User caller) {
         Organization org = organizationRepository.findById(orgId)
                 .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + orgId));
-        OrganizationMembership membership = membershipRepository.findByUserAndOrganization(caller, org)
-                .orElseThrow(() -> new UnauthorizedActionException("You are not a member of this organization"));
-        if (!membership.getOrgRole().isBuiltinAdmin()) {
-            throw new UnauthorizedActionException("Only the Organization Admin can view invites");
-        }
+        requirePermission(caller, org, "ORG_MEMBER_INVITE");
         return inviteRepository.findByOrganizationId(orgId).stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());
@@ -249,14 +237,18 @@ public class OrganizationInviteService {
             throw new IllegalStateException("You are already a member of an organization. Leave your current organization first.");
         }
 
-        // If it was a shareable link, bind it to the accepting user now
-        if (invite.getInviteeUser() == null) {
-            invite.setInviteeUser(user);
-        }
-
+        // Bug #7 Fix: Make shareable links single-use by default to enforce "Controlled Onboarding".
+        // The invite is always marked ACCEPTED regardless of whether it was bound to a specific inviteeUser.
         invite.setStatus(InviteStatus.ACCEPTED);
         invite.setAcceptedAt(LocalDateTime.now());
-        inviteRepository.save(invite);
+        
+        if (invite.getInviteeUser() != null) {
+            inviteRepository.save(invite);
+        } else {
+            // It was a shareable link; bind the accepting user to it so we know who consumed it
+            invite.setInviteeUser(user);
+            inviteRepository.save(invite);
+        }
 
         OrganizationMembership membership = new OrganizationMembership();
         membership.setUser(user);
@@ -296,11 +288,7 @@ public class OrganizationInviteService {
                 .orElseThrow(() -> new IllegalArgumentException("Invite not found: " + inviteId));
 
         Organization org = invite.getOrganization();
-        OrganizationMembership membership = membershipRepository.findByUserAndOrganization(adminUser, org)
-                .orElseThrow(() -> new UnauthorizedActionException("You are not a member of this organization"));
-        if (!membership.getOrgRole().isBuiltinAdmin()) {
-            throw new UnauthorizedActionException("Only the Organization Admin can revoke invites");
-        }
+        requirePermission(adminUser, org, "ORG_MEMBER_INVITE");
 
         if (invite.getStatus() != InviteStatus.PENDING) {
             throw new IllegalStateException("Only pending invites can be revoked");
@@ -324,5 +312,17 @@ public class OrganizationInviteService {
             invite.getExpiresAt(),
             invite.getCreatedAt()
         );
+    }
+
+    private void requirePermission(User caller, Organization org, String permission) {
+        OrganizationMembership membership = membershipRepository.findByUserAndOrganization(caller, org)
+                .orElseThrow(() -> new UnauthorizedActionException("You are not a member of this organization"));
+        
+        boolean hasPerm = membership.getOrgRole().getPermissions().stream()
+                .anyMatch(p -> p.getName().equals(permission));
+                
+        if (!hasPerm && !membership.getOrgRole().isBuiltinAdmin()) {
+            throw new UnauthorizedActionException("Requires permission: " + permission);
+        }
     }
 }

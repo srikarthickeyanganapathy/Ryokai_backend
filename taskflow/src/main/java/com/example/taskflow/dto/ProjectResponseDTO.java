@@ -2,6 +2,7 @@ package com.example.taskflow.dto;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import com.example.taskflow.domain.Project.ProjectStatus;
 
@@ -27,7 +28,7 @@ public class ProjectResponseDTO {
     private long tasksTotal;
     private long tasksCompleted;
     private int progress;
+    private List<Long> sharedCrewIds;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-    private java.util.List<Long> sharedCrewIds;
 }

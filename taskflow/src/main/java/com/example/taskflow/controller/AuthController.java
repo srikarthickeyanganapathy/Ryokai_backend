@@ -214,7 +214,7 @@ public class AuthController {
 
     private Bucket createResendBucket() {
         // refillGreedy(N, D) adds tokens continuously at a rate of N/D
-        // (e.g. 5 per 60 min ≈ 1 token every 12 min, but added fractionally, not discretely)
+        // (e.g. 5 per 60 min  -  1 token every 12 min, but added fractionally, not discretely)
         Bandwidth limit = Bandwidth.builder()
                 .capacity(resendCapacity)
                 .refillGreedy(resendCapacity, Duration.ofMinutes(resendRefillMinutes))
@@ -429,7 +429,7 @@ public class AuthController {
         // to trigger "revoke all sessions" if an attacker replays this token.
         // Stale used tokens are cleaned up by the scheduled purge job.
 
-        // Detect device change — flag as suspicious if User-Agent differs from the
+        // Detect device change  -  flag as suspicious if User-Agent differs from the
         // device that originally obtained this refresh token (possible token theft)
         if (originalDeviceInfo != null && deviceInfo != null && !originalDeviceInfo.equals(deviceInfo)) {
             log.warn("Device change detected during token refresh for user {}: original='{}', current='{}'",
@@ -487,7 +487,7 @@ public class AuthController {
         String username = refreshTokenService.findUsernameByRawToken(request.getRefreshToken());
         
         if (username == null) {
-            // Token not found / invalid / already revoked — audit the failed attempt
+            // Token not found / invalid / already revoked  -  audit the failed attempt
             securityAuditService.record("LOGOUT_FAILED", null, null, ip, deviceInfo, "Invalid or already-revoked refresh token", false);
             return ResponseEntity.badRequest()
                 .body(new MessageResponseDTO("Invalid or expired refresh token."));
@@ -507,7 +507,7 @@ public class AuthController {
     /**
      * SEC-Min01 fix: logout-all endpoint.
      * Spec implies token_version should be incrementable on "logout-all / password change".
-     * Previously only changePassword and resetPassword incremented token_version —
+     * Previously only changePassword and resetPassword incremented token_version  - 
      * a user who suspected compromise could not invalidate all other sessions'
      * access tokens without changing their password.
      *
@@ -553,7 +553,7 @@ public class AuthController {
                 .body(new MessageResponseDTO("User not found."));
         }
 
-        // 1. Increment token_version — invalidates ALL access tokens immediately
+        // 1. Increment token_version  -  invalidates ALL access tokens immediately
         // 2. Delete ALL refresh tokens for the user
         userProfileService.logoutAll(user);
 

@@ -72,7 +72,14 @@ public class AsyncConfig {
         exec.setQueueCapacity(1000);
         exec.setThreadNamePrefix("audit-");
         
-        exec.setRejectedExecutionHandler(new ThreadPoolExecutor.DiscardOldestPolicy());
+        exec.setRejectedExecutionHandler(new RejectedExecutionHandler() {
+            private final ThreadPoolExecutor.CallerRunsPolicy callerRunsPolicy = new ThreadPoolExecutor.CallerRunsPolicy();
+            @Override
+            public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
+                log.warn("Audit task rejected! Queue full - running on caller thread (back-pressure).");
+                callerRunsPolicy.rejectedExecution(r, executor);
+            }
+        });
         
         exec.setWaitForTasksToCompleteOnShutdown(true);
         exec.setAwaitTerminationSeconds(30);

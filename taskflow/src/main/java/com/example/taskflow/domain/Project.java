@@ -3,7 +3,9 @@ package com.example.taskflow.domain;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -22,6 +24,8 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
+import jakarta.persistence.ManyToMany;
+import jakarta.persistence.JoinTable;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -69,6 +73,14 @@ public class Project {
     @OneToMany(mappedBy = "project", fetch = FetchType.LAZY)
     @OrderBy("createdAt DESC")
     private List<Task> tasks = new ArrayList<>();
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "project_crews",
+        joinColumns = @JoinColumn(name = "project_id"),
+        inverseJoinColumns = @JoinColumn(name = "crew_id")
+    )
+    private Set<Crew> sharedCrews = new HashSet<>();
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

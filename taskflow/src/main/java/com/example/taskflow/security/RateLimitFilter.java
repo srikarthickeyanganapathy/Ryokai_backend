@@ -40,11 +40,11 @@ public class RateLimitFilter extends OncePerRequestFilter {
      * Only when the immediate remote address is in this list do we honor
      * the X-Forwarded-For header. Previously any client could set
      * X-Forwarded-For: <random-unique-ip> on every request to bypass
-     * rate limiting entirely — each request got a fresh bucket.
+     * rate limiting entirely  -  each request got a fresh bucket.
      *
      * Configure in application.yml:
      *   app.security.trusted-proxies: 10.0.0.0/8,172.16.0.0/12,127.0.0.1
-     * Default: empty (X-Forwarded-For is NEVER trusted — use remoteAddr only).
+     * Default: empty (X-Forwarded-For is NEVER trusted  -  use remoteAddr only).
      */
     @Value("${app.security.trusted-proxies:}")
     private String trustedProxiesRaw;
@@ -71,7 +71,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
      * SEC-M03 fix: extract client IP safely.
      * If the immediate remoteAddr is in the trusted-proxies list, we trust
      * the X-Forwarded-For header and take the leftmost address. Otherwise
-     * we use remoteAddr directly — ignoring any client-supplied X-Forwarded-For.
+     * we use remoteAddr directly  -  ignoring any client-supplied X-Forwarded-For.
      */
     private String extractClientIp(HttpServletRequest request) {
         String remoteAddr = request.getRemoteAddr();

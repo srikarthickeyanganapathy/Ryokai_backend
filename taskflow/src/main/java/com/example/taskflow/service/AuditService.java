@@ -20,26 +20,43 @@ public class AuditService {
     private final AuditEventRepository auditEventRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordSync(String eventType, User actor, String entityType, Long entityId,
+                           Object oldValue, Object newValue, String reason) {
+        try {
+            saveEvent(eventType, actor, entityType, entityId, oldValue, newValue, reason);
+        } catch (Exception e) {
+            log.error("Failed to synchronously record audit event: type={}, entityType={}, entityId={}",
+                    eventType, entityType, entityId, e);
+            throw new RuntimeException("Audit recording failed", e);
+        }
+    }
+
     @Async("auditExecutor")
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void record(String eventType, User actor, String entityType, Long entityId,
                        Object oldValue, Object newValue, String reason) {
         try {
-            AuditEvent event = AuditEvent.builder()
-                    .eventType(eventType)
-                    .actor(actor)
-                    .actorUsernameSnapshot(actor != null ? actor.getUsername() : null)
-                    .entityType(entityType)
-                    .entityId(entityId)
-                    .oldValueJson(toJson(oldValue))
-                    .newValueJson(toJson(newValue))
-                    .reason(reason)
-                    .build();
-            auditEventRepository.save(event);
+            saveEvent(eventType, actor, entityType, entityId, oldValue, newValue, reason);
         } catch (Exception e) {
-            log.error("Failed to record audit event: type={}, entityType={}, entityId={}",
+            log.error("Failed to asynchronously record audit event: type={}, entityType={}, entityId={}",
                     eventType, entityType, entityId, e);
         }
+    }
+
+    private void saveEvent(String eventType, User actor, String entityType, Long entityId,
+                           Object oldValue, Object newValue, String reason) {
+        AuditEvent event = AuditEvent.builder()
+                .eventType(eventType)
+                .actor(actor)
+                .actorUsernameSnapshot(actor != null ? actor.getUsername() : null)
+                .entityType(entityType)
+                .entityId(entityId)
+                .oldValueJson(toJson(oldValue))
+                .newValueJson(toJson(newValue))
+                .reason(reason)
+                .build();
+        auditEventRepository.save(event);
     }
 
     private String toJson(Object obj) {

@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.example.taskflow.domain.User;
 import com.example.taskflow.dto.ConvertToTaskRequestDTO;
+import com.example.taskflow.dto.ProjectResponseDTO;
 import com.example.taskflow.dto.CrewChannelDTO;
 import com.example.taskflow.dto.CrewChannelRequestDTO;
 import com.example.taskflow.dto.CrewInviteDTO;
@@ -109,7 +110,7 @@ public class CrewController {
     }
 
     /**
-     * P2: PUBLIC_LINK invite — creates an invite with email=null.
+     * P2: PUBLIC_LINK invite  -  creates an invite with email=null.
      * Anyone authenticated who has the invite UUID can accept it.
      * Allowed for PUBLIC_LINK crews (any member) or INVITE_ONLY (creator only).
      */
@@ -134,34 +135,18 @@ public class CrewController {
         return ResponseEntity.noContent().build();
     }
 
+    @PutMapping("/{crewId}/transfer-ownership/{newOwnerId}")
+    public ResponseEntity<Void> transferOwnership(@PathVariable Long crewId,
+                                                  @PathVariable Long newOwnerId,
+                                                  @AuthenticationPrincipal UserDetails userDetails) {
+        crewService.transferOwnership(crewId, newOwnerId, getCurrentUser(userDetails));
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/{crewId}/leave")
     public ResponseEntity<Void> leaveCrew(@PathVariable Long crewId,
                                           @AuthenticationPrincipal UserDetails userDetails) {
         crewService.leaveCrew(crewId, getCurrentUser(userDetails));
-        return ResponseEntity.noContent().build();
-    }
-
-    // --- Projects ---
-
-    @GetMapping("/{crewId}/projects")
-    public ResponseEntity<List<ProjectSummaryDTO>> getCrewProjects(@PathVariable Long crewId,
-                                                                   @AuthenticationPrincipal UserDetails userDetails) {
-        return ResponseEntity.ok(crewService.getCrewProjects(crewId, getCurrentUser(userDetails)));
-    }
-
-    @PostMapping("/{crewId}/projects/{projectId}")
-    public ResponseEntity<Void> shareProject(@PathVariable Long crewId,
-                                             @PathVariable Long projectId,
-                                             @AuthenticationPrincipal UserDetails userDetails) {
-        crewService.shareProject(crewId, projectId, getCurrentUser(userDetails));
-        return ResponseEntity.ok().build();
-    }
-
-    @DeleteMapping("/{crewId}/projects/{projectId}")
-    public ResponseEntity<Void> unshareProject(@PathVariable Long crewId,
-                                               @PathVariable Long projectId,
-                                               @AuthenticationPrincipal UserDetails userDetails) {
-        crewService.unshareProject(crewId, projectId, getCurrentUser(userDetails));
         return ResponseEntity.noContent().build();
     }
 
@@ -249,7 +234,7 @@ public class CrewController {
         TaskResponseDTO response = taskAssignmentService.assignTask(
                 dto.getTitle(),
                 dto.getDescription(),
-                null,    // no assignee — crew tasks are unclaimed
+                null,    // no assignee  -  crew tasks are unclaimed
                 creator,
                 dto.getPriority(),
                 dto.getDueDate(),
@@ -259,5 +244,36 @@ public class CrewController {
                 dto.getProjectId(),
                 crewId); // crewId from path
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    // --- Project Sharing Endpoints ---
+
+    @GetMapping("/{crewId}/projects")
+    public ResponseEntity<List<ProjectResponseDTO>> getCrewProjects(
+            @PathVariable Long crewId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User user = userService.getCurrentUser(userDetails.getUsername());
+        List<ProjectResponseDTO> projects = crewService.getCrewProjects(crewId, user);
+        return ResponseEntity.ok(projects);
+    }
+
+    @PostMapping("/{crewId}/projects/{projectId}")
+    public ResponseEntity<ProjectResponseDTO> shareProject(
+            @PathVariable Long crewId,
+            @PathVariable Long projectId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User user = userService.getCurrentUser(userDetails.getUsername());
+        ProjectResponseDTO response = crewService.shareProject(crewId, projectId, user);
+        return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/{crewId}/projects/{projectId}")
+    public ResponseEntity<Void> unshareProject(
+            @PathVariable Long crewId,
+            @PathVariable Long projectId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User user = userService.getCurrentUser(userDetails.getUsername());
+        crewService.unshareProject(crewId, projectId, user);
+        return ResponseEntity.noContent().build();
     }
 }

@@ -16,10 +16,8 @@ import com.example.taskflow.repository.TaskRepository;
 import com.example.taskflow.repository.UserRepository;
 import com.example.taskflow.repository.OrganizationMembershipRepository;
 import com.example.taskflow.repository.CrewMemberRepository;
-import com.example.taskflow.repository.CrewProjectRepository;
 import com.example.taskflow.repository.TeamMemberRepository;
 import com.example.taskflow.service.PermissionService;
-import com.example.taskflow.domain.CrewProject;
 import org.springframework.security.core.userdetails.UserDetails;
 
 @Component
@@ -34,9 +32,8 @@ public class CustomPermissionEvaluator implements PermissionEvaluator {
     private final OrganizationRepository organizationRepository;
     private final TeamMemberRepository teamMemberRepository;
     private final CrewMemberRepository crewMemberRepository;
-    private final CrewProjectRepository crewProjectRepository;
 
-    public CustomPermissionEvaluator(RoleStrategyFactory roleStrategyFactory, TaskRepository taskRepository, PermissionService permissionService, UserRepository userRepository, ProjectRepository projectRepository, OrganizationMembershipRepository membershipRepository, OrganizationRepository organizationRepository, TeamMemberRepository teamMemberRepository, CrewMemberRepository crewMemberRepository, CrewProjectRepository crewProjectRepository) {
+    public CustomPermissionEvaluator(RoleStrategyFactory roleStrategyFactory, TaskRepository taskRepository, PermissionService permissionService, UserRepository userRepository, ProjectRepository projectRepository, OrganizationMembershipRepository membershipRepository, OrganizationRepository organizationRepository, TeamMemberRepository teamMemberRepository, CrewMemberRepository crewMemberRepository) {
         this.roleStrategyFactory = roleStrategyFactory;
         this.taskRepository = taskRepository;
         this.permissionService = permissionService;
@@ -46,7 +43,6 @@ public class CustomPermissionEvaluator implements PermissionEvaluator {
         this.organizationRepository = organizationRepository;
         this.teamMemberRepository = teamMemberRepository;
         this.crewMemberRepository = crewMemberRepository;
-        this.crewProjectRepository = crewProjectRepository;
     }
 
     private User getUser(Authentication auth) {
@@ -76,10 +72,10 @@ public class CustomPermissionEvaluator implements PermissionEvaluator {
 
     /**
      * Checks whether the given organization is active (not SUSPENDED or DELETED).
-     * Super Admins are exempt ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â they operate at the platform level, not within orgs.
+     * Super Admins are exempt  -  they operate at the platform level, not within orgs.
      */
     private boolean isOrganizationActive(Organization org, User user) {
-        if (org == null || org.getId() == null) return true; // personal / non-org resource ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â no org check needed
+        if (org == null || org.getId() == null) return true; // personal / non-org resource  -  no org check needed
         if (isSuperAdmin(user)) return true; // Super Admin manages orgs at platform level
         
         Organization freshOrg = organizationRepository.findById(org.getId()).orElse(null);
@@ -147,12 +143,13 @@ public class CustomPermissionEvaluator implements PermissionEvaluator {
                         && membershipRepository.existsByUserAndOrganization(user, project.getOrganization()))
                     || (project.getTeam() != null
                         && teamMemberRepository.existsByIdTeamIdAndIdUserId(project.getTeam().getId(), user.getId()))
-                    || isUserMemberOfSharedCrew(user.getId(), project.getId())
                     || permissionService.hasPermission(user, "SUPER_ADMIN_OVERRIDE_CHECK")
                 );
                 case "EDIT", "DELETE" -> project != null && (
                     (project.getCreatedBy() != null && project.getCreatedBy().getId().equals(user.getId()))
-                    || (project.getOrganization() != null && permissionService.hasPermission(user, "PROJECT_MANAGE"))
+                    || (project.getOrganization() != null 
+                        && membershipRepository.existsByUserAndOrganization(user, project.getOrganization())
+                        && permissionService.hasPermission(user, "PROJECT_MANAGE"))
                 );
                 default -> false;
             };
@@ -203,12 +200,26 @@ public class CustomPermissionEvaluator implements PermissionEvaluator {
             if (isOwner) return true;
         }
 
-        // Org suspension check ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â reject if the task's org is not active
+        // Org suspension check  -  reject if the task's org is not active
         if (task != null && !isOrganizationActive(task.getOrg(), user)) {
             return false;
         }
 
         RoleStrategy strategy = roleStrategyFactory.getStrategy(user);
+        
+        // Bug #4 Fix: Centralize Observer Veto check for mutating permissions
+        if (task != null && strategy.isObserverVeto(user, task)) {
+            switch (permission) {
+                case "EDIT", "TASK_EDIT", "CHECKLIST_EDIT", 
+                     "DELETE", "TASK_DELETE", 
+                     "REASSIGN", "TASK_REASSIGN", 
+                     "DEPENDENCY_EDIT", "TASK_DEPENDENCY_EDIT", 
+                     "EVIDENCE_EDIT", "TASK_EVIDENCE_EDIT", 
+                     "ARCHIVE", "TASK_ARCHIVE",
+                     "REVIEW", "TASK_REVIEW":
+                    return false;
+            }
+        }
 
         return switch (permission) {
             case "VIEW", "TASK_VIEW", "READ", "TASK_READ", "COMMENT" -> strategy.canViewTask(user, task);
@@ -221,18 +232,10 @@ public class CustomPermissionEvaluator implements PermissionEvaluator {
             // Evidence uses EDIT privilege (adder / task editor)
             case "EVIDENCE_EDIT", "TASK_EVIDENCE_EDIT" -> strategy.canEdit(user, task);
             // RB-M04 fix: route ARCHIVE to the new dedicated canArchive method
-            // (was routed to canDelete, but controller used 'EDIT' — making this
+            // (was routed to canDelete, but controller used 'EDIT'  -  making this
             // branch dead code. TaskController.toggleArchive now uses 'ARCHIVE'.)
             case "ARCHIVE", "TASK_ARCHIVE" -> strategy.canArchive(user, task);
             default -> false;
         };
-    }
-
-    private boolean isUserMemberOfSharedCrew(Long userId, Long projectId) {
-        java.util.List<CrewProject> crewProjects = crewProjectRepository.findByIdProjectId(projectId);
-        if (crewProjects.isEmpty()) return false;
-        return crewProjects.stream().anyMatch(cp -> 
-            crewMemberRepository.existsByIdCrewIdAndIdUserId(cp.getCrew().getId(), userId)
-        );
     }
 }

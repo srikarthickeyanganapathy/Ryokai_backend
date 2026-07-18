@@ -152,7 +152,7 @@ public class TaskController {
 
     @PostMapping("/bulk-assign")
     @PreAuthorize("hasPermission(null, 'Task', 'ASSIGN')")
-    public ResponseEntity<List<TaskResponseDTO>> bulkAssignTasks(@Valid @RequestBody BulkAssignRequestDTO request,
+    public ResponseEntity<com.example.taskflow.dto.BulkAssignResponseDTO> bulkAssignTasks(@Valid @RequestBody BulkAssignRequestDTO request,
             @AuthenticationPrincipal UserDetails userDetails) {
         User creator = getCurrentUser(userDetails);
 
@@ -165,7 +165,7 @@ public class TaskController {
 
         String tagsJoined = request.getTags() != null ? String.join(",", request.getTags()) : null;
 
-        List<TaskResponseDTO> response = taskAssignmentService.bulkAssignTasks(
+        com.example.taskflow.dto.BulkAssignResponseDTO response = taskAssignmentService.bulkAssignTasks(
                 request.getTitle(),
                 request.getDescription(),
                 request.getAssigneeUsernames(),
@@ -355,9 +355,9 @@ public class TaskController {
         return ResponseEntity.ok(taskWorkflowService.recallTask(taskId, getCurrentUser(userDetails)));
     }
 
-    // Spec state machine for crew tasks: TODO (unclaimed) → ASSIGNED (claimed) → COMPLETED
+    // Spec state machine for crew tasks: TODO (unclaimed)  -  ASSIGNED (claimed)  -  COMPLETED
     // Any crew member can complete a crew task via this endpoint.
-    // Also supports TODO → COMPLETED (implicit claim + complete in one step).
+    // Also supports TODO  -  COMPLETED (implicit claim + complete in one step).
     @PostMapping("/{taskId}/complete-crew")
     @PreAuthorize("hasPermission(#taskId, 'Task', 'EDIT')")
     public ResponseEntity<TaskResponseDTO> completeCrewTask(@PathVariable @Min(1) Long taskId,
@@ -365,8 +365,8 @@ public class TaskController {
         return ResponseEntity.ok(taskWorkflowService.completeCrewTask(taskId, getCurrentUser(userDetails)));
     }
 
-    // Spec: crew tasks use a claiming model — anyone creates, anyone claims (first-taker wins).
-    // Transitions an unclaimed crew task from TODO → ASSIGNED with the claimer as assignee.
+    // Spec: crew tasks use a claiming model  -  anyone creates, anyone claims (first-taker wins).
+    // Transitions an unclaimed crew task from TODO  -  ASSIGNED with the claimer as assignee.
     @PostMapping("/{taskId}/claim")
     @PreAuthorize("hasPermission(#taskId, 'Task', 'EDIT')")
     public ResponseEntity<TaskResponseDTO> claimTask(@PathVariable @Min(1) Long taskId,

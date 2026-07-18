@@ -153,6 +153,13 @@ public class TeamService {
         if (!teamMemberRepository.existsById(tmId)) {
             throw new IllegalArgumentException("User is not a member of this team");
         }
+        
+        // Bug #6 Fix: Prevent removing a user who still has active tasks in the team
+        // Uses non-terminal status check (excludes both APPROVED and COMPLETED)
+        if (taskRepository.existsByTeamIdAndAssigneeIdAndNonTerminalStatus(teamId, userId)) {
+            throw new IllegalStateException("Cannot remove member: User still has active tasks in this team. Please reassign or complete them first.");
+        }
+        
         teamMemberRepository.deleteById(tmId);
 
         // Re-fetch team to get updated members

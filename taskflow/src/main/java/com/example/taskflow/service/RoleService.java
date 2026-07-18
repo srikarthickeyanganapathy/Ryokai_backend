@@ -31,6 +31,7 @@ public class RoleService {
     private final PermissionService permissionService;
     private final UserRepository userRepository;
     private final OrganizationRepository organizationRepository;
+    private final com.example.taskflow.repository.OrganizationMembershipRepository membershipRepository;
     private final AuditService auditService;
 
     // Define core roles that cannot be renamed
@@ -41,12 +42,14 @@ public class RoleService {
                        PermissionService permissionService,
                        UserRepository userRepository,
                        OrganizationRepository organizationRepository,
+                       com.example.taskflow.repository.OrganizationMembershipRepository membershipRepository,
                        AuditService auditService) {
         this.roleRepository = roleRepository;
         this.permissionRepository = permissionRepository;
         this.permissionService = permissionService;
         this.userRepository = userRepository;
         this.organizationRepository = organizationRepository;
+        this.membershipRepository = membershipRepository;
         this.auditService = auditService;
     }
 
@@ -64,6 +67,45 @@ public class RoleService {
                 r.getPriority());
     }
 
+    private Integer getCallerPriority(User caller, Long orgId) {
+        if (orgId != null) {
+            Organization org = organizationRepository.findById(orgId).orElse(null);
+            if (org != null) {
+                com.example.taskflow.domain.OrganizationMembership m = membershipRepository.findByUserAndOrganization(caller, org).orElse(null);
+                if (m != null && m.getOrgRole() != null && m.getOrgRole().getPriority() != null) {
+                    return m.getOrgRole().getPriority();
+                }
+            }
+            return 100; // Default lowest power
+        } else {
+            // Global roles
+            return caller.getRoles().stream()
+                    .map(r -> r.getPriority() != null ? r.getPriority() : 100)
+                    .min(Integer::compareTo).orElse(100);
+        }
+    }
+
+    private void requireOrgPermission(User caller, Long orgId, String permissionName) {
+        boolean isSuperAdmin = caller.getRoles().stream()
+                .anyMatch(r -> r.getName().endsWith("SUPER_ADMIN"));
+        if (isSuperAdmin) return;
+
+        if (orgId == null) {
+            throw new org.springframework.security.access.AccessDeniedException("Global role management requires SUPER_ADMIN.");
+        }
+
+        Organization org = organizationRepository.findById(orgId)
+                .orElseThrow(() -> new IllegalArgumentException("Organization not found"));
+        com.example.taskflow.domain.OrganizationMembership m = membershipRepository.findByUserAndOrganization(caller, org).orElse(null);
+        
+        boolean hasPerm = m != null && m.getOrgRole() != null && m.getOrgRole().getPermissions().stream()
+                .anyMatch(p -> p.getName().equals(permissionName));
+
+        if (!hasPerm) {
+            throw new org.springframework.security.access.AccessDeniedException("You lack the '" + permissionName + "' permission in this organization.");
+        }
+    }
+
     public List<RoleResponseDTO> getAllRoles() {
         return roleRepository.findAllByOrderByNameAsc().stream()
             .map(this::mapToRoleResponseDTO)
@@ -78,11 +120,12 @@ public class RoleService {
 
     @Transactional
     public RoleResponseDTO createRole(RoleCreateRequestDTO request, User caller) {
+        requireOrgPermission(caller, request.organizationId(), "ROLE_MANAGE");
         // RB-M06 fix: block reserved builtin role names. Previously an org admin
         // could create a custom role named "ADMIN" in their org, which would then
         // be indistinguishable from the builtin ADMIN role in name-based
         // isBuiltinAdmin() checks. The CORE_ROLES set already exists for update
-        // guarding — we reuse it here for creation guarding.
+        // guarding  -  we reuse it here for creation guarding.
         if (CORE_ROLES.contains(request.name().toUpperCase())) {
             throw new IllegalArgumentException(
                 "Role name '" + request.name() + "' is reserved. Choose a different name.");
@@ -101,9 +144,12 @@ public class RoleService {
         Role role = new Role();
         role.setName(request.name());
         role.setDescription(request.description());
-        if (request.priority() != null) {
-            role.setPriority(request.priority());
+        Integer reqPriority = request.priority() != null ? request.priority() : 100;
+        Integer callerPriority = getCallerPriority(caller, request.organizationId());
+        if (reqPriority < callerPriority) {
+            throw new IllegalArgumentException("You cannot create a role with a higher priority (lower number) than your own.");
         }
+        role.setPriority(reqPriority);
         
         if (request.organizationId() != null) {
             Organization org = organizationRepository.findById(request.organizationId())
@@ -113,7 +159,7 @@ public class RoleService {
         
         Role saved = roleRepository.save(role);
 
-        auditService.record("ROLE_CREATED", caller, "ROLE", saved.getId(),
+        auditService.recordSync("ROLE_CREATED", caller, "ROLE", saved.getId(),
                 null, mapToRoleResponseDTO(saved), "Created role: " + saved.getName());
 
         return mapToRoleResponseDTO(saved);
@@ -122,6 +168,9 @@ public class RoleService {
     @Transactional
     public RoleResponseDTO updateRole(Long id, RoleUpdateRequestDTO request, User caller) {
         Role role = roleRepository.findById(id).orElseThrow(() -> new RuntimeException("Role not found"));
+        
+        Long orgId = role.getOrganization() != null ? role.getOrganization().getId() : null;
+        requireOrgPermission(caller, orgId, "ROLE_MANAGE");
         
         RoleResponseDTO oldValue = mapToRoleResponseDTO(role);
         
@@ -151,9 +200,22 @@ public class RoleService {
             role.setDescription(request.description()); 
         }
         
+        Integer reqPriority = request.priority() != null ? request.priority() : 100;
+        if (!reqPriority.equals(role.getPriority())) {
+            Integer callerPriority = getCallerPriority(caller, orgId);
+            if (reqPriority < callerPriority) {
+                throw new IllegalArgumentException("You cannot update a role to have a higher priority (lower number) than your own.");
+            }
+            // Also ensure they aren't demoting a role that already outranks them
+            if (role.getPriority() != null && role.getPriority() < callerPriority) {
+                throw new IllegalArgumentException("You cannot update a role that outranks your own priority.");
+            }
+            role.setPriority(reqPriority);
+        }
+        
         Role saved = roleRepository.save(role);
         
-        auditService.record("ROLE_UPDATED", caller, "ROLE", saved.getId(),
+        auditService.recordSync("ROLE_UPDATED", caller, "ROLE", saved.getId(),
                 oldValue, mapToRoleResponseDTO(saved), "Updated role: " + saved.getName());
                 
         return mapToRoleResponseDTO(saved);
@@ -162,6 +224,9 @@ public class RoleService {
     @Transactional
     public void deleteRole(Long id, User caller) {
         Role role = roleRepository.findById(id).orElseThrow(() -> new RuntimeException("Role not found"));
+        
+        Long orgId = role.getOrganization() != null ? role.getOrganization().getId() : null;
+        requireOrgPermission(caller, orgId, "ROLE_MANAGE");
         
         if (CORE_ROLES.contains(role.getName())) {
             throw new IllegalArgumentException("Cannot delete built-in system role: " + role.getName());
@@ -176,7 +241,7 @@ public class RoleService {
         roleRepository.delete(role);
         holders.forEach(u -> permissionService.invalidateCache(u.getId()));
         
-        auditService.record("ROLE_DELETED", caller, "ROLE", id,
+        auditService.recordSync("ROLE_DELETED", caller, "ROLE", id,
                 oldValue, null, "Deleted role: " + role.getName());
     }
 
@@ -196,13 +261,13 @@ public class RoleService {
     public Set<PermissionResponseDTO> assignRolePermissions(Long id, AssignPermissionsRequestDTO request, User caller) {
         Role role = roleRepository.findById(id).orElseThrow(() -> new RuntimeException("Role not found"));
         
+        Long orgId = role.getOrganization() != null ? role.getOrganization().getId() : null;
+        requireOrgPermission(caller, orgId, "ROLE_MANAGE");
+        
         boolean callerIsSuperAdmin = caller.getRoles().stream()
             .anyMatch(r -> r.getName().endsWith("SUPER_ADMIN"));
             
         if (!callerIsSuperAdmin) {
-            // For org-scoped roles: the caller was already verified as org admin by
-            // OrganizationService.requireAdminMembership() before this method is called.
-            // Org admins can grant ANY permission to roles within their organization.
             boolean isOrgScopedRole = role.getOrganization() != null;
             
             if (!isOrgScopedRole) {
@@ -237,7 +302,7 @@ public class RoleService {
         Set<PermissionResponseDTO> newPermsDTO = role.getPermissions().stream()
             .map(this::mapToPermissionResponseDTO).collect(Collectors.toSet());
             
-        auditService.record("ROLE_PERMISSIONS_CHANGED", caller, "ROLE", id,
+        auditService.recordSync("ROLE_PERMISSIONS_CHANGED", caller, "ROLE", id,
                 oldPerms.stream().map(Permission::getName).collect(Collectors.toList()),
                 newPermsDTO.stream().map(PermissionResponseDTO::getName).collect(Collectors.toList()),
                 "Updated permissions for role: " + role.getName());

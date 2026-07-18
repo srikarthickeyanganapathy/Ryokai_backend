@@ -34,7 +34,7 @@ public class PermissionService {
      * RB-C03 fix: previously this method only aggregated permissions from
      * user.getRoles() (the global user_roles join, which holds only SUPER_ADMIN).
      * Per the spec and the comment in RoleStrategyFactory, every non-SUPER_ADMIN
-     * user has an empty roles set — so this method returned an empty set for
+     * user has an empty roles set  -  so this method returned an empty set for
      * everyone except SUPER_ADMIN, making @PreAuthorize("hasPermission(null, 'X')")
      * unreachable for org users.
      *
@@ -50,7 +50,7 @@ public class PermissionService {
         return userPermissionsCache.get(user.getId(), id -> {
             Set<String> perms = new HashSet<>();
 
-            // 1. Global roles (user_roles join — typically only SUPER_ADMIN)
+            // 1. Global roles (user_roles join  -  typically only SUPER_ADMIN)
             if (user.getRoles() != null) {
                 user.getRoles().stream()
                     .filter(role -> role != null && role.getPermissions() != null)

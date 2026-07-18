@@ -9,5 +9,7 @@ public record RoleUpdateRequestDTO(
     String name,
     
     @Size(max = 255, message = "Description cannot exceed 255 characters")
-    String description
+    String description,
+    
+    Integer priority
 ) {}

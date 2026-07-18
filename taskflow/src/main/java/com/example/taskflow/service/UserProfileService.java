@@ -77,7 +77,7 @@ public class UserProfileService {
         user.setTokenVersion(user.getTokenVersion() + 1); // Invalidate active access tokens
         userRepository.save(user);
 
-        // Invalidate ALL refresh tokens — force re-login on every device
+        // Invalidate ALL refresh tokens  -  force re-login on every device
         refreshTokenService.deleteByUserId(user.getId());
 
         // Send notification email (async)
@@ -115,7 +115,7 @@ public class UserProfileService {
     /**
      * SEC-Min01 fix: logout-all endpoint helper.
      * Spec implies token_version should be incrementable on "logout-all / password change".
-     * Previously only changePassword and resetPassword incremented token_version —
+     * Previously only changePassword and resetPassword incremented token_version  - 
      * there was no way for a user who suspected compromise to invalidate all other
      * sessions' access tokens without changing their password.
      *

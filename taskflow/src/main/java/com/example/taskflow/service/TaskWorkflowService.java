@@ -62,7 +62,6 @@ public class TaskWorkflowService {
     private final ProjectRepository projectRepository;
     private final TeamMemberRepository teamMemberRepository;
     private final CrewMemberRepository crewMemberRepository;
-    private final com.example.taskflow.repository.CrewProjectRepository crewProjectRepository;
 
     @Value("${app.reminders.timezone:Asia/Kolkata}")
     private String timezoneProperty;
@@ -84,8 +83,7 @@ public class TaskWorkflowService {
                                com.example.taskflow.repository.TaskEvidenceRepository taskEvidenceRepository,
                                ProjectRepository projectRepository,
                                TeamMemberRepository teamMemberRepository,
-                               CrewMemberRepository crewMemberRepository,
-                               com.example.taskflow.repository.CrewProjectRepository crewProjectRepository) {
+                               CrewMemberRepository crewMemberRepository) {
         this.taskRepository = taskRepository;
         this.taskAuditService = taskAuditService;
         this.roleStrategyFactory = roleStrategyFactory;
@@ -102,7 +100,6 @@ public class TaskWorkflowService {
         this.projectRepository = projectRepository;
         this.teamMemberRepository = teamMemberRepository;
         this.crewMemberRepository = crewMemberRepository;
-        this.crewProjectRepository = crewProjectRepository;
     }
 
     @PostConstruct
@@ -151,9 +148,8 @@ public class TaskWorkflowService {
                     membershipRepository.existsByUserAndOrganization(user, project.getOrganization());
             boolean inTeam = project.getTeam() != null &&
                     teamMemberRepository.existsByIdTeamIdAndIdUserId(project.getTeam().getId(), user.getId());
-            boolean isSharedWithMyCrew = isProjectSharedWithUserCrew(user.getId(), projectId);
             
-            if (!isCreator && !inOrg && !inTeam && !isSharedWithMyCrew) {
+            if (!isCreator && !inOrg && !inTeam) {
                 throw new com.example.taskflow.exception.UnauthorizedActionException("You are not authorized to view tasks for this project.");
             }
             
@@ -173,7 +169,7 @@ public class TaskWorkflowService {
                     });
 
             if (isSuperAdmin) {
-                // Super Admin: privacy boundary — only sees own personal tasks + own crew tasks, not org data
+                // Super Admin: privacy boundary  -  only sees own personal tasks + own crew tasks, not org data
                 Page<Task> page = taskRepository.findVisibleForEmployee(user, user.getId(), pageable);
                 List<Task> personalOnly = page.stream()
                         .filter(task -> (task.isPersonal() && task.getCreator() != null
@@ -197,7 +193,7 @@ public class TaskWorkflowService {
                 }
                 return result;
             }
-            // Fallback: user is ADMIN/DIRECTOR but somehow has no membership ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â show own tasks only
+            // Fallback: user is ADMIN/DIRECTOR but somehow has no membership  -  show own tasks only
             Page<Task> page = taskRepository.findByAssigneeOrCreator(user, pageable);
             Page<TaskResponseDTO> fallbackResult = batchMapTasks(page);
             if (scope != null) {
@@ -262,10 +258,10 @@ public class TaskWorkflowService {
             throw new com.example.taskflow.exception.UnauthorizedActionException("Only the assignee can submit a task for review");
         }
 
-        // B-04c: Personal tasks go To-Do ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ COMPLETED (not ASSIGNED ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ APPROVED)
+        // B-04c: Personal tasks go To-Do  -  COMPLETED (not ASSIGNED  -  APPROVED)
         if (task.isPersonal()) {
             if (task.getCurrentStatus() == TaskStatus.COMPLETED) {
-                return mapToTaskResponseDTO(task); // Already completed ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â no-op
+                return mapToTaskResponseDTO(task); // Already completed  -  no-op
             }
             if (task.getCurrentStatus() != TaskStatus.TODO) {
                 throw new IllegalStateException("Only TODO tasks can be completed");
@@ -286,7 +282,7 @@ public class TaskWorkflowService {
             throw new IllegalStateException("Crew tasks do not have a review pipeline. Use /complete-crew to complete a crew task.");
         }
 
-        // Check dependencies — treat APPROVED (org) or COMPLETED (personal/crew) as done
+        // Check dependencies  -  treat APPROVED (org) or COMPLETED (personal/crew) as done
         boolean hasIncompleteDependencies = taskDependencyRepository.findByTask_Id(taskId).stream()
             .map(TaskDependency::getDependsOn)
             .anyMatch(blockingTask -> {
@@ -389,9 +385,9 @@ public class TaskWorkflowService {
         task.setRejectionReason(reason);
         
         User formerAssignee = task.getAssignee();
-        if (task.getTeam() != null) {
-            task.setAssignee(null);
-        }
+        
+        // Bug #2 Fix: Always clear assignee so it consistently enters the backlog state
+        task.setAssignee(null);
         
         Task updated = taskRepository.save(task);
 
@@ -431,7 +427,7 @@ public class TaskWorkflowService {
         if (!strategy.canReview(reviewer, task)) {
             throw new com.example.taskflow.exception.UnauthorizedActionException("You are not authorized to review this task.");
         }
-        // Spec: the assignor (creator) CAN review — only the assignee is
+        // Spec: the assignor (creator) CAN review  -  only the assignee is
         // blocked from self-review. EmployeeStrategy.canReview already
         // enforces this (assignee != reviewer), so no creator block here.
         // Org boundary check: reviewer must be in the same org as the task
@@ -486,7 +482,7 @@ public class TaskWorkflowService {
         return mapToTaskResponseDTO(task, null, null);
     }
 
-    /** Batch-aware mapper ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â pass pre-fetched dependency maps to avoid N+1 */
+    /** Batch-aware mapper  -  pass pre-fetched dependency maps to avoid N+1 */
     private TaskResponseDTO mapToTaskResponseDTO(Task task,
             java.util.Map<Long, List<TaskDependency>> blockingByTaskId,
             java.util.Map<Long, List<TaskDependency>> blockedByByTaskId) {
@@ -725,14 +721,26 @@ public class TaskWorkflowService {
             throw new IllegalArgumentException("A task cannot depend on itself");
         }
 
-        // Validate both tasks belong to the same organization
-        if (task.getOrg() != null && dependsOnTask.getOrg() != null) {
+        // Validate workspaces match
+        if (task.getOrg() != null || dependsOnTask.getOrg() != null) {
+            if (task.getOrg() == null || dependsOnTask.getOrg() == null) {
+                throw new IllegalArgumentException("Cannot mix organization tasks with personal/crew tasks in dependencies");
+            }
             if (!task.getOrg().getId().equals(dependsOnTask.getOrg().getId())) {
                 throw new IllegalArgumentException("Cannot add dependency between tasks in different organizations");
             }
-        } else if (task.getOrg() != null || dependsOnTask.getOrg() != null) {
-            // One is personal/crew and the other is org
-            throw new IllegalArgumentException("Cannot mix personal/crew tasks and organization tasks in dependencies");
+        } else if (task.getCrew() != null || dependsOnTask.getCrew() != null) {
+            if (task.getCrew() == null || dependsOnTask.getCrew() == null) {
+                throw new IllegalArgumentException("Cannot mix crew tasks with personal tasks in dependencies");
+            }
+            if (!task.getCrew().getId().equals(dependsOnTask.getCrew().getId())) {
+                throw new IllegalArgumentException("Cannot add dependency between tasks in different crews");
+            }
+        } else {
+            // Both are personal tasks
+            if (task.getCreator() == null || dependsOnTask.getCreator() == null || !task.getCreator().getId().equals(dependsOnTask.getCreator().getId())) {
+                throw new IllegalArgumentException("Cannot add dependency between personal tasks of different users");
+            }
         }
 
         if (taskDependencyRepository.existsByTask_IdAndDependsOn_Id(taskId, dependsOnId)) {
@@ -1080,7 +1088,7 @@ public class TaskWorkflowService {
 
     /**
      * Claim an unclaimed crew task. Transitions TODO -> ASSIGNED.
-     * Spec: crew tasks use a claiming model — anyone creates a task,
+     * Spec: crew tasks use a claiming model  -  anyone creates a task,
      * anyone claims it (first-taker wins via @Version optimistic lock).
      */
     @Transactional
@@ -1126,13 +1134,5 @@ public class TaskWorkflowService {
         TaskResponseDTO dto = mapToTaskResponseDTO(updated);
         realtimeBroadcaster.broadcastTaskUpdate(dto, updated.getId());
         return dto;
-    }
-
-    private boolean isProjectSharedWithUserCrew(Long userId, Long projectId) {
-        List<com.example.taskflow.domain.CrewProject> crewProjects = crewProjectRepository.findByIdProjectId(projectId);
-        if (crewProjects.isEmpty()) return false;
-        return crewProjects.stream().anyMatch(cp -> 
-            crewMemberRepository.existsByIdCrewIdAndIdUserId(cp.getCrew().getId(), userId)
-        );
     }
 }

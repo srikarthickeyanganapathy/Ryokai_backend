@@ -66,7 +66,7 @@ public class TaskAuditService {
         historyRepository.save(h);
     }
 
-    // Convenience overload ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â infers fromStatus from task's current status BEFORE mutation
+    // Convenience overload  -  infers fromStatus from task's current status BEFORE mutation
     @Transactional
     public void recordStatus(Task task, String toStatus, String eventType, User actor, String reason) {
         recordStatus(task, task.getCurrentStatus().name(), toStatus, eventType, actor, reason);
@@ -98,7 +98,7 @@ public class TaskAuditService {
                     });
 
             if (isSuperAdmin) {
-                // Super Admin: privacy boundary ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â only own personal task activity
+                // Super Admin: privacy boundary  -  only own personal task activity
                 return includeAllTypes
                     ? historyRepository.findGlobalFeedForUserAllTypes(user.getId(), pageable).map(this::mapToActivityEventDTO)
                     : historyRepository.findGlobalFeedForUser(user.getId(), pageable).map(this::mapToActivityEventDTO);

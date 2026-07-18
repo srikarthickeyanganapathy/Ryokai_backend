@@ -82,7 +82,7 @@ public class UserController {
         // Regular users only see members of their own organization
         List<OrganizationMembership> callerMemberships = membershipRepository.findByUserId(caller.getId());
         if (callerMemberships.isEmpty()) {
-            // Not in any org Ã¢â‚¬â€ only return self
+            // Not in any org  -  only return self
             return ResponseEntity.ok(List.of(UserResponseDTO.from(caller)));
         }
 

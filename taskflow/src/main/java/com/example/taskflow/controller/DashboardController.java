@@ -76,7 +76,7 @@ public class DashboardController {
         // I need to update DashboardService to have getActivityFeedForTask(taskId, user, pageable) 
         // that delegates to auditService, wait I didn't add it in DashboardService yet. 
         // I will add it to DashboardService next, or just call TaskAuditService directly here?
-        // Feedback said: "Fix: Signature must be getActivityFeedForTask(Long taskId, User user, Pageable pageable). Inside the method, call roleStrategyFactory.getStrategy(user).canViewTask(user, task) — throw UnauthorizedActionException if false."
+        // Feedback said: "Fix: Signature must be getActivityFeedForTask(Long taskId, User user, Pageable pageable). Inside the method, call roleStrategyFactory.getStrategy(user).canViewTask(user, task)  -  throw UnauthorizedActionException if false."
         // Let's call dashboardService.
         return ResponseEntity.ok(dashboardService.getActivityFeedForTask(taskId, user, pageable));
     }

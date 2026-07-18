@@ -31,7 +31,7 @@ public class RoleStrategyFactory {
     public RoleStrategy getStrategy(User user) {
         if (user == null) return employeeStrategy;
 
-        // SUPER_ADMIN — the only global privileged role (platform owner)
+        // SUPER_ADMIN  -  the only global privileged role (platform owner)
         Set<String> roleNames = user.getRoles().stream()
                 .map(role -> {
                     String name = role.getName();

@@ -25,7 +25,7 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     @EntityGraph(attributePaths = {"assignee","creator","reviewer","org","team","project"})
     Page<Task> findByAssignee(User user, Pageable pageable);
 
-    // Used for reassignment during leave — non-paginated
+    // Used for reassignment during leave  -  non-paginated
     @EntityGraph(attributePaths = {"assignee","creator","reviewer","org","team","project"})
     List<Task> findByAssignee(User user);
 
@@ -61,6 +61,15 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     @EntityGraph(attributePaths = {"assignee","creator","reviewer","org","team","project","crew"})
     @Query("SELECT t FROM Task t WHERE t.crew.id = :crewId")
     Page<Task> findByCrewId(@Param("crewId") Long crewId, Pageable pageable);
+    
+    boolean existsByCrewId(Long crewId);
+    
+    // Bug #6/#8 Fix: Check if a user has non-terminal tasks in a team.
+    // Org tasks terminate at APPROVED, personal/crew at COMPLETED — must exclude both.
+    @Query("SELECT CASE WHEN COUNT(t) > 0 THEN true ELSE false END FROM Task t " +
+           "WHERE t.team.id = :teamId AND t.assignee.id = :assigneeId " +
+           "AND t.currentStatus NOT IN (com.example.taskflow.domain.TaskStatus.COMPLETED, com.example.taskflow.domain.TaskStatus.APPROVED)")
+    boolean existsByTeamIdAndAssigneeIdAndNonTerminalStatus(@Param("teamId") Long teamId, @Param("assigneeId") Long assigneeId);
 
     // Employee counts
     long countByAssigneeIdAndArchivedFalse(Long userId);
