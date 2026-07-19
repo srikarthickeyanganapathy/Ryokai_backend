@@ -294,7 +294,7 @@ public class TaskWorkflowService {
             throw new IllegalStateException("Cannot submit task. One or more dependencies are not completed.");
         }
 
-        if (task.getCurrentStatus() != TaskStatus.ASSIGNED && task.getCurrentStatus() != TaskStatus.REJECTED) {
+        if (task.getCurrentStatus() != TaskStatus.IN_PROGRESS && task.getCurrentStatus() != TaskStatus.REJECTED) {
             throw new IllegalStateException("Only ASSIGNED or REJECTED tasks can be submitted");
         }
 
@@ -935,7 +935,7 @@ public class TaskWorkflowService {
         TaskStatus oldStatus = task.getCurrentStatus();
         
         task.setAssignee(newAssignee);
-        task.setCurrentStatus(task.isPersonal() ? TaskStatus.TODO : (task.getCrew() != null ? TaskStatus.TODO : TaskStatus.ASSIGNED)); // RESET
+        task.setCurrentStatus(task.isPersonal() ? TaskStatus.TODO : (task.getCrew() != null ? TaskStatus.TODO : TaskStatus.IN_PROGRESS)); // RESET
         task.setReviewer(null); // RESET
         task.setRejectionReason(null);
         Task updated = taskRepository.save(task);
@@ -1003,9 +1003,9 @@ public class TaskWorkflowService {
         // Personal tasks never enter SUBMITTED, so this is implicitly org-only.
         // Crew tasks have no review pipeline, so they never enter SUBMITTED either.
         TaskStatus fromStatus = task.getCurrentStatus();
-        task.setCurrentStatus(TaskStatus.ASSIGNED);
+        task.setCurrentStatus(TaskStatus.IN_PROGRESS);
         Task updated = taskRepository.save(task);
-        taskAuditService.recordStatus(updated, fromStatus.name(), "ASSIGNED", "RECALLED", user,
+        taskAuditService.recordStatus(updated, fromStatus.name(), "IN_PROGRESS", "RECALLED", user,
                 "Assignee recalled submission", java.util.Map.of("recalledBy", user.getUsername()));
 
         // Notify the creator that the submission was recalled
@@ -1044,7 +1044,7 @@ public class TaskWorkflowService {
         if (task.getCurrentStatus() == TaskStatus.COMPLETED) {
             return mapToTaskResponseDTO(task); // Already completed - no-op
         }
-        if (task.getCurrentStatus() != TaskStatus.ASSIGNED && task.getCurrentStatus() != TaskStatus.TODO) {
+        if (task.getCurrentStatus() != TaskStatus.IN_PROGRESS && task.getCurrentStatus() != TaskStatus.TODO) {
             throw new IllegalStateException("Only TODO or ASSIGNED crew tasks can be completed. Current status: " + task.getCurrentStatus());
         }
 
@@ -1096,7 +1096,7 @@ public class TaskWorkflowService {
         Task task = getTask(taskId);
 
         if (task.getCrew() == null) {
-            throw new IllegalArgumentException("Only crew tasks can be claimed. Org tasks are assigned, personal tasks are self-owned.");
+            throw new IllegalArgumentException("Only crew tasks can be claimed. Org tasks are IN_PROGRESS, personal tasks are self-owned.");
         }
 
         if (task.getCurrentStatus() != TaskStatus.TODO) {
@@ -1115,10 +1115,16 @@ public class TaskWorkflowService {
 
         TaskStatus fromStatus = task.getCurrentStatus();
         task.setAssignee(user);
-        task.setCurrentStatus(TaskStatus.ASSIGNED);
-        Task updated = taskRepository.save(task); // @Version provides optimistic lock (first-taker wins)
+        task.setCurrentStatus(TaskStatus.IN_PROGRESS);
+        
+        Task updated;
+        try {
+            updated = taskRepository.save(task); // @Version provides optimistic lock (first-taker wins)
+        } catch (org.springframework.dao.OptimisticLockingFailureException e) {
+            throw new IllegalStateException("Task already claimed");
+        }
 
-        taskAuditService.recordStatus(updated, fromStatus.name(), "ASSIGNED", "CLAIMED", user,
+        taskAuditService.recordStatus(updated, fromStatus.name(), "IN_PROGRESS", "CLAIMED", user,
                 "Task claimed by " + user.getUsername(),
                 java.util.Map.of("claimedBy", user.getUsername()));
 

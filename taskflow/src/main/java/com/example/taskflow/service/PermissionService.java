@@ -74,6 +74,7 @@ public class PermissionService {
                         perms.add("ORG_MEMBER_INVITE"); perms.add("ORG_MEMBER_REMOVE"); perms.add("LEAVE_REQUEST_MANAGE");
                         perms.add("TEAM_CREATE"); perms.add("TEAM_MANAGE"); perms.add("PROJECT_CREATE");
                         perms.add("PROJECT_MANAGE");
+                        perms.add("ANNOUNCEMENT_MANAGE");
                     } else if (m.getOrgRole().getPermissions() != null) {
                         m.getOrgRole().getPermissions().stream()
                             .filter(p -> p != null && p.getName() != null)

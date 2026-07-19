@@ -84,7 +84,7 @@ public class DashboardService {
         List<TaskStatus> notApproved = Arrays.asList(TaskStatus.APPROVED);
 
         long totalTasks = taskRepository.countByOrgIdAndArchivedFalse(orgId);
-        long todoCount = taskRepository.countByOrgIdAndCurrentStatusAndArchivedFalse(orgId, TaskStatus.ASSIGNED);
+        long todoCount = taskRepository.countByOrgIdAndCurrentStatusAndArchivedFalse(orgId, TaskStatus.IN_PROGRESS);
         long inReviewCount = taskRepository.countByOrgIdAndCurrentStatusAndArchivedFalse(orgId, TaskStatus.SUBMITTED);
         long doneCount = taskRepository.countByOrgIdAndCurrentStatusAndArchivedFalse(orgId, TaskStatus.APPROVED);
         long revisionsCount = taskRepository.countByOrgIdAndCurrentStatusAndArchivedFalse(orgId, TaskStatus.REJECTED);
@@ -106,7 +106,7 @@ public class DashboardService {
         Long uid = user.getId();
         
         long totalTasks = taskRepository.countByAssigneeIdAndArchivedFalse(uid);
-        long todoCount = taskRepository.countByAssigneeIdAndCurrentStatusAndArchivedFalse(uid, TaskStatus.ASSIGNED);
+        long todoCount = taskRepository.countByAssigneeIdAndCurrentStatusAndArchivedFalse(uid, TaskStatus.IN_PROGRESS);
         long inReviewCount = taskRepository.countByAssigneeIdAndCurrentStatusAndArchivedFalse(uid, TaskStatus.SUBMITTED);
         long doneCount = taskRepository.countByAssigneeIdAndCurrentStatusAndArchivedFalse(uid, TaskStatus.APPROVED);
         long revisionsCount = taskRepository.countByAssigneeIdAndCurrentStatusAndArchivedFalse(uid, TaskStatus.REJECTED);
@@ -123,7 +123,7 @@ public class DashboardService {
         long completionRate = denominator > 0 ? (done * 100) / denominator : 0;
         
         List<TaskStatusBreakdownDTO> statusBreakdown = new ArrayList<>();
-        statusBreakdown.add(new TaskStatusBreakdownDTO(TaskStatus.ASSIGNED.name(), todo, "#FFC107"));
+        statusBreakdown.add(new TaskStatusBreakdownDTO(TaskStatus.IN_PROGRESS.name(), todo, "#FFC107"));
         statusBreakdown.add(new TaskStatusBreakdownDTO(TaskStatus.SUBMITTED.name(), inReview, "#17A2B8"));
         statusBreakdown.add(new TaskStatusBreakdownDTO(TaskStatus.APPROVED.name(), done, "#28A745"));
         statusBreakdown.add(new TaskStatusBreakdownDTO(TaskStatus.REJECTED.name(), revisions, "#DC3545"));

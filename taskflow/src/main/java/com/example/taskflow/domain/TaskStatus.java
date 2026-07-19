@@ -3,7 +3,7 @@ package com.example.taskflow.domain;
 public enum TaskStatus {
     TODO,
     COMPLETED,
-    ASSIGNED,
+    IN_PROGRESS,
     SUBMITTED,
     APPROVED,
     REJECTED;

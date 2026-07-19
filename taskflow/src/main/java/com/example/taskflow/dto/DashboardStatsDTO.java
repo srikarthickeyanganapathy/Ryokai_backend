@@ -4,7 +4,7 @@ import java.util.List;
 
 public record DashboardStatsDTO(
         long totalTasks,
-        long todoCount,           // ASSIGNED
+        long todoCount,           // IN_PROGRESS
         long inReviewCount,       // SUBMITTED
         long doneCount,           // APPROVED
         long revisionsCount,      // REJECTED

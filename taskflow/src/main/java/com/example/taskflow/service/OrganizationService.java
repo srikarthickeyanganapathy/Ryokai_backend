@@ -44,6 +44,7 @@ public class OrganizationService {
     private final com.example.taskflow.repository.TeamMemberRepository teamMemberRepository;
     private final com.example.taskflow.repository.ProjectRepository projectRepository;
     private final com.example.taskflow.repository.OrganizationInviteRepository inviteRepository;
+    private final PermissionService permissionService;
 
     public OrganizationService(OrganizationRepository organizationRepository,
             OrganizationMembershipRepository membershipRepository,
@@ -59,7 +60,8 @@ public class OrganizationService {
             RoleService roleService,
             com.example.taskflow.repository.TeamMemberRepository teamMemberRepository,
             com.example.taskflow.repository.ProjectRepository projectRepository,
-            com.example.taskflow.repository.OrganizationInviteRepository inviteRepository) {
+            com.example.taskflow.repository.OrganizationInviteRepository inviteRepository,
+            PermissionService permissionService) {
         this.organizationRepository = organizationRepository;
         this.membershipRepository = membershipRepository;
         this.leaveRequestRepository = leaveRequestRepository;
@@ -75,6 +77,7 @@ public class OrganizationService {
         this.teamMemberRepository = teamMemberRepository;
         this.projectRepository = projectRepository;
         this.inviteRepository = inviteRepository;
+        this.permissionService = permissionService;
     }
 
     // ========================================================================
@@ -475,6 +478,7 @@ public class OrganizationService {
         String oldRoleName = membership.getOrgRole().getName();
         membership.setOrgRole(newRole);
         OrganizationMembership saved = membershipRepository.save(membership);
+        permissionService.invalidateCache(user.getId());
 
         MembershipResponseDTO responseDTO = mapToMembershipDTO(saved);
         auditService.record("ORG_MEMBER_ROLE_UPDATED", callerUser, "ORGANIZATION", org.getId(),
@@ -618,6 +622,7 @@ public class OrganizationService {
                 membership.getUser().getId(),
                 membership.getUser().getUsername(),
                 membership.getOrgRole() != null ? membership.getOrgRole().getName() : null,
+                membership.getOrgRole() != null ? membership.getOrgRole().getPriority() : null,
                 permissions,
                 membership.getJoinedAt());
     }
@@ -716,9 +721,9 @@ public class OrganizationService {
                     .forEach(task -> {
                         String oldStatus = task.getCurrentStatus().name();
                         task.setAssignee(successor);
-                        task.setCurrentStatus(com.example.taskflow.domain.TaskStatus.ASSIGNED);
+                        task.setCurrentStatus(com.example.taskflow.domain.TaskStatus.IN_PROGRESS);
                         Task updated = taskRepository.save(task);
-                        taskAuditService.recordStatus(updated, oldStatus, "ASSIGNED", "REASSIGNED", adminUser, "Reassigned due to admin transfer");
+                        taskAuditService.recordStatus(updated, oldStatus, "IN_PROGRESS", "REASSIGNED", adminUser, "Reassigned due to admin transfer");
                     });
 
             // Remove leaving admin from teams

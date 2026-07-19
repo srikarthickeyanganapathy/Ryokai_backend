@@ -17,7 +17,8 @@ public enum PermissionType {
     TEAM_MANAGE("Manage team settings and rosters"),
     PROJECT_CREATE("Create new projects"),
     PROJECT_MANAGE("Manage global project metadata"),
-    TASK_OVERRIDE("Override task dependencies and review constraints");
+    TASK_OVERRIDE("Override task dependencies and review constraints"),
+    ANNOUNCEMENT_MANAGE("Manage organization announcements");
 
     private final String description;
 

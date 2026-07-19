@@ -145,6 +145,9 @@ public class RoleService {
         role.setName(request.name());
         role.setDescription(request.description());
         Integer reqPriority = request.priority() != null ? request.priority() : 100;
+        if (reqPriority == 0) {
+            throw new IllegalArgumentException("Priority 0 is reserved for the built-in ADMIN role.");
+        }
         Integer callerPriority = getCallerPriority(caller, request.organizationId());
         if (reqPriority < callerPriority) {
             throw new IllegalArgumentException("You cannot create a role with a higher priority (lower number) than your own.");
@@ -202,6 +205,9 @@ public class RoleService {
         
         Integer reqPriority = request.priority() != null ? request.priority() : 100;
         if (!reqPriority.equals(role.getPriority())) {
+            if (reqPriority == 0) {
+                throw new IllegalArgumentException("Priority 0 is reserved for the built-in ADMIN role.");
+            }
             Integer callerPriority = getCallerPriority(caller, orgId);
             if (reqPriority < callerPriority) {
                 throw new IllegalArgumentException("You cannot update a role to have a higher priority (lower number) than your own.");

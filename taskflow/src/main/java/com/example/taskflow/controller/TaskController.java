@@ -345,7 +345,7 @@ public class TaskController {
         return ResponseEntity.ok(taskWorkflowService.toggleArchive(taskId, getCurrentUser(userDetails)));
     }
 
-    // SM-M03 fix: spec state machine says "SUBMITTED --> ASSIGNED : assignee recalls".
+    // SM-M03 fix: spec state machine says "SUBMITTED --> IN_PROGRESS : assignee recalls".
     // Previously no endpoint existed - once an assignee submitted, they had to
     // wait for the reviewer to approve or reject.
     @PostMapping("/{taskId}/recall")
@@ -355,7 +355,7 @@ public class TaskController {
         return ResponseEntity.ok(taskWorkflowService.recallTask(taskId, getCurrentUser(userDetails)));
     }
 
-    // Spec state machine for crew tasks: TODO (unclaimed)  -  ASSIGNED (claimed)  -  COMPLETED
+    // Spec state machine for crew tasks: TODO (unclaimed)  -  IN_PROGRESS (claimed)  -  COMPLETED
     // Any crew member can complete a crew task via this endpoint.
     // Also supports TODO  -  COMPLETED (implicit claim + complete in one step).
     @PostMapping("/{taskId}/complete-crew")
@@ -366,7 +366,7 @@ public class TaskController {
     }
 
     // Spec: crew tasks use a claiming model  -  anyone creates, anyone claims (first-taker wins).
-    // Transitions an unclaimed crew task from TODO  -  ASSIGNED with the claimer as assignee.
+    // Transitions an unclaimed crew task from TODO  -  IN_PROGRESS with the claimer as assignee.
     @PostMapping("/{taskId}/claim")
     @PreAuthorize("hasPermission(#taskId, 'Task', 'EDIT')")
     public ResponseEntity<TaskResponseDTO> claimTask(@PathVariable @Min(1) Long taskId,

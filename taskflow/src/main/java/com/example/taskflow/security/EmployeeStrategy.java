@@ -135,6 +135,15 @@ public class EmployeeStrategy implements RoleStrategy {
         if (task.isPersonal() && task.getOrg() == null && task.getCrew() == null) {
             boolean isCreator = task.getCreator() != null && task.getCreator().getId().equals(user.getId());
             if (isCreator) return true;
+            
+            if (task.getProject() != null && task.getProject().getSharedCrews() != null) {
+                for (com.example.taskflow.domain.Crew crew : task.getProject().getSharedCrews()) {
+                    if (crewMemberRepository.existsByIdCrewIdAndIdUserId(crew.getId(), user.getId())) {
+                        return true;
+                    }
+                }
+            }
+            
             return false;
         }
 

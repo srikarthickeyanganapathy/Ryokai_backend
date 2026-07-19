@@ -133,7 +133,7 @@ public class TaskAssignmentService {
                 if (creatorOrgMem.getOrgRole() != null && assigneeOrgMem.getOrgRole() != null) {
                     Integer creatorPriority = creatorOrgMem.getOrgRole().getPriority();
                     Integer assigneePriority = assigneeOrgMem.getOrgRole().getPriority();
-                    if (creatorPriority >= assigneePriority) {
+                    if (creatorPriority > assigneePriority) {
                         throw new IllegalArgumentException("You do not have enough power (role priority) to assign tasks to this user.");
                     }
                 }
@@ -234,15 +234,20 @@ public class TaskAssignmentService {
             task.setCurrentStatus(TaskStatus.TODO);
         } else if (crewId != null) {
             // Crew: unclaimed (no assignee) = TODO, nudged (with assignee) = ASSIGNED
-            task.setCurrentStatus(assignee != null ? TaskStatus.ASSIGNED : TaskStatus.TODO);
+            task.setCurrentStatus(assignee != null ? TaskStatus.IN_PROGRESS : TaskStatus.TODO);
         } else {
-            task.setCurrentStatus(TaskStatus.ASSIGNED);
+            task.setCurrentStatus(TaskStatus.IN_PROGRESS);
         }
 
-        // B-16b: Wire projectId
+            // B-16b: Wire projectId
         if (projectId != null) {
             Project project = projectRepository.findById(projectId)
                     .orElseThrow(() -> new IllegalArgumentException("Project not found: " + projectId));
+            
+            // Fix B3: Prevent personal task contamination via org-scoped projects
+            if (isPersonal && (project.getOrganization() != null || project.getTeam() != null)) {
+                throw new IllegalArgumentException("Personal tasks cannot belong to team or organization scoped projects");
+            }
             
             // Validate project belongs to the same organization
             if (task.getOrg() != null && project.getOrganization() != null && !project.getOrganization().getId().equals(task.getOrg().getId())) {
