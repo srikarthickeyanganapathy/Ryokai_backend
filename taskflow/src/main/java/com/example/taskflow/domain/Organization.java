@@ -47,4 +47,24 @@ public class Organization {
 
     @OneToMany(mappedBy = "organization", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
     private Set<Role> roles = new HashSet<>();
+
+    public void requireActive() {
+        if (this.status != OrgStatus.ACTIVE) {
+            throw new com.example.taskflow.exception.OrganizationSuspendedException(
+                    "Organization '" + this.name + "' is " + this.status.name().toLowerCase()
+                    + ". All operations are restricted until it is reactivated.");
+        }
+    }
+
+    public void ensureNotLastAdmin(User user) {
+        long adminCount = this.memberships.stream()
+                .filter(m -> m.getOrgRole() != null && m.getOrgRole().isBuiltinAdmin())
+                .count();
+        boolean isAdmin = this.memberships.stream()
+                .anyMatch(m -> m.getUser().getId().equals(user.getId()) && m.getOrgRole() != null && m.getOrgRole().isBuiltinAdmin());
+        if (isAdmin && adminCount <= 1) {
+            throw new IllegalStateException(
+                    "Cannot remove the last Admin of the organization. Promote another member to Admin first.");
+        }
+    }
 }

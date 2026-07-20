@@ -86,8 +86,7 @@ public class RoleService {
     }
 
     private void requireOrgPermission(User caller, Long orgId, String permissionName) {
-        boolean isSuperAdmin = caller.getRoles().stream()
-                .anyMatch(r -> r.getName().endsWith("SUPER_ADMIN"));
+        boolean isSuperAdmin = caller.isSuperAdmin();
         if (isSuperAdmin) return;
 
         if (orgId == null) {
@@ -270,8 +269,7 @@ public class RoleService {
         Long orgId = role.getOrganization() != null ? role.getOrganization().getId() : null;
         requireOrgPermission(caller, orgId, "ROLE_MANAGE");
         
-        boolean callerIsSuperAdmin = caller.getRoles().stream()
-            .anyMatch(r -> r.getName().endsWith("SUPER_ADMIN"));
+        boolean callerIsSuperAdmin = caller.isSuperAdmin();
             
         if (!callerIsSuperAdmin) {
             boolean isOrgScopedRole = role.getOrganization() != null;
@@ -314,5 +312,61 @@ public class RoleService {
                 "Updated permissions for role: " + role.getName());
         
         return newPermsDTO;
+    }
+
+    public Set<RoleResponseDTO> getUserRoles(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        return user.getRoles().stream()
+                .map(this::mapToRoleResponseDTO)
+                .collect(Collectors.toSet());
+    }
+
+    @Transactional
+    public Set<RoleResponseDTO> assignUserRoles(Long userId, List<String> roleNames, User caller) {
+        boolean callerIsSuperAdmin = caller.isSuperAdmin();
+
+        boolean touchesSuperAdmin = roleNames.stream()
+            .anyMatch(n -> n.replaceFirst("^ROLE_", "").equals("SUPER_ADMIN"));
+        if (touchesSuperAdmin && !callerIsSuperAdmin) {
+            throw new org.springframework.security.access.AccessDeniedException("Only SUPER_ADMIN may assign the SUPER_ADMIN role");
+        }
+
+        // Global roles can ONLY be SUPER_ADMIN.
+        // Org-scoped roles (ADMIN, DIRECTOR, MANAGER, EMPLOYEE) are assigned
+        // through OrganizationMembership, not through the global user_roles table.
+        for (String requested : roleNames) {
+            String normalized = requested.replaceFirst("^ROLE_", "");
+            if (!normalized.equals("SUPER_ADMIN")) {
+                throw new IllegalArgumentException(
+                    "Only SUPER_ADMIN can be assigned as a global role. " +
+                    "Use organization membership to assign org roles (ADMIN, DIRECTOR, MANAGER, EMPLOYEE).");
+            }
+        }
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        Set<String> oldRoles = user.getRoles().stream().map(Role::getName).collect(Collectors.toSet());
+        
+        Set<Role> newRoles = roleNames.stream()
+                .map(requested -> {
+                    String normalized = requested.replaceFirst("^ROLE_", "");
+                    return roleRepository.findByName(normalized)
+                        .orElseThrow(() -> new IllegalArgumentException("Role not found: " + normalized));
+                })
+                .collect(Collectors.toSet());
+        user.setRoles(newRoles);
+        userRepository.save(user);
+        
+        permissionService.invalidateCache(user.getId());
+        
+        auditService.recordSync("USER_ROLES_ASSIGNED", caller, "USER", user.getId(),
+                oldRoles, newRoles.stream().map(Role::getName).collect(Collectors.toSet()),
+                "Assigned roles to user " + user.getUsername());
+
+        return newRoles.stream()
+                .map(this::mapToRoleResponseDTO)
+                .collect(Collectors.toSet());
     }
 }

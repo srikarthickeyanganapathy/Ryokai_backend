@@ -25,4 +25,10 @@ public interface CrewRepository extends JpaRepository<Crew, Long> {
     boolean existsBySlug(String slug);
 
     List<Crew> findByCreator_Id(Long creatorId);
+
+    @Query("SELECT c FROM Crew c WHERE c.visibility = com.example.taskflow.domain.CrewVisibility.PUBLIC " +
+           "AND (:keyword IS NULL OR :keyword = '' OR LOWER(c.name) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "OR LOWER(c.description) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
+           "ORDER BY c.createdAt DESC")
+    org.springframework.data.domain.Page<Crew> searchPublicCrews(@Param("keyword") String keyword, org.springframework.data.domain.Pageable pageable);
 }

@@ -79,20 +79,21 @@ public class RefreshTokenService {
             throw new TokenRefreshException(TokenRefreshException.ErrorCode.EXPIRED_TOKEN, "Refresh token was expired.");
         }
 
+        User user = tokenEntity.getUser();
+        user.getRoles().size();       // force initialization
+        user.getTokenVersion();       // force initialization
+
         // Mark as used atomically
         int affected = refreshTokenRepository.markAsUsed(tokenHash);
         if (affected == 0) {
             // Either the token was just marked used by another concurrent request (race),
             // or it didn't exist (handled above).
-            logger.error("Security Event: Refresh token reuse detected (race) for user {}", tokenEntity.getUser().getId());
-            securityAuditService.record("TOKEN_REUSE_DETECTED", tokenEntity.getUser().getId(), tokenEntity.getUser().getUsername(), null, null, "Race condition detected", false);
-            refreshTokenRepository.deleteByUser_Id(tokenEntity.getUser().getId());
+            logger.error("Security Event: Refresh token reuse detected (race) for user {}", user.getId());
+            securityAuditService.record("TOKEN_REUSE_DETECTED", user.getId(), user.getUsername(), null, null, "Race condition detected", false);
+            refreshTokenRepository.deleteByUser_Id(user.getId());
             throw new TokenRefreshException(TokenRefreshException.ErrorCode.REUSE_DETECTED, "Token reuse detected. All sessions revoked.");
         }
 
-        User user = tokenEntity.getUser();
-        user.getRoles().size();       // force initialization
-        user.getTokenVersion();       // force initialization
         return user;
     }
 

@@ -1,13 +1,10 @@
 package com.example.taskflow.controller;
 
-import com.example.taskflow.domain.Organization;
-import com.example.taskflow.dto.OrganizationResponseDTO;
-import com.example.taskflow.repository.OrganizationRepository;
-import com.example.taskflow.repository.OrganizationMembershipRepository;
-import com.example.taskflow.service.UserService;
+import com.example.taskflow.service.OrganizationService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
+import com.example.taskflow.dto.OrganizationResponseDTO;
 
 import java.util.List;
 
@@ -20,14 +17,10 @@ import java.util.List;
 @PreAuthorize("hasRole('SUPER_ADMIN')")
 public class AdminController {
 
-    private final OrganizationRepository organizationRepository;
-    private final OrganizationMembershipRepository membershipRepository;
+    private final OrganizationService organizationService;
 
-    public AdminController(OrganizationRepository organizationRepository,
-                           OrganizationMembershipRepository membershipRepository,
-                           UserService userService) {
-        this.organizationRepository = organizationRepository;
-        this.membershipRepository = membershipRepository;
+    public AdminController(OrganizationService organizationService) {
+        this.organizationService = organizationService;
     }
 
     /**
@@ -35,10 +28,7 @@ public class AdminController {
      */
     @GetMapping("/organizations")
     public ResponseEntity<List<OrganizationResponseDTO>> listAllOrganizations() {
-        List<OrganizationResponseDTO> orgs = organizationRepository.findAll().stream()
-                .map(this::mapToResponseDTO)
-                .toList();
-        return ResponseEntity.ok(orgs);
+        return ResponseEntity.ok(organizationService.listAllOrganizations());
     }
 
     /**
@@ -46,9 +36,7 @@ public class AdminController {
      */
     @GetMapping("/organizations/{id}")
     public ResponseEntity<OrganizationResponseDTO> getOrganization(@PathVariable Long id) {
-        Organization org = organizationRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + id));
-        return ResponseEntity.ok(mapToResponseDTO(org));
+        return ResponseEntity.ok(organizationService.getOrganizationAsAdmin(id));
     }
 
     /**
@@ -56,16 +44,7 @@ public class AdminController {
      */
     @PostMapping("/organizations/{id}/suspend")
     public ResponseEntity<OrganizationResponseDTO> suspendOrganization(@PathVariable Long id) {
-        Organization org = organizationRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + id));
-
-        if (org.getStatus() == Organization.OrgStatus.DELETED) {
-            throw new IllegalStateException("Cannot suspend a deleted organization");
-        }
-
-        org.setStatus(Organization.OrgStatus.SUSPENDED);
-        Organization saved = organizationRepository.save(org);
-        return ResponseEntity.ok(mapToResponseDTO(saved));
+        return ResponseEntity.ok(organizationService.suspendOrganization(id));
     }
 
     /**
@@ -73,16 +52,7 @@ public class AdminController {
      */
     @PostMapping("/organizations/{id}/activate")
     public ResponseEntity<OrganizationResponseDTO> activateOrganization(@PathVariable Long id) {
-        Organization org = organizationRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + id));
-
-        if (org.getStatus() == Organization.OrgStatus.DELETED) {
-            throw new IllegalStateException("Cannot activate a deleted organization");
-        }
-
-        org.setStatus(Organization.OrgStatus.ACTIVE);
-        Organization saved = organizationRepository.save(org);
-        return ResponseEntity.ok(mapToResponseDTO(saved));
+        return ResponseEntity.ok(organizationService.activateOrganization(id));
     }
 
     /**
@@ -90,24 +60,7 @@ public class AdminController {
      */
     @DeleteMapping("/organizations/{id}")
     public ResponseEntity<Void> deleteOrganization(@PathVariable Long id) {
-        Organization org = organizationRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + id));
-
-        org.setStatus(Organization.OrgStatus.DELETED);
-        organizationRepository.save(org);
+        organizationService.deleteOrganization(id);
         return ResponseEntity.noContent().build();
-    }
-
-    private OrganizationResponseDTO mapToResponseDTO(Organization org) {
-        int memberCount = membershipRepository.findByOrganizationId(org.getId()).size();
-        return new OrganizationResponseDTO(
-                org.getId(),
-                org.getName(),
-                org.getSlug(),
-                org.getDescription(),
-                org.getCreatedBy() != null ? org.getCreatedBy().getUsername() : null,
-                org.getCreatedAt(),
-                memberCount
-        );
     }
 }

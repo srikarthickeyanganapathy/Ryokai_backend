@@ -67,11 +67,6 @@ public class EmployeeStrategy implements RoleStrategy {
     public boolean canReview(User user, Task task) {
         if (task == null || user == null) return false;
 
-        if (task.isPersonal() && task.getOrg() == null && task.getCrew() == null) return false;
-
-        // Crew tasks have no review pipeline
-        if (task.getCrew() != null) return false;
-
         // Assignee cannot review their own work
         if (task.getAssignee() != null && task.getAssignee().getId().equals(user.getId())) return false;
 
@@ -131,27 +126,6 @@ public class EmployeeStrategy implements RoleStrategy {
     public boolean canViewTask(User user, Task task) {
         if (task == null || user == null) return false;
 
-        // Personal tasks: only creator can see, unless shared with user's crew
-        if (task.isPersonal() && task.getOrg() == null && task.getCrew() == null) {
-            boolean isCreator = task.getCreator() != null && task.getCreator().getId().equals(user.getId());
-            if (isCreator) return true;
-            
-            if (task.getProject() != null && task.getProject().getSharedCrews() != null) {
-                for (com.example.taskflow.domain.Crew crew : task.getProject().getSharedCrews()) {
-                    if (crewMemberRepository.existsByIdCrewIdAndIdUserId(crew.getId(), user.getId())) {
-                        return true;
-                    }
-                }
-            }
-            
-            return false;
-        }
-
-        // Crew tasks: all crew members can view
-        if (task.getCrew() != null) {
-            return crewMemberRepository.existsByIdCrewIdAndIdUserId(task.getCrew().getId(), user.getId());
-        }
-
         // Org tasks: visibility depends on role
         if (task.getOrg() != null) {
             // Must be in the same org first
@@ -192,11 +166,6 @@ public class EmployeeStrategy implements RoleStrategy {
         boolean isCreator = task.getCreator() != null && task.getCreator().getId().equals(user.getId());
         if (isCreator) return true;
 
-        // Crew tasks: all crew members can edit
-        if (task.getCrew() != null) {
-            return crewMemberRepository.existsByIdCrewIdAndIdUserId(task.getCrew().getId(), user.getId());
-        }
-
         // Assignee can edit their own task
         if (task.getAssignee() != null && task.getAssignee().getId().equals(user.getId())) return true;
 
@@ -218,9 +187,6 @@ public class EmployeeStrategy implements RoleStrategy {
         // Creator can delete
         if (task.getCreator() != null && task.getCreator().getId().equals(user.getId())) return true;
 
-        // Crew tasks: only creator can delete (already handled above, so if it's a crew task and not creator, deny)
-        if (task.getCrew() != null) return false;
-
         // Explicit permission check
         if (task.getOrg() != null) {
             Role orgRole = getOrgRoleInTask(user, task);
@@ -236,9 +202,6 @@ public class EmployeeStrategy implements RoleStrategy {
         
         // Creator can reassign
         if (task.getCreator() != null && task.getCreator().getId().equals(user.getId())) return true;
-
-        // Crew tasks: flat structure, only creator can explicitly reassign
-        if (task.getCrew() != null) return false;
 
         // Explicit permission check
         if (task.getOrg() != null) {
@@ -260,9 +223,6 @@ public class EmployeeStrategy implements RoleStrategy {
         
         // Creator can always archive
         if (task.getCreator() != null && task.getCreator().getId().equals(user.getId())) return true;
-
-        // Crew tasks: only creator can archive (already handled above, so deny)
-        if (task.getCrew() != null) return false;
 
         // Explicit permission check
         if (task.getOrg() != null) {
@@ -287,10 +247,6 @@ public class EmployeeStrategy implements RoleStrategy {
 
         // Creator (assignor) can always edit dependencies
         if (task.getCreator() != null && task.getCreator().getId().equals(user.getId())) return true;
-
-        // Crew tasks: only creator can edit dependencies (flat structure, but
-        // dependencies are still creator-locked)
-        if (task.getCrew() != null) return false;
 
         // Explicit permission check
         if (task.getOrg() != null) {

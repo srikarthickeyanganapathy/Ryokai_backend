@@ -65,17 +65,7 @@ public class PermissionService {
             //    permissions actually live.
             for (OrganizationMembership m : membershipRepository.findByUserId(user.getId())) {
                 if (m.getOrgRole() != null) {
-                    if ("ADMIN".equals(m.getOrgRole().getName())) {
-                        perms.add("TASK_VIEW"); perms.add("TASK_ASSIGN");
-                        perms.add("TASK_EDIT"); perms.add("TASK_DELETE"); perms.add("TASK_REVIEW");
-                        perms.add("TASK_DEPENDENCY_EDIT");
-                        perms.add("TASK_REASSIGN"); perms.add("TASK_ARCHIVE");
-                        perms.add("ROLE_MANAGE");
-                        perms.add("ORG_MEMBER_INVITE"); perms.add("ORG_MEMBER_REMOVE"); perms.add("LEAVE_REQUEST_MANAGE");
-                        perms.add("TEAM_CREATE"); perms.add("TEAM_MANAGE"); perms.add("PROJECT_CREATE");
-                        perms.add("PROJECT_MANAGE");
-                        perms.add("ANNOUNCEMENT_MANAGE");
-                    } else if (m.getOrgRole().getPermissions() != null) {
+                    if (m.getOrgRole().getPermissions() != null) {
                         m.getOrgRole().getPermissions().stream()
                             .filter(p -> p != null && p.getName() != null)
                             .map(Permission::getName)
@@ -92,7 +82,7 @@ public class PermissionService {
         if (user == null) return false;
 
         // SUPER_ADMIN override
-        if (isSuperAdmin(user)) return true;
+        if (user.isSuperAdmin()) return true;
 
         Set<String> permissions = getPermissionsForUser(user);
         return permissions.contains(permissionName);
@@ -101,7 +91,7 @@ public class PermissionService {
     public boolean hasAnyPermission(User user, String... permissionNames) {
         if (user == null) return false;
 
-        if (isSuperAdmin(user)) return true;
+        if (user.isSuperAdmin()) return true;
 
         Set<String> permissions = getPermissionsForUser(user);
         for (String perm : permissionNames) {
@@ -112,6 +102,16 @@ public class PermissionService {
         return false;
     }
 
+    public OrganizationMembership requirePermission(User user, com.example.taskflow.domain.Organization org, String permission) {
+        if (user.isSuperAdmin()) return null; // Super Admin bypasses
+        OrganizationMembership membership = membershipRepository.findByUserAndOrganization(user, org)
+                .orElseThrow(() -> new com.example.taskflow.exception.UnauthorizedActionException("You are not a member of this organization"));
+        if (membership.getOrgRole() == null || membership.getOrgRole().getPermissions().stream().noneMatch(p -> p.getName().equals(permission))) {
+            throw new com.example.taskflow.exception.UnauthorizedActionException("This action requires the " + permission + " permission.");
+        }
+        return membership;
+    }
+
     public void invalidateCache(Long userId) {
         userPermissionsCache.invalidate(userId);
     }
@@ -120,9 +120,5 @@ public class PermissionService {
         userPermissionsCache.invalidateAll();
     }
 
-    private boolean isSuperAdmin(User user) {
-        if (user.getRoles() == null) return false;
-        return user.getRoles().stream()
-                .anyMatch(r -> r.getName().equalsIgnoreCase("SUPER_ADMIN") || r.getName().equalsIgnoreCase("ROLE_SUPER_ADMIN"));
-    }
+
 }

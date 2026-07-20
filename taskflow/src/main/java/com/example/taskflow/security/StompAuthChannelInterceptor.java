@@ -6,6 +6,9 @@ import com.example.taskflow.domain.User;
 import com.example.taskflow.domain.Task;
 import com.example.taskflow.repository.UserRepository;
 import com.example.taskflow.repository.TaskRepository;
+import com.example.taskflow.repository.WhiteboardRepository;
+import com.example.taskflow.repository.CrewMemberRepository;
+import com.example.taskflow.domain.Whiteboard;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
@@ -27,6 +30,8 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
     private final UserRepository userRepository;
     private final TaskRepository taskRepository;
     private final RoleStrategyFactory roleStrategyFactory;
+    private final WhiteboardRepository whiteboardRepository;
+    private final CrewMemberRepository crewMemberRepository;
 
     @Override
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
@@ -73,6 +78,28 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
                     }
                 } catch (NumberFormatException e) {
                     throw new org.springframework.security.access.AccessDeniedException("Invalid task ID format in destination");
+                }
+            } else if (destination != null && destination.startsWith("/topic/whiteboards/")) {
+                try {
+                    Long boardId = Long.parseLong(destination.substring("/topic/whiteboards/".length()));
+                    
+                    if (accessor.getUser() == null) {
+                        throw new org.springframework.security.access.AccessDeniedException("Unauthenticated websocket connection");
+                    }
+                    
+                    String username = accessor.getUser().getName();
+                    User user = userRepository.findByUsername(username)
+                            .orElseThrow(() -> new org.springframework.security.access.AccessDeniedException("User not found"));
+                    
+                    Whiteboard board = whiteboardRepository.findById(boardId)
+                            .orElseThrow(() -> new org.springframework.security.access.AccessDeniedException("Whiteboard not found"));
+                            
+                    boolean isMember = crewMemberRepository.existsByIdCrewIdAndIdUserId(board.getCrew().getId(), user.getId());
+                    if (!isMember) {
+                        throw new org.springframework.security.access.AccessDeniedException("Not a member of this crew");
+                    }
+                } catch (NumberFormatException e) {
+                    throw new org.springframework.security.access.AccessDeniedException("Invalid board ID format");
                 }
             }
         }

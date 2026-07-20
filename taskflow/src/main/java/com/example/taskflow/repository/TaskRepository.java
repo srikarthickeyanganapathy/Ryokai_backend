@@ -143,4 +143,7 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     @org.springframework.data.jpa.repository.Modifying
     @Query("UPDATE Task t SET t.project = NULL WHERE t.project.id = :projectId")
     void detachProjectFromTasks(@Param("projectId") Long projectId);
+
+    @Query("SELECT t.assignee.id, t.currentStatus, COUNT(t) FROM Task t WHERE t.org.id = :orgId AND t.archived = false GROUP BY t.assignee.id, t.currentStatus")
+    List<Object[]> countTasksByOrgGroupedByAssigneeAndStatus(@Param("orgId") Long orgId);
 }

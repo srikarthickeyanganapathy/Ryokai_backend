@@ -24,7 +24,6 @@ public class TaskRequestDTO {
     private Long teamId;
     private Long projectId;
     private Long crewId;
-
     public TaskRequestDTO() {}
 
     // Standard Getters and Setters

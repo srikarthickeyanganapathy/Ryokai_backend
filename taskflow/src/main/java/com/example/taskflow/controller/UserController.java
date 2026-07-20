@@ -25,7 +25,7 @@ import com.example.taskflow.dto.UpdateProfileRequestDTO;
 import com.example.taskflow.dto.UserResponseDTO;
 import com.example.taskflow.service.UserProfileService;
 import com.example.taskflow.service.UserService;
-import com.example.taskflow.repository.OrganizationMembershipRepository;
+
 import com.example.taskflow.util.JwtUtil;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -39,15 +39,12 @@ public class UserController {
     private final UserProfileService userProfileService;
     private final UserService userService;
     private final JwtUtil jwtUtil;
-    private final OrganizationMembershipRepository membershipRepository;
 
     public UserController(UserProfileService userProfileService, UserService userService,
-                          JwtUtil jwtUtil,
-                          OrganizationMembershipRepository membershipRepository) {
+                          JwtUtil jwtUtil) {
         this.userProfileService = userProfileService;
         this.userService = userService;
         this.jwtUtil = jwtUtil;
-        this.membershipRepository = membershipRepository;
     }
 
     @GetMapping("/me")
@@ -66,32 +63,10 @@ public class UserController {
     @Transactional(readOnly = true)
     public ResponseEntity<List<UserResponseDTO>> getAllUsers(@AuthenticationPrincipal UserDetails userDetails) {
         User caller = userService.getCurrentUser(userDetails.getUsername());
-
-        // Super Admin can see all users
-        boolean isSuperAdmin = caller.getRoles() != null && caller.getRoles().stream()
-                .anyMatch(r -> {
-                    String name = r.getName();
-                    if (name.startsWith("ROLE_")) name = name.substring(5);
-                    return "SUPER_ADMIN".equals(name);
-                });
-
-        if (isSuperAdmin) {
-            return ResponseEntity.ok(userService.getAllUsers().stream().map(UserResponseDTO::from).toList());
-        }
-
-        // Regular users only see members of their own organization
-        List<OrganizationMembership> callerMemberships = membershipRepository.findByUserId(caller.getId());
-        if (callerMemberships.isEmpty()) {
-            // Not in any org  -  only return self
-            return ResponseEntity.ok(List.of(UserResponseDTO.from(caller)));
-        }
-
-        Long orgId = callerMemberships.get(0).getOrganization().getId();
-        List<UserResponseDTO> orgUsers = membershipRepository.findByOrganizationId(orgId).stream()
-                .map(m -> UserResponseDTO.from(m.getUser()))
+        List<UserResponseDTO> users = userService.getVisibleUsers(caller).stream()
+                .map(UserResponseDTO::from)
                 .toList();
-
-        return ResponseEntity.ok(orgUsers);
+        return ResponseEntity.ok(users);
     }
 
     @PutMapping("/me")

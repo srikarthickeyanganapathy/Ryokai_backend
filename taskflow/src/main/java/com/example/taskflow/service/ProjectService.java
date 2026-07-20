@@ -37,6 +37,8 @@ public class ProjectService {
     private final CrewMemberRepository crewMemberRepository;
     private final PermissionService permissionService;
     private final com.example.taskflow.repository.TeamObserverRepository teamObserverRepository;
+    private final com.example.taskflow.repository.CrewRepository crewRepository;
+    private final com.example.taskflow.repository.UserRepository userRepository;
 
     public ProjectService(ProjectRepository projectRepository,
                           TaskRepository taskRepository,
@@ -46,7 +48,9 @@ public class ProjectService {
                           TeamMemberRepository teamMemberRepository,
                           CrewMemberRepository crewMemberRepository,
                           PermissionService permissionService,
-                          com.example.taskflow.repository.TeamObserverRepository teamObserverRepository) {
+                          com.example.taskflow.repository.TeamObserverRepository teamObserverRepository,
+                          com.example.taskflow.repository.CrewRepository crewRepository,
+                          com.example.taskflow.repository.UserRepository userRepository) {
         this.projectRepository = projectRepository;
         this.taskRepository = taskRepository;
         this.organizationRepository = organizationRepository;
@@ -56,10 +60,12 @@ public class ProjectService {
         this.crewMemberRepository = crewMemberRepository;
         this.permissionService = permissionService;
         this.teamObserverRepository = teamObserverRepository;
+        this.crewRepository = crewRepository;
+        this.userRepository = userRepository;
     }
 
     private boolean hasOrgPermission(User user, Organization org, String permission) {
-        if (user.getRoles() != null && user.getRoles().stream().anyMatch(r -> r.getName().equals("ROLE_SUPER_ADMIN") || r.getName().equals("SUPER_ADMIN"))) return true;
+        if (user.isSuperAdmin()) return true;
         return membershipRepository.findByUserAndOrganization(user, org)
                 .map(m -> m.getOrgRole() != null && m.getOrgRole().getPermissions().stream().anyMatch(p -> p.getName().equals(permission)))
                 .orElse(false);
@@ -67,12 +73,15 @@ public class ProjectService {
 
     @Transactional(readOnly = true)
     public List<ProjectResponseDTO> getAllProjects(User currentUser) {
-        List<Project> result = new java.util.ArrayList<>();
+        java.util.Set<Project> result = new java.util.HashSet<>();
         
-        // 1. Add all personal projects
+        // 1. Add all personal projects (including crew projects created by user)
         result.addAll(projectRepository.findByCreatedById(currentUser.getId()).stream()
                 .filter(p -> p.getOrganization() == null)
                 .collect(Collectors.toList()));
+                
+        // 1.5 Add projects where user is an explicit collaborator
+        result.addAll(projectRepository.findByCollaboratorsId(currentUser.getId()));
                 
         // 2. Add organizational projects
         var memberships = membershipRepository.findByUserId(currentUser.getId());
@@ -133,6 +142,19 @@ public class ProjectService {
                 throw new org.springframework.security.access.AccessDeniedException("You do not have permission to create organizational projects.");
             }
             project.setOrganization(org);
+        } else if (dto.getCrewId() != null) {
+            Crew crew = crewRepository.findById(dto.getCrewId())
+                    .orElseThrow(() -> new RuntimeException("Crew not found"));
+            project.setCrew(crew);
+            
+            if (dto.getCollaboratorIds() != null) {
+                java.util.Set<User> collaborators = new java.util.HashSet<>();
+                for (Long cid : dto.getCollaboratorIds()) {
+                    User u = userRepository.findById(cid).orElseThrow(() -> new RuntimeException("Collaborator not found"));
+                    collaborators.add(u);
+                }
+                project.setCollaborators(collaborators);
+            }
         }
 
         project = projectRepository.save(project);
@@ -170,6 +192,19 @@ public class ProjectService {
                 throw new org.springframework.security.access.AccessDeniedException("You do not have permission to create or move projects to this organization.");
             }
             project.setOrganization(org);
+        } else if (dto.getCrewId() != null) {
+            Crew crew = crewRepository.findById(dto.getCrewId())
+                    .orElseThrow(() -> new RuntimeException("Crew not found"));
+            project.setCrew(crew);
+            
+            if (dto.getCollaboratorIds() != null) {
+                java.util.Set<User> collaborators = new java.util.HashSet<>();
+                for (Long cid : dto.getCollaboratorIds()) {
+                    User u = userRepository.findById(cid).orElseThrow(() -> new RuntimeException("Collaborator not found"));
+                    collaborators.add(u);
+                }
+                project.setCollaborators(collaborators);
+            }
         }
 
         project = projectRepository.save(project);
@@ -182,6 +217,32 @@ public class ProjectService {
                 .orElseThrow(() -> new RuntimeException("Project not found"));
         taskRepository.detachProjectFromTasks(projectId);
         projectRepository.delete(project);
+    }
+
+    @Transactional
+    public ProjectResponseDTO shareProjectToCrew(Long projectId, Long crewId, java.util.List<Long> collaboratorIds, User currentUser) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new RuntimeException("Project not found"));
+        
+        if (!project.getCreatedBy().getId().equals(currentUser.getId())) {
+            throw new org.springframework.security.access.AccessDeniedException("Only the project creator can share it to a crew.");
+        }
+        
+        Crew crew = crewRepository.findById(crewId)
+                .orElseThrow(() -> new RuntimeException("Crew not found"));
+                
+        project.setCrew(crew);
+        
+        if (collaboratorIds != null) {
+            java.util.Set<User> collaborators = new java.util.HashSet<>();
+            for (Long cid : collaboratorIds) {
+                User u = userRepository.findById(cid).orElseThrow(() -> new RuntimeException("Collaborator not found"));
+                collaborators.add(u);
+            }
+            project.setCollaborators(collaborators);
+        }
+        
+        return toResponseDTO(projectRepository.save(project));
     }
 
 
@@ -206,6 +267,14 @@ public class ProjectService {
         dto.setTasksTotal(total);
         dto.setTasksCompleted(completed);
         dto.setProgress(progress);
+        
+        dto.setCrewId(p.getCrew() != null ? p.getCrew().getId() : null);
+        dto.setCrewName(p.getCrew() != null ? p.getCrew().getName() : null);
+        if (p.getCollaborators() != null) {
+            dto.setCollaboratorIds(p.getCollaborators().stream().map(User::getId).collect(Collectors.toList()));
+        } else {
+            dto.setCollaboratorIds(new java.util.ArrayList<>());
+        }
         
         if (p.getSharedCrews() != null) {
             dto.setSharedCrewIds(p.getSharedCrews().stream().map(Crew::getId).collect(java.util.stream.Collectors.toList()));

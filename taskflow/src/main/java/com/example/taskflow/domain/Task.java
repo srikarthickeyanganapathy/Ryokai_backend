@@ -33,7 +33,6 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
-@AllArgsConstructor
 public class Task {
 
     @Id
@@ -66,6 +65,24 @@ public class Task {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by", nullable = false)
     private User creator;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "approved_by_id")
+    private User approvedBy;
+    
+    public void transitionTo(TaskStatus newStatus, User user) {
+        this.currentStatus = newStatus;
+        if (newStatus == TaskStatus.COMPLETED) {
+            // Logic for completed at would go here if field existed
+        } else if (newStatus == TaskStatus.APPROVED) {
+            this.approvedBy = user;
+        }
+    }
+    
+    public boolean canBeReviewedBy(User user) {
+        if (this.assignee != null && this.assignee.getId().equals(user.getId())) return false; // Assignee cannot self-review
+        return true;
+    }
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reviewed_by")
@@ -131,4 +148,12 @@ public class Task {
     @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
     @OrderBy("createdAt ASC")
     private List<TaskComment> comments = new ArrayList<>();
+
+    @jakarta.persistence.Transient
+    public TaskMode getMode() {
+        if (Boolean.TRUE.equals(this.isPersonal)) return TaskMode.PERSONAL;
+        if (this.crew != null) return TaskMode.CREW;
+        if (this.org != null) return TaskMode.ORG;
+        return null;
+    }
 }

@@ -90,12 +90,7 @@ public class TaskAuditService {
 
         if (strategy.canOverride(user)) {
             // Check if SUPER_ADMIN vs org ADMIN/DIRECTOR
-            boolean isSuperAdmin = user.getRoles().stream()
-                    .anyMatch(r -> {
-                        String name = r.getName();
-                        if (name.startsWith("ROLE_")) name = name.substring(5);
-                        return "SUPER_ADMIN".equals(name);
-                    });
+            boolean isSuperAdmin = user.isSuperAdmin();
 
             if (isSuperAdmin) {
                 // Super Admin: privacy boundary  -  only own personal task activity

@@ -16,7 +16,6 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
-@AllArgsConstructor
 @EqualsAndHashCode(of = "id")
 public class User {
 
@@ -81,4 +80,19 @@ public class User {
     @org.hibernate.annotations.CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+
+    public boolean isSuperAdmin() {
+        if (roles == null) return false;
+        return roles.stream().anyMatch(r -> {
+            String name = r.getName();
+            if (name.startsWith("ROLE_")) name = name.substring(5);
+            return "SUPER_ADMIN".equals(name);
+        });
+    }
+
+    public boolean isMemberOf(Organization org) {
+        if (org == null || memberships == null) return false;
+        return memberships.stream()
+                .anyMatch(m -> m.getOrganization() != null && m.getOrganization().getId().equals(org.getId()));
+    }
 }

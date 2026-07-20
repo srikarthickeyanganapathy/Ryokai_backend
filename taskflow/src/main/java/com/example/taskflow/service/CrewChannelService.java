@@ -195,19 +195,23 @@ public class CrewChannelService {
         // Create a new task in the crew (11-arg overload: teamId, projectId, crewId).
         // Assignee defaults to converter so the task is claimable/visible immediately;
         // other crew members can reassign via the normal crew flat workflow.
-        TaskResponseDTO taskDTO = taskAssignmentService.assignTask(
-            dto.getTitle(),
-            dto.getDescription() != null ? dto.getDescription() : "Converted from message: " + msg.getContent(),
-            user,  // assignee: converter (must be non-null)
-            user,  // creator
-            dto.getPriority(), // priority
-            dto.getDueDate(),  // dueDate
-            null,  // tags
-            false, // not personal
-            null,  // teamId
-            null,  // projectId
-            crewId // crewId
-        );
+        com.example.taskflow.dto.TaskRequestDTO req = new com.example.taskflow.dto.TaskRequestDTO();
+        req.setTitle(dto.getTitle());
+        req.setDescription(dto.getDescription() != null ? dto.getDescription() : "Converted from message: " + msg.getContent());
+        req.setPriority(dto.getPriority());
+        req.setDueDate(dto.getDueDate());
+        req.setTags(null);
+        req.setPersonal(false);
+        req.setProjectId(null);
+        
+        com.example.taskflow.dto.TaskAssignmentCommand cmd = com.example.taskflow.dto.TaskAssignmentCommand.builder()
+                .request(req)
+                .assignor(user)
+                .assignee(user)
+                .scope(com.example.taskflow.domain.TaskScope.crew(crewId))
+                .build();
+                
+        TaskResponseDTO taskDTO = taskAssignmentService.assignTask(cmd);
 
         Task task = taskRepository.findById(taskDTO.getId()).orElseThrow();
         msg.setTask(task);

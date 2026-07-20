@@ -22,6 +22,9 @@ public class ProjectResponseDTO {
     private String organizationName;
     private Long teamId;
     private String teamName;
+    private Long crewId;
+    private String crewName;
+    private List<Long> collaboratorIds;
     private String createdBy;
     private ProjectStatus status;
     private LocalDate dueDate;

@@ -13,7 +13,7 @@ import com.example.taskflow.domain.PasswordResetToken;
 import com.example.taskflow.domain.User;
 import com.example.taskflow.dto.ForgotPasswordRequestDTO;
 import com.example.taskflow.dto.ResetPasswordRequestDTO;
-import com.example.taskflow.repository.UserRepository;
+import com.example.taskflow.service.UserService;
 import com.example.taskflow.service.EmailService;
 import com.example.taskflow.service.PasswordResetService;
 
@@ -24,22 +24,22 @@ import jakarta.validation.Valid;
 public class PasswordResetController {
 
     private final PasswordResetService passwordResetService;
-    private final UserRepository userRepository;
+    private final UserService userService;
     private final EmailService emailService;
 
     @Value("${app.frontend-url:http://localhost:5173}")
     private String frontendUrl;
 
-    public PasswordResetController(PasswordResetService passwordResetService, UserRepository userRepository, EmailService emailService) {
+    public PasswordResetController(PasswordResetService passwordResetService, UserService userService, EmailService emailService) {
         this.passwordResetService = passwordResetService;
-        this.userRepository = userRepository;
+        this.userService = userService;
         this.emailService = emailService;
     }
 
     @PostMapping("/forgot-password")
     public ResponseEntity<?> forgotPassword(@RequestBody @Valid ForgotPasswordRequestDTO req) {
         // ALWAYS return 200 with the same message, regardless of email existence (Anti-enumeration)
-        Optional<User> userOpt = userRepository.findByEmail(req.email());
+        Optional<User> userOpt = userService.findByEmail(req.email());
         if (userOpt.isPresent()) {
             User user = userOpt.get();
             PasswordResetToken token = passwordResetService.createToken(user);

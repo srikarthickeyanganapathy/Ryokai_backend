@@ -3,6 +3,8 @@ package com.example.taskflow.controller;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import com.example.taskflow.domain.User;
 import com.example.taskflow.dto.ConvertToTaskRequestDTO;
@@ -32,6 +35,8 @@ import com.example.taskflow.dto.CrewTaskRequestDTO;
 import com.example.taskflow.dto.TaskResponseDTO;
 import com.example.taskflow.service.CrewChannelService;
 import com.example.taskflow.service.CrewService;
+import com.example.taskflow.service.CrewMembershipService;
+import com.example.taskflow.service.CrewProjectService;
 import com.example.taskflow.service.TaskAssignmentService;
 import com.example.taskflow.service.UserService;
 
@@ -42,13 +47,18 @@ import jakarta.validation.Valid;
 public class CrewController {
 
     private final CrewService crewService;
+    private final CrewMembershipService crewMembershipService;
+    private final CrewProjectService crewProjectService;
     private final CrewChannelService crewChannelService;
     private final TaskAssignmentService taskAssignmentService;
     private final UserService userService;
 
-    public CrewController(CrewService crewService, CrewChannelService crewChannelService,
+    public CrewController(CrewService crewService, CrewMembershipService crewMembershipService,
+                          CrewProjectService crewProjectService, CrewChannelService crewChannelService,
                           TaskAssignmentService taskAssignmentService, UserService userService) {
         this.crewService = crewService;
+        this.crewMembershipService = crewMembershipService;
+        this.crewProjectService = crewProjectService;
         this.crewChannelService = crewChannelService;
         this.taskAssignmentService = taskAssignmentService;
         this.userService = userService;
@@ -92,12 +102,29 @@ public class CrewController {
         return ResponseEntity.noContent().build();
     }
 
+    @GetMapping("/discover")
+    public ResponseEntity<Page<CrewResponseDTO>> discoverCrews(
+            @RequestParam(required = false) String keyword,
+            Pageable pageable,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User user = userService.getCurrentUser(userDetails.getUsername());
+        return ResponseEntity.ok(crewService.discoverCrews(keyword, pageable, user));
+    }
+
+    @PostMapping("/{crewId}/join")
+    public ResponseEntity<CrewResponseDTO> joinPublicCrew(
+            @PathVariable Long crewId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User user = userService.getCurrentUser(userDetails.getUsername());
+        return ResponseEntity.ok(crewMembershipService.joinPublicCrew(crewId, user));
+    }
+
     // --- Members & Invites ---
 
     @GetMapping("/{crewId}/members")
     public ResponseEntity<List<CrewMemberDTO>> getMembers(@PathVariable Long crewId,
                                                           @AuthenticationPrincipal UserDetails userDetails) {
-        return ResponseEntity.ok(crewService.getMembers(crewId, getCurrentUser(userDetails)));
+        return ResponseEntity.ok(crewMembershipService.getMembers(crewId, getCurrentUser(userDetails)));
     }
 
     @PostMapping("/{crewId}/invite")
@@ -106,7 +133,7 @@ public class CrewController {
                                                       @AuthenticationPrincipal UserDetails userDetails) {
         String email = payload.get("email");
         if (email == null || email.isBlank()) throw new IllegalArgumentException("Email is required");
-        return ResponseEntity.ok(crewService.inviteMember(crewId, getCurrentUser(userDetails), email));
+        return ResponseEntity.ok(crewMembershipService.inviteMember(crewId, getCurrentUser(userDetails), email));
     }
 
     /**
@@ -118,20 +145,20 @@ public class CrewController {
     public ResponseEntity<CrewInviteDTO> createPublicLinkInvite(@PathVariable Long crewId,
                                                                 @AuthenticationPrincipal UserDetails userDetails) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(crewService.createPublicLinkInvite(crewId, getCurrentUser(userDetails)));
+                .body(crewMembershipService.createPublicLinkInvite(crewId, getCurrentUser(userDetails)));
     }
 
     @PostMapping("/invites/{inviteId}/accept")
     public ResponseEntity<CrewResponseDTO> acceptInvite(@PathVariable UUID inviteId,
                                                         @AuthenticationPrincipal UserDetails userDetails) {
-        return ResponseEntity.ok(crewService.acceptInvite(inviteId, getCurrentUser(userDetails)));
+        return ResponseEntity.ok(crewMembershipService.acceptInvite(inviteId, getCurrentUser(userDetails)));
     }
 
     @DeleteMapping("/{crewId}/members/{userId}")
     public ResponseEntity<Void> removeMember(@PathVariable Long crewId,
                                              @PathVariable Long userId,
                                              @AuthenticationPrincipal UserDetails userDetails) {
-        crewService.removeMember(crewId, userId, getCurrentUser(userDetails));
+        crewMembershipService.removeMember(crewId, userId, getCurrentUser(userDetails));
         return ResponseEntity.noContent().build();
     }
 
@@ -139,14 +166,14 @@ public class CrewController {
     public ResponseEntity<Void> transferOwnership(@PathVariable Long crewId,
                                                   @PathVariable Long newOwnerId,
                                                   @AuthenticationPrincipal UserDetails userDetails) {
-        crewService.transferOwnership(crewId, newOwnerId, getCurrentUser(userDetails));
+        crewMembershipService.transferOwnership(crewId, newOwnerId, getCurrentUser(userDetails));
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/{crewId}/leave")
     public ResponseEntity<Void> leaveCrew(@PathVariable Long crewId,
                                           @AuthenticationPrincipal UserDetails userDetails) {
-        crewService.leaveCrew(crewId, getCurrentUser(userDetails));
+        crewMembershipService.leaveCrew(crewId, getCurrentUser(userDetails));
         return ResponseEntity.noContent().build();
     }
 
@@ -231,18 +258,23 @@ public class CrewController {
                                                           @Valid @RequestBody CrewTaskRequestDTO dto,
                                                           @AuthenticationPrincipal UserDetails userDetails) {
         User creator = getCurrentUser(userDetails);
-        TaskResponseDTO response = taskAssignmentService.assignTask(
-                dto.getTitle(),
-                dto.getDescription(),
-                null,    // no assignee  -  crew tasks are unclaimed
-                creator,
-                dto.getPriority(),
-                dto.getDueDate(),
-                dto.getTags(),
-                false,   // not personal
-                null,    // no teamId
-                dto.getProjectId(),
-                crewId); // crewId from path
+        com.example.taskflow.dto.TaskRequestDTO req = new com.example.taskflow.dto.TaskRequestDTO();
+        req.setTitle(dto.getTitle());
+        req.setDescription(dto.getDescription());
+        req.setPriority(dto.getPriority());
+        req.setDueDate(dto.getDueDate());
+        req.setTags(dto.getTags());
+        req.setPersonal(false);
+        req.setProjectId(dto.getProjectId());
+        
+        com.example.taskflow.dto.TaskAssignmentCommand cmd = com.example.taskflow.dto.TaskAssignmentCommand.builder()
+                .request(req)
+                .assignor(creator)
+                .assignee(null)
+                .scope(com.example.taskflow.domain.TaskScope.crew(crewId))
+                .build();
+                
+        TaskResponseDTO response = taskAssignmentService.assignTask(cmd);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -253,7 +285,7 @@ public class CrewController {
             @PathVariable Long crewId,
             @AuthenticationPrincipal UserDetails userDetails) {
         User user = userService.getCurrentUser(userDetails.getUsername());
-        List<ProjectResponseDTO> projects = crewService.getCrewProjects(crewId, user);
+        List<ProjectResponseDTO> projects = crewProjectService.getCrewProjects(crewId, user);
         return ResponseEntity.ok(projects);
     }
 
@@ -263,7 +295,7 @@ public class CrewController {
             @PathVariable Long projectId,
             @AuthenticationPrincipal UserDetails userDetails) {
         User user = userService.getCurrentUser(userDetails.getUsername());
-        ProjectResponseDTO response = crewService.shareProject(crewId, projectId, user);
+        ProjectResponseDTO response = crewProjectService.shareProject(crewId, projectId, user);
         return ResponseEntity.ok(response);
     }
 
@@ -273,7 +305,7 @@ public class CrewController {
             @PathVariable Long projectId,
             @AuthenticationPrincipal UserDetails userDetails) {
         User user = userService.getCurrentUser(userDetails.getUsername());
-        crewService.unshareProject(crewId, projectId, user);
+        crewProjectService.unshareProject(crewId, projectId, user);
         return ResponseEntity.noContent().build();
     }
 }

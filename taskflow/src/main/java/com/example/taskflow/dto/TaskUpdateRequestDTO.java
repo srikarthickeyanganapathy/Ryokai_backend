@@ -3,7 +3,6 @@ package com.example.taskflow.dto;
 import java.time.LocalDate;
 
 import com.example.taskflow.domain.TaskPriority;
-import com.example.taskflow.domain.TaskStatus;
 
 import jakarta.validation.constraints.Size;
 
@@ -22,8 +21,6 @@ public class TaskUpdateRequestDTO {
     @Size(max = 200, message = "Tags cannot exceed 200 characters")
     private String tags;
 
-    private TaskStatus status;
-
     public TaskUpdateRequestDTO() {}
 
     // Standard Getters and Setters
@@ -41,7 +38,4 @@ public class TaskUpdateRequestDTO {
 
     public String getTags() { return tags; }
     public void setTags(String tags) { this.tags = tags; }
-
-    public TaskStatus getStatus() { return status; }
-    public void setStatus(TaskStatus status) { this.status = status; }
 }

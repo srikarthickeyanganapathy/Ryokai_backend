@@ -75,6 +75,16 @@ public class TeamService {
     // ========================================================================
 
     @Transactional
+    public void removeUserFromAllTeams(User user, Long orgId) {
+        teamRepository.findByOrganizationId(orgId).forEach(team -> {
+            com.example.taskflow.domain.TeamMemberId tmId = new com.example.taskflow.domain.TeamMemberId(team.getId(), user.getId());
+            if (teamMemberRepository.existsById(tmId)) {
+                teamMemberRepository.deleteById(tmId);
+            }
+        });
+    }
+
+    @Transactional
     public TeamResponseDTO createTeam(Long orgId, String name, String description, User createdBy) {
         Organization org = organizationRepository.findById(orgId)
                 .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + orgId));

@@ -23,8 +23,8 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final RealtimeBroadcaster broadcaster;
-    private final EmailService emailService;
     private final org.springframework.context.ApplicationEventPublisher eventPublisher;
+    private final java.util.List<com.example.taskflow.notification.NotificationEmailRenderer> emailRenderers;
 
     @Transactional
     public void createAndSend(User recipient, User excludeUser, NotificationEvent type,
@@ -71,33 +71,10 @@ public class NotificationService {
         
         if (recipient.isEmailNotificationsEnabled() && recipient.getEmail() != null) {
             log.info("Sending email notification to {}", recipient.getEmail());
-            if (task != null) {
-                switch (type) {
-                    case TASK_ASSIGNED:
-                        emailService.sendTaskAssignmentNotification(recipient.getEmail(), recipient.getUsername(), task.getTitle(), task.getId(), "System", task.getDueDate());
-                        break;
-                    case TASK_APPROVED:
-                        emailService.sendTaskReviewNotification(recipient.getEmail(), recipient.getUsername(), task.getTitle(), task.getId(), "APPROVED", "Reviewer", null);
-                        break;
-                    case TASK_REJECTED:
-                        emailService.sendTaskReviewNotification(recipient.getEmail(), recipient.getUsername(), task.getTitle(), task.getId(), "REJECTED", "Reviewer", "See dashboard for details");
-                        break;
-                    case TASK_DUE_SOON:
-                        emailService.sendDueDateReminder(recipient.getEmail(), recipient.getUsername(), task.getTitle(), task.getId(), task.getDueDate(), 24);
-                        break;
-                    default:
-                        break;
-                }
-            }
-            if (type == NotificationEvent.LEAVE_REQUESTED && actor != null) {
-                try {
-                    String requestIdStr = dedupKey != null && dedupKey.startsWith("leave-request:") ? dedupKey.split(":")[1] : "0";
-                    Long requestId = Long.parseLong(requestIdStr);
-                    emailService.sendLeaveRequestEmail(recipient.getEmail(), recipient.getUsername(), actor.getUsername(), "Your Organization", requestId);
-                } catch (Exception e) {
-                    log.error("Failed to parse leave request id for email", e);
-                }
-            }
+            emailRenderers.stream()
+                .filter(r -> r.supports(type))
+                .findFirst()
+                .ifPresent(r -> r.renderAndSend(recipient, actor, task, dedupKey));
         }
     }
     

@@ -75,4 +75,17 @@ public class ProjectController {
         projectService.deleteProject(projectId);
         return ResponseEntity.noContent().build();
     }
+
+    @PostMapping("/{projectId}/share/crew")
+    @PreAuthorize("hasPermission(#projectId, 'Project', 'EDIT')")
+    public ResponseEntity<ProjectResponseDTO> shareProjectToCrew(
+            @PathVariable Long projectId,
+            @RequestBody ProjectRequestDTO request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User currentUser = userService.getCurrentUser(userDetails.getUsername());
+        if (request.getCrewId() == null) {
+            throw new IllegalArgumentException("crewId is required to share a project to a crew.");
+        }
+        return ResponseEntity.ok(projectService.shareProjectToCrew(projectId, request.getCrewId(), request.getCollaboratorIds(), currentUser));
+    }
 }

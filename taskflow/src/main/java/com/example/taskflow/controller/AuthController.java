@@ -16,9 +16,8 @@ import com.example.taskflow.dto.TokenRefreshRequestDTO;
 import com.example.taskflow.dto.UserResponseDTO;
 import com.example.taskflow.exception.InvalidCredentialsException;
 import com.example.taskflow.exception.TokenRefreshException;
-import com.example.taskflow.repository.RoleRepository;
-import com.example.taskflow.repository.UserRepository;
 import com.example.taskflow.service.AuthService;
+import com.example.taskflow.service.UserService;
 import com.example.taskflow.service.EmailService;
 import com.example.taskflow.service.RealtimeBroadcaster;
 import com.example.taskflow.service.RefreshTokenService;
@@ -69,8 +68,7 @@ public class AuthController {
 
     private final AuthenticationManager authenticationManager;
     private final JwtUtil jwtUtil;
-    private final UserRepository userRepository;
-    private final RoleRepository roleRepository;
+    private final UserService userService;
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenService refreshTokenService;
     private final UserProfileService userProfileService;
@@ -94,38 +92,14 @@ public class AuthController {
     @Value("${ratelimit.login-ip.refill-minutes:15}")
     private int loginIpRefillMinutes;
 
-    @Value("${ratelimit.resend.capacity:5}")
-    private int resendCapacity;
-
-    @Value("${ratelimit.resend.refill-minutes:60}")
-    private int resendRefillMinutes;
-
     @Value("${ratelimit.register.capacity:5}")
     private int registerCapacity;
 
     @Value("${ratelimit.register.refill-minutes:60}")
     private int registerRefillMinutes;
 
-    @Value("${ratelimit.refresh.capacity:30}")
-    private int refreshCapacity;
-
-    @Value("${ratelimit.refresh.refill-minutes:15}")
-    private int refreshRefillMinutes;
-
-    @Value("${ratelimit.verify-email.capacity:10}")
-    private int verifyEmailCapacity;
-
-    @Value("${ratelimit.verify-email.refill-minutes:15}")
-    private int verifyEmailRefillMinutes;
-
-    @Value("${ratelimit.logout.capacity:20}")
-    private int logoutCapacity;
-
-    @Value("${ratelimit.logout.refill-minutes:15}")
-    private int logoutRefillMinutes;
-
     public AuthController(AuthenticationManager authenticationManager, JwtUtil jwtUtil,
-                          UserRepository userRepository, RoleRepository roleRepository,
+                          UserService userService,
                           PasswordEncoder passwordEncoder, RefreshTokenService refreshTokenService,
                           UserProfileService userProfileService, EmailService emailService,
                           RealtimeBroadcaster realtimeBroadcaster,
@@ -134,8 +108,7 @@ public class AuthController {
                           TokenDenylistService tokenDenylistService) {
         this.authenticationManager = authenticationManager;
         this.jwtUtil = jwtUtil;
-        this.userRepository = userRepository;
-        this.roleRepository = roleRepository;
+        this.userService = userService;
         this.passwordEncoder = passwordEncoder;
         this.refreshTokenService = refreshTokenService;
         this.userProfileService = userProfileService;
@@ -164,33 +137,9 @@ public class AuthController {
             .maximumSize(50_000)
             .build();
 
-    // Per (IP + email) bucket for resend verification
-    private final Cache<String, Bucket> resendBuckets = Caffeine.newBuilder()
-            .expireAfterAccess(60, TimeUnit.MINUTES)
-            .maximumSize(10_000)
-            .build();
-
     // Per-IP bucket for /register (prevents mass account creation)
     private final Cache<String, Bucket> registerBuckets = Caffeine.newBuilder()
             .expireAfterAccess(60, TimeUnit.MINUTES)
-            .maximumSize(50_000)
-            .build();
-
-    // Per-IP bucket for /refresh (prevents brute-force / DB load)
-    private final Cache<String, Bucket> refreshBuckets = Caffeine.newBuilder()
-            .expireAfterAccess(15, TimeUnit.MINUTES)
-            .maximumSize(50_000)
-            .build();
-
-    // Per-IP bucket for /verify-email (prevents brute-force of verification tokens)
-    private final Cache<String, Bucket> verifyEmailBuckets = Caffeine.newBuilder()
-            .expireAfterAccess(15, TimeUnit.MINUTES)
-            .maximumSize(50_000)
-            .build();
-
-    // Per-IP bucket for /logout (prevents DB load from random token spam)
-    private final Cache<String, Bucket> logoutBuckets = Caffeine.newBuilder()
-            .expireAfterAccess(15, TimeUnit.MINUTES)
             .maximumSize(50_000)
             .build();
 
@@ -212,44 +161,10 @@ public class AuthController {
         return Bucket.builder().addLimit(limit).build();
     }
 
-    private Bucket createResendBucket() {
-        // refillGreedy(N, D) adds tokens continuously at a rate of N/D
-        // (e.g. 5 per 60 min  -  1 token every 12 min, but added fractionally, not discretely)
-        Bandwidth limit = Bandwidth.builder()
-                .capacity(resendCapacity)
-                .refillGreedy(resendCapacity, Duration.ofMinutes(resendRefillMinutes))
-                .build();
-        return Bucket.builder().addLimit(limit).build();
-    }
-
     private Bucket createRegisterBucket() {
         Bandwidth limit = Bandwidth.builder()
                 .capacity(registerCapacity)
                 .refillGreedy(registerCapacity, Duration.ofMinutes(registerRefillMinutes))
-                .build();
-        return Bucket.builder().addLimit(limit).build();
-    }
-
-    private Bucket createRefreshBucket() {
-        Bandwidth limit = Bandwidth.builder()
-                .capacity(refreshCapacity)
-                .refillGreedy(refreshCapacity, Duration.ofMinutes(refreshRefillMinutes))
-                .build();
-        return Bucket.builder().addLimit(limit).build();
-    }
-
-    private Bucket createVerifyEmailBucket() {
-        Bandwidth limit = Bandwidth.builder()
-                .capacity(verifyEmailCapacity)
-                .refillGreedy(verifyEmailCapacity, Duration.ofMinutes(verifyEmailRefillMinutes))
-                .build();
-        return Bucket.builder().addLimit(limit).build();
-    }
-
-    private Bucket createLogoutBucket() {
-        Bandwidth limit = Bandwidth.builder()
-                .capacity(logoutCapacity)
-                .refillGreedy(logoutCapacity, Duration.ofMinutes(logoutRefillMinutes))
                 .build();
         return Bucket.builder().addLimit(limit).build();
     }
@@ -312,7 +227,7 @@ public class AuthController {
 
         // Extract the User from the Authentication result to avoid a redundant DB round-trip.
         // The AuthenticationManager already loaded the user via UserDetailsService during authenticate().
-        User user = userRepository.findByUsername(request.getUsername())
+        User user = userService.findByUsername(request.getUsername())
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
         String tokenId = UUID.randomUUID().toString();
         String accessToken = jwtUtil.generateAccessToken(user, tokenId);
@@ -356,221 +271,5 @@ public class AuthController {
             .body(response);
     }
 
-    @GetMapping("/verify-email")
-    public ResponseEntity<?> verifyEmail(@RequestParam String token, HttpServletRequest httpRequest) {
-        String ip = extractClientIp(httpRequest);
-
-        // Rate-limit verification attempts per IP to prevent brute-force of verification tokens
-        Bucket bucket = verifyEmailBuckets.get(ip, k -> createVerifyEmailBucket());
-        if (!bucket.tryConsume(1)) {
-            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                .body(new MessageResponseDTO("Too many verification attempts. Please try again later."));
-        }
-
-        String status = authService.verifyEmail(token);
-        return ResponseEntity.ok(Map.of("status", status));
-    }
-
-    @PostMapping("/resend-verification")
-    public ResponseEntity<?> resendVerification(@Valid @RequestBody ResendVerificationRequestDTO request, HttpServletRequest httpRequest) {
-        String email = request.email();
-
-        // Rate-limit by IP+email: prevents an attacker from blocking a legitimate user's
-        // resend capability, and avoids leaking email existence via per-email bucket exhaustion
-        String ip = extractClientIp(httpRequest);
-        String ipEmailKey = ip + ":" + email;
-        Bucket bucket = resendBuckets.get(ipEmailKey, k -> createResendBucket());
-        if (!bucket.tryConsume(1)) {
-            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                .body(new MessageResponseDTO("Too many resend attempts. Please try again later."));
-        }
-
-        authService.resendVerification(email);
-        return ResponseEntity.ok(Map.of(
-            "message", "If the email exists and isn't verified, a verification email has been sent."
-        ));
-    }
-
-    /**
-     * Refresh access token.
-     * Idempotency Note: Clients should persist the new refresh token pair before discarding the old one.
-     * Retrying a request with an already-used refresh token will result in all sessions being revoked.
-     */
-    @Operation(summary = "Refresh access token", description = "Idempotency Note: Clients must persist the new token before discarding the old one to avoid session revocation on retry.")
-    @PostMapping("/refresh")
-    public ResponseEntity<?> refreshToken(@Valid @RequestBody TokenRefreshRequestDTO request, HttpServletRequest httpRequest) {
-        String ip = extractClientIp(httpRequest);
-        String deviceInfo = httpRequest.getHeader("User-Agent");
-
-        // Rate-limit refresh attempts per IP
-        Bucket bucket = refreshBuckets.get(ip, k -> createRefreshBucket());
-        if (!bucket.tryConsume(1)) {
-            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                .body(new MessageResponseDTO("Too many refresh attempts. Please try again later."));
-        }
-
-        String requestRefreshToken = request.getRefreshToken();
-
-        // Retrieve original device info BEFORE verifyToken marks the token as used
-        RefreshToken originalToken = refreshTokenService.findByRawToken(requestRefreshToken);
-        String originalDeviceInfo = (originalToken != null) ? originalToken.getDeviceInfo() : null;
-
-        User user;
-        try {
-            user = refreshTokenService.verifyToken(requestRefreshToken);
-        } catch (TokenRefreshException e) {
-            // Audit failed refresh attempts for security observability
-            securityAuditService.record("TOKEN_REFRESH_FAILED", null, null, ip, deviceInfo, e.getMessage(), false);
-            throw e;
-        }
-        
-        // NOTE: We do NOT delete the old token immediately. verifyToken() has already
-        // marked it as used=true atomically. Keeping the used row allows reuse-detection
-        // to trigger "revoke all sessions" if an attacker replays this token.
-        // Stale used tokens are cleaned up by the scheduled purge job.
-
-        // Detect device change  -  flag as suspicious if User-Agent differs from the
-        // device that originally obtained this refresh token (possible token theft)
-        if (originalDeviceInfo != null && deviceInfo != null && !originalDeviceInfo.equals(deviceInfo)) {
-            log.warn("Device change detected during token refresh for user {}: original='{}', current='{}'",
-                    user.getUsername(), originalDeviceInfo, deviceInfo);
-            securityAuditService.record("TOKEN_REFRESH_DEVICE_CHANGE", user.getId(), user.getUsername(), ip, deviceInfo,
-                    Map.of("originalDevice", originalDeviceInfo, "newDevice", deviceInfo), true);
-        }
-        
-        String tokenId = UUID.randomUUID().toString();
-        String newAccessToken = jwtUtil.generateAccessToken(user, tokenId);
-        
-        // Preserve original device info for the new token chain so audit trail
-        // reflects the session's originating device, not the refreshing device
-        String chainDeviceInfo = (originalDeviceInfo != null) ? originalDeviceInfo : deviceInfo;
-        String newRefreshToken = refreshTokenService.createRefreshChain(user.getId(), chainDeviceInfo, tokenId);
-        
-        securityAuditService.record("TOKEN_REFRESH", user.getId(), user.getUsername(), ip, deviceInfo, null, true);
-        
-        return ResponseEntity.ok(new JwtResponseDTO(
-            newAccessToken, 
-            newRefreshToken, 
-            jwtUtil.getExpirationMs() / 1000, 
-            jwtUtil.getRefreshExpirationMs() / 1000,
-            UserResponseDTO.from(user)
-        ));
-    }
-
-    @PostMapping("/logout")
-    public ResponseEntity<?> logoutUser(@Valid @RequestBody TokenRefreshRequestDTO request, HttpServletRequest httpRequest) {
-        String ip = extractClientIp(httpRequest);
-        String deviceInfo = httpRequest.getHeader("User-Agent");
-
-        // Rate-limit logout attempts per IP to prevent DB load from random token spam
-        Bucket bucket = logoutBuckets.get(ip, k -> createLogoutBucket());
-        if (!bucket.tryConsume(1)) {
-            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                .body(new MessageResponseDTO("Too many logout attempts. Please try again later."));
-        }
-
-        // Deny the current access token (from Authorization header) so it cannot be
-        // used for the remainder of its TTL. This closes the stateless-JWT gap where
-        // a stolen access token would remain valid after logout.
-        String authHeader = httpRequest.getHeader("Authorization");
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            String accessToken = authHeader.substring(7);
-            try {
-                String accessTokenId = jwtUtil.extractTokenId(accessToken);
-                tokenDenylistService.denyToken(accessTokenId);
-            } catch (Exception e) {
-                // Best-effort: if token is already expired or malformed, skip
-                log.debug("Could not extract tokenId for denylist on logout: {}", e.getMessage());
-            }
-        }
-
-        String username = refreshTokenService.findUsernameByRawToken(request.getRefreshToken());
-        
-        if (username == null) {
-            // Token not found / invalid / already revoked  -  audit the failed attempt
-            securityAuditService.record("LOGOUT_FAILED", null, null, ip, deviceInfo, "Invalid or already-revoked refresh token", false);
-            return ResponseEntity.badRequest()
-                .body(new MessageResponseDTO("Invalid or expired refresh token."));
-        }
-        
-        realtimeBroadcaster.forceDisconnect(username);
-        User user = userRepository.findByUsername(username).orElse(null);
-        Long userId = user != null ? user.getId() : null;
-        
-        // Delete the specific token using its raw value
-        refreshTokenService.deleteByToken(request.getRefreshToken());
-        
-        securityAuditService.record("LOGOUT", userId, username, ip, deviceInfo, null, true);
-        return ResponseEntity.ok(new MessageResponseDTO("Log out successful!"));
-    }
-
-    /**
-     * SEC-Min01 fix: logout-all endpoint.
-     * Spec implies token_version should be incrementable on "logout-all / password change".
-     * Previously only changePassword and resetPassword incremented token_version  - 
-     * a user who suspected compromise could not invalidate all other sessions'
-     * access tokens without changing their password.
-     *
-     * This endpoint:
-     *   1. Increments user.tokenVersion (invalidates ALL access tokens immediately)
-     *   2. Deletes ALL refresh tokens for the user (forces re-login on every device)
-     *   3. Denylists the current access token (so the caller's own session ends now)
-     *
-     * One-click "sign out everywhere" without forcing a password change.
-     */
-    @PostMapping("/logout-all")
-    public ResponseEntity<?> logoutAll(@RequestBody(required = false) TokenRefreshRequestDTO request,
-                                        HttpServletRequest httpRequest) {
-        String ip = extractClientIp(httpRequest);
-        String deviceInfo = httpRequest.getHeader("User-Agent");
-
-        // Rate-limit logout-all per IP to prevent abuse
-        Bucket bucket = logoutBuckets.get(ip, k -> createLogoutBucket());
-        if (!bucket.tryConsume(1)) {
-            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                .body(new MessageResponseDTO("Too many logout attempts. Please try again later."));
-        }
-
-        // Resolve the user from the current access token (in Authorization header)
-        String authHeader = httpRequest.getHeader("Authorization");
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(new MessageResponseDTO("Authentication required."));
-        }
-        String accessToken = authHeader.substring(7);
-
-        String username;
-        User user;
-        try {
-            username = jwtUtil.extractUsername(accessToken);
-            user = userRepository.findByUsername(username).orElse(null);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(new MessageResponseDTO("Invalid or expired access token."));
-        }
-        if (user == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(new MessageResponseDTO("User not found."));
-        }
-
-        // 1. Increment token_version  -  invalidates ALL access tokens immediately
-        // 2. Delete ALL refresh tokens for the user
-        userProfileService.logoutAll(user);
-
-        // 3. Denylist the current access token so the caller's own session ends now
-        try {
-            String accessTokenId = jwtUtil.extractTokenId(accessToken);
-            tokenDenylistService.denyToken(accessTokenId);
-        } catch (Exception e) {
-            log.debug("Could not extract tokenId for denylist on logout-all: {}", e.getMessage());
-        }
-
-        // Force-disconnect any WebSocket sessions for this user
-        realtimeBroadcaster.forceDisconnect(username);
-
-        securityAuditService.record("LOGOUT_ALL", user.getId(), username, ip, deviceInfo,
-            java.util.Map.of("reason", "user-initiated logout-all"), true);
-
-        return ResponseEntity.ok(new MessageResponseDTO("Signed out of all sessions successfully."));
-    }
+    // Session management endpoints moved to SessionController
 }

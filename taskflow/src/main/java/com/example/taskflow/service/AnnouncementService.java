@@ -23,18 +23,18 @@ public class AnnouncementService {
 
     private final AnnouncementRepository announcementRepository;
     private final OrganizationRepository organizationRepository;
-    private final OrganizationService organizationService;
+    private final OrganizationMemberService memberService;
     private final PermissionService permissionService;
     private final NotificationService notificationService;
 
     public AnnouncementService(AnnouncementRepository announcementRepository,
                                OrganizationRepository organizationRepository,
-                               OrganizationService organizationService,
+                               OrganizationMemberService memberService,
                                PermissionService permissionService,
                                NotificationService notificationService) {
         this.announcementRepository = announcementRepository;
         this.organizationRepository = organizationRepository;
-        this.organizationService = organizationService;
+        this.memberService = memberService;
         this.permissionService = permissionService;
         this.notificationService = notificationService;
     }
@@ -68,7 +68,7 @@ public class AnnouncementService {
         Announcement saved = announcementRepository.save(announcement);
 
         // Real-time push notification to all org members
-        List<MembershipResponseDTO> members = organizationService.listOrganizationMembers(orgId, user);
+        List<MembershipResponseDTO> members = memberService.listOrganizationMembers(orgId, user);
         for (MembershipResponseDTO member : members) {
             User recipient = new User();
             recipient.setId(member.getUserId());

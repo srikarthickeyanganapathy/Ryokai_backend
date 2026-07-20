@@ -31,16 +31,7 @@ public class RoleStrategyFactory {
     public RoleStrategy getStrategy(User user) {
         if (user == null) return employeeStrategy;
 
-        // SUPER_ADMIN  -  the only global privileged role (platform owner)
-        Set<String> roleNames = user.getRoles().stream()
-                .map(role -> {
-                    String name = role.getName();
-                    if (name.startsWith("ROLE_")) return name.substring(5);
-                    return name;
-                })
-                .collect(Collectors.toSet());
-
-        if (roleNames.contains("SUPER_ADMIN")) {
+        if (user.isSuperAdmin()) {
             return superAdminStrategy;
         }
 
