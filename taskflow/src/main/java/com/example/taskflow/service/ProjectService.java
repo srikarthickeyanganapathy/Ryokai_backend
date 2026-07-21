@@ -227,12 +227,19 @@ public class ProjectService {
         if (!project.getCreatedBy().getId().equals(currentUser.getId())) {
             throw new org.springframework.security.access.AccessDeniedException("Only the project creator can share it to a crew.");
         }
-        
+
+        // INVARIANT: Enterprise (org-owned) projects are a sealed vault and can
+        // never be shared to a Crew. This must be checked BEFORE any mutation.
+        if (project.getOrganization() != null) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Enterprise projects cannot be shared with Crews.");
+        }
+
         Crew crew = crewRepository.findById(crewId)
                 .orElseThrow(() -> new RuntimeException("Crew not found"));
-                
+
         project.setCrew(crew);
-        
+
         if (collaboratorIds != null) {
             java.util.Set<User> collaborators = new java.util.HashSet<>();
             for (Long cid : collaboratorIds) {
@@ -241,7 +248,36 @@ public class ProjectService {
             }
             project.setCollaborators(collaborators);
         }
-        
+
+        return toResponseDTO(projectRepository.save(project));
+    }
+
+    /**
+     * Revokes crew access to a shared project. Crew-created tasks under the
+     * project retain their crew_id (still crew-scoped) but are decoupled from
+     * the project (project_id -> null) rather than deleted, per the
+     * orphaned-task-lifecycle invariant.
+     */
+    @Transactional
+    public ProjectResponseDTO unshareProjectFromCrew(Long projectId, User currentUser) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new RuntimeException("Project not found"));
+
+        if (!project.getCreatedBy().getId().equals(currentUser.getId())) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Only the project creator can unshare it from a crew.");
+        }
+
+        if (project.getCrew() == null) {
+            throw new IllegalStateException("Project is not currently shared with a crew.");
+        }
+
+        // Decouple tasks from the project without deleting them or their crew scope.
+        taskRepository.detachProjectFromTasks(projectId);
+
+        project.setCrew(null);
+        project.setCollaborators(new java.util.HashSet<>());
+
         return toResponseDTO(projectRepository.save(project));
     }
 

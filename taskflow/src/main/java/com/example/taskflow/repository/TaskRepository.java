@@ -74,6 +74,7 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     // Employee counts
     long countByAssigneeIdAndArchivedFalse(Long userId);
     long countByAssigneeIdAndCurrentStatusAndArchivedFalse(Long userId, TaskStatus status);
+    long countByAssigneeIdAndCurrentStatusInAndArchivedFalse(Long userId, java.util.Collection<TaskStatus> statuses);
     long countByAssigneeIdAndDueDateBeforeAndCurrentStatusNotInAndArchivedFalse(Long userId, java.time.LocalDate date, java.util.Collection<TaskStatus> statuses);
 
     // Director counts

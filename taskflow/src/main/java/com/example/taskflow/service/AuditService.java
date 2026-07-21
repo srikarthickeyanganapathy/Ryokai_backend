@@ -18,7 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuditService {
 
     private final AuditEventRepository auditEventRepository;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordSync(String eventType, User actor, String entityType, Long entityId,

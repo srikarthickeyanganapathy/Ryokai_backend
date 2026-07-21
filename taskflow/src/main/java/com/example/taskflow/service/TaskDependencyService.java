@@ -7,6 +7,7 @@ import com.example.taskflow.domain.User;
 import com.example.taskflow.notification.NotificationEvent;
 import com.example.taskflow.repository.TaskDependencyRepository;
 import com.example.taskflow.repository.TaskRepository;
+import com.example.taskflow.strategy.task.TaskStrategyFactory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +23,7 @@ public class TaskDependencyService {
     private final TaskDependencyRepository taskDependencyRepository;
     private final TaskAuditService taskAuditService;
     private final NotificationService notificationService;
+    private final TaskStrategyFactory taskStrategyFactory;
 
     @Transactional
     public void addDependency(Long taskId, Long dependsOnId, User user) {
@@ -38,14 +40,10 @@ public class TaskDependencyService {
             throw new IllegalArgumentException("Tasks must be in the same mode to have dependencies");
         }
         
-        if (task.isPersonal() && !task.getCreator().getId().equals(dependsOnTask.getCreator().getId())) {
-            throw new IllegalArgumentException("Personal tasks can only depend on your own personal tasks");
-        }
-        if (task.getOrg() != null && !task.getOrg().getId().equals(dependsOnTask.getOrg().getId())) {
-            throw new IllegalArgumentException("Tasks must be in the same organization");
-        }
-        if (task.getCrew() != null && !task.getCrew().getId().equals(dependsOnTask.getCrew().getId())) {
-            throw new IllegalArgumentException("Tasks must be in the same crew");
+        // Single source of truth for scope validation: delegate to the
+        // mode-specific strategy instead of duplicating the same checks here.
+        if (!taskStrategyFactory.get(task).validateDependencyLink(task, dependsOnTask)) {
+            throw new IllegalArgumentException("Tasks must be in the same scope (owner/crew/organization) to have dependencies");
         }
 
         if (detectCycle(dependsOnTask, task, new HashSet<>())) {

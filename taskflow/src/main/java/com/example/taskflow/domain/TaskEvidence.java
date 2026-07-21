@@ -98,4 +98,18 @@ public class TaskEvidence {
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+
+    // Soft-delete fields: evidence is append-only for audit purposes. A
+    // "deleted" record is hidden from normal listings but never physically
+    // removed, so the historical timeline referenced in TaskStatusHistory
+    // stays intact for auditors.
+    @Column(name = "deleted", nullable = false)
+    private boolean deleted = false;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "deleted_by")
+    private User deletedBy;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 }

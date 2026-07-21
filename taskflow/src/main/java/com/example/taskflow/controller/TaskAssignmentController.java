@@ -124,19 +124,11 @@ public class TaskAssignmentController {
 
     @PostMapping("/bulk-assign")
     @PreAuthorize("hasPermission(#request, 'TASK_CREATE')")
-    public ResponseEntity<com.example.taskflow.dto.BulkAssignResponseDTO> bulkAssignTasks(@Valid @RequestBody BulkAssignRequestDTO request,
+    public ResponseEntity<com.example.taskflow.dto.BulkAssignResponseDTO> bulkAssignTasks(
+            @Valid @RequestBody com.example.taskflow.dto.BulkAssignRequestDTO request,
             @AuthenticationPrincipal UserDetails userDetails) {
         User creator = getCurrentUser(userDetails);
-
-        // Validation: must provide either teamId or assigneeUsernames
-        boolean hasTeam = request.getTeamId() != null;
-        boolean hasUsernames = request.getAssigneeUsernames() != null && !request.getAssigneeUsernames().isEmpty();
-        if (!hasTeam && !hasUsernames) {
-            throw new IllegalArgumentException("Either teamId or assigneeUsernames must be provided");
-        }
-
         String tagsJoined = request.getTags() != null ? String.join(",", request.getTags()) : null;
-
         com.example.taskflow.dto.BulkAssignResponseDTO response = taskBulkAssignmentService.bulkAssignTasks(
                 request.getTitle(),
                 request.getDescription(),

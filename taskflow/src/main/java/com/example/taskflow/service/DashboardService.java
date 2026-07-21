@@ -100,18 +100,22 @@ public class DashboardService {
         return buildStatsForPersonal(user);
     }
 
+    private static final List<TaskStatus> TERMINAL_STATUSES =
+            Arrays.stream(TaskStatus.values()).filter(TaskStatus::isTerminal).collect(java.util.stream.Collectors.toList());
+
     private DashboardStatsDTO buildStatsForPersonal(User user) {
         LocalDate now = LocalDate.now();
-        List<TaskStatus> notApproved = Arrays.asList(TaskStatus.APPROVED);
         Long uid = user.getId();
-        
+
         long totalTasks = taskRepository.countByAssigneeIdAndArchivedFalse(uid);
         long todoCount = taskRepository.countByAssigneeIdAndCurrentStatusAndArchivedFalse(uid, TaskStatus.IN_PROGRESS);
         long inReviewCount = taskRepository.countByAssigneeIdAndCurrentStatusAndArchivedFalse(uid, TaskStatus.SUBMITTED);
-        long doneCount = taskRepository.countByAssigneeIdAndCurrentStatusAndArchivedFalse(uid, TaskStatus.APPROVED);
+        // Uses TERMINAL_STATUSES so personal/crew tasks (which terminate at COMPLETED, never APPROVED)
+        // are properly counted in doneCount.
+        long doneCount = taskRepository.countByAssigneeIdAndCurrentStatusInAndArchivedFalse(uid, TERMINAL_STATUSES);
         long revisionsCount = taskRepository.countByAssigneeIdAndCurrentStatusAndArchivedFalse(uid, TaskStatus.REJECTED);
-        long overdueCount = taskRepository.countByAssigneeIdAndDueDateBeforeAndCurrentStatusNotInAndArchivedFalse(uid, now, notApproved);
-        
+        long overdueCount = taskRepository.countByAssigneeIdAndDueDateBeforeAndCurrentStatusNotInAndArchivedFalse(uid, now, TERMINAL_STATUSES);
+
         long assignedToMeCount = totalTasks;
 
         return createDto(totalTasks, todoCount, inReviewCount, doneCount, revisionsCount, overdueCount, assignedToMeCount);

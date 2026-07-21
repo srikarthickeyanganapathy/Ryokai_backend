@@ -88,4 +88,13 @@ public class ProjectController {
         }
         return ResponseEntity.ok(projectService.shareProjectToCrew(projectId, request.getCrewId(), request.getCollaboratorIds(), currentUser));
     }
+
+    @DeleteMapping("/{projectId}/share/crew")
+    @PreAuthorize("hasPermission(#projectId, 'Project', 'EDIT')")
+    public ResponseEntity<ProjectResponseDTO> unshareProjectFromCrew(
+            @PathVariable Long projectId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User currentUser = userService.getCurrentUser(userDetails.getUsername());
+        return ResponseEntity.ok(projectService.unshareProjectFromCrew(projectId, currentUser));
+    }
 }

@@ -105,12 +105,14 @@ public class RoleService {
         }
     }
 
+    @Transactional
     public List<RoleResponseDTO> getAllRoles() {
         return roleRepository.findAllByOrderByNameAsc().stream()
             .map(this::mapToRoleResponseDTO)
             .collect(Collectors.toList());
     }
 
+    @Transactional
     public List<RoleResponseDTO> getRolesByOrganizationId(Long organizationId) {
         return roleRepository.findByOrganizationId(organizationId).stream()
             .map(this::mapToRoleResponseDTO)
