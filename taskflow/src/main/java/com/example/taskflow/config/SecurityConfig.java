@@ -72,7 +72,7 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         // Acceptable third-party hosting; review periodically.
         configuration.setAllowedOrigins(List.of("http://localhost:5173", "https://tasksflowstf.netlify.app",
-                "https://cp38tvq6-5173.inc1.devtunnels.ms/**"));
+                "https://cp38tvq6-5173.inc1.devtunnels.ms"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Correlation-Id"));
         configuration.setAllowCredentials(true);
