@@ -141,26 +141,28 @@ sequenceDiagram
 
 ---
 
-### Diagram 6: Assignor Task Recall Sequence
+### Diagram 6: Assignee Task Recall Sequence
 
 ```mermaid
 sequenceDiagram
-    actor Assignor as Org Assignor
+    actor Assignee as Employee (Assignee)
     participant StateCtrl as TaskStateController
     participant StateSvc as TaskStateTransitionServiceImpl
     participant TaskRepo as TaskRepository
     participant AuditSvc as TaskAuditService
 
-    Assignor->>StateCtrl: POST /api/tasks/42/recall
-    StateCtrl->>StateSvc: recallTask(42, Assignor)
+    Assignee->>StateCtrl: POST /api/tasks/42/recall
+    StateCtrl->>StateSvc: recallTask(42, Assignee)
     StateSvc->>TaskRepo: findById(42)
     
-    alt Task Status != SUBMITTED
-        StateSvc-->>Assignor: 400 Bad Request ("Only submitted tasks can be recalled")
-    else Task Status == SUBMITTED
+    alt User is Not Assignee
+        StateSvc-->>Assignee: 403 Forbidden ("Only the assignee can recall a submitted task.")
+    else Task Status != SUBMITTED
+        StateSvc-->>Assignee: 400 Bad Request ("Only SUBMITTED tasks can be recalled.")
+    else Authorized & Submitted
         StateSvc->>TaskRepo: save(Task.status = IN_PROGRESS)
-        StateSvc->>AuditSvc: logStatusChange(42, SUBMITTED, IN_PROGRESS, Assignor)
-        StateSvc-->>Assignor: 200 OK (Task Response DTO)
+        StateSvc->>AuditSvc: logStatusChange(42, SUBMITTED, IN_PROGRESS, Assignee)
+        StateSvc-->>Assignee: 200 OK (Task Response DTO)
     end
 ```
 

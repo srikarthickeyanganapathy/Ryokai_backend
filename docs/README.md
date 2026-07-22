@@ -64,7 +64,7 @@ Welcome to the Ryokai Backend Engineering Manual. The technical specification is
 3. **[Diagram 3: Enterprise Task Assignment & Hierarchy Validation](workflows.md#diagram-3-enterprise-task-assignment--hierarchy-validation)**
 4. **[Diagram 4: Task Evidence Upload & Submission](workflows.md#diagram-4-task-evidence-upload--submission)**
 5. **[Diagram 5: Manager Approval & Rejection Flow](workflows.md#diagram-5-manager-approval--rejection-flow)**
-6. **[Diagram 6: Assignor Task Recall Sequence](workflows.md#diagram-6-assignor-task-recall-sequence)**
+6. **[Diagram 6: Assignee Task Recall Sequence](workflows.md#diagram-6-assignee-task-recall-sequence)**
 7. **[Diagram 7: Crew Real-Time Whiteboard Drawing Flow](workflows.md#diagram-7-crew-real-time-whiteboard-drawing-flow)**
 8. **[Diagram 8: Project Connection Bridge (Sharing & Revocation)](workflows.md#diagram-8-project-connection-bridge-sharing--revocation)**
 9. **[Diagram 9: HR Leave Request & Task Reassignment](workflows.md#diagram-9-hr-leave-request--task-reassignment)**
