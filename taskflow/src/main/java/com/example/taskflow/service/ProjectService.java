@@ -235,6 +235,10 @@ public class ProjectService {
                     "Enterprise projects cannot be shared with Crews.");
         }
 
+        if (project.getCrew() != null) {
+            throw new IllegalStateException("Project is already shared with a crew. Unshare it first to share with another crew.");
+        }
+
         Crew crew = crewRepository.findById(crewId)
                 .orElseThrow(() -> new RuntimeException("Crew not found"));
 

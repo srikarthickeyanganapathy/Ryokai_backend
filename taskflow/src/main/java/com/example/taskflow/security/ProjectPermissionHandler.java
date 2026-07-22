@@ -84,6 +84,7 @@ public class ProjectPermissionHandler implements DomainPermissionHandler {
                 || permissionService.hasPermission(user, "SUPER_ADMIN_OVERRIDE_CHECK");
             case "EDIT", "DELETE" -> 
                 (project.getCreatedBy() != null && project.getCreatedBy().getId().equals(user.getId()))
+                || (project.getCollaborators() != null && project.getCollaborators().stream().anyMatch(c -> c.getId().equals(user.getId())))
                 || (project.getOrganization() != null 
                     && membershipRepository.existsByUserAndOrganization(user, project.getOrganization())
                     && permissionService.hasPermission(user, "PROJECT_MANAGE"));

@@ -160,8 +160,11 @@ public class TaskEvidenceService {
     }
 
     private void assertCanEdit(User user, Task task) {
-        if (!roleStrategyFactory.getStrategy(user).canEdit(user, task)) {
-            throw new UnauthorizedActionException("You are not authorized to add evidence to this task.");
+        boolean isAssignee = task.isPersonal()
+                ? (task.getCreator() != null && task.getCreator().getId().equals(user.getId()))
+                : (task.getAssignee() != null && task.getAssignee().getId().equals(user.getId()));
+        if (!isAssignee) {
+            throw new UnauthorizedActionException("Only the task assignee can add evidence to this task.");
         }
     }
 

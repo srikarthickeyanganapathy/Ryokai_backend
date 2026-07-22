@@ -106,9 +106,10 @@ public class CrewMembershipService {
         Crew crew = crewRepository.findByIdWithLock(crewId)
                 .orElseThrow(() -> new ResourceNotFoundException("Crew not found"));
 
-        if (crew.getVisibility() != com.example.taskflow.domain.CrewVisibility.PUBLIC) {
+        if (crew.getVisibility() != com.example.taskflow.domain.CrewVisibility.PUBLIC &&
+            crew.getVisibility() != com.example.taskflow.domain.CrewVisibility.PUBLIC_LINK) {
             throw new com.example.taskflow.exception.UnauthorizedActionException(
-                    "This crew is not open for direct joining.");
+                    "This crew is invite-only and cannot be joined directly.");
         }
 
         long currentMembers = crewMemberRepository.findByIdCrewId(crew.getId()).size();
@@ -146,7 +147,8 @@ public class CrewMembershipService {
     public CrewInviteDTO createPublicLinkInvite(Long crewId, User user) {
         Crew crew = getCrewEntity(crewId);
         validateMembership(crewId, user);
-        if (crew.getVisibility() != com.example.taskflow.domain.CrewVisibility.PUBLIC_LINK) {
+        if (crew.getVisibility() != com.example.taskflow.domain.CrewVisibility.PUBLIC_LINK &&
+            crew.getVisibility() != com.example.taskflow.domain.CrewVisibility.PUBLIC) {
             validateCreator(crew, user);
         }
         return createInvite(crewId, user, null);

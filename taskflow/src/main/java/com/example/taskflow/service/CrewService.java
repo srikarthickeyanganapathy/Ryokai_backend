@@ -151,10 +151,12 @@ public class CrewService {
     }
 
     @Transactional(readOnly = true)
-    public Page<CrewResponseDTO> discoverCrews(String keyword, Pageable pageable, User user) {
-        Page<Crew> page = crewRepository.searchPublicCrews(
-                (keyword == null || keyword.isBlank()) ? null : keyword.trim(), pageable);
-        return page.map(crew -> mapToResponseDTO(crew, user));
+    public List<CrewResponseDTO> discoverCrews(User user) {
+        List<Crew> crews = crewRepository.findAllByOrderByCreatedAtDesc();
+        return crews.stream()
+                .filter(c -> c.getVisibility() != com.example.taskflow.domain.CrewVisibility.INVITE_ONLY)
+                .map(crew -> mapToResponseDTO(crew, user))
+                .collect(Collectors.toList());
     }
 
     // --- Internal Helpers ---

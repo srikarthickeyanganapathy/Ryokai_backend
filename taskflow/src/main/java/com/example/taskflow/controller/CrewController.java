@@ -103,12 +103,9 @@ public class CrewController {
     }
 
     @GetMapping("/discover")
-    public ResponseEntity<Page<CrewResponseDTO>> discoverCrews(
-            @RequestParam(required = false) String keyword,
-            Pageable pageable,
-            @AuthenticationPrincipal UserDetails userDetails) {
+    public ResponseEntity<List<CrewResponseDTO>> discoverCrews(@AuthenticationPrincipal UserDetails userDetails) {
         User user = userService.getCurrentUser(userDetails.getUsername());
-        return ResponseEntity.ok(crewService.discoverCrews(keyword, pageable, user));
+        return ResponseEntity.ok(crewService.discoverCrews(user));
     }
 
     @PostMapping("/{crewId}/join")

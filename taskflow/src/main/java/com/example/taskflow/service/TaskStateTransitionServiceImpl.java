@@ -75,8 +75,8 @@ public class TaskStateTransitionServiceImpl implements TaskStateTransitionServic
         if (!approvable.canSubmit(user, task)) {
             throw new UnauthorizedActionException("You are not authorized to submit this task.");
         }
-        if (task.getCurrentStatus() != TaskStatus.IN_PROGRESS && task.getCurrentStatus() != TaskStatus.REJECTED) {
-            throw new IllegalStateException("Only IN_PROGRESS or REJECTED tasks can be submitted.");
+        if (task.getCurrentStatus() != TaskStatus.IN_PROGRESS && task.getCurrentStatus() != TaskStatus.REJECTED && task.getCurrentStatus() != TaskStatus.TODO) {
+            throw new IllegalStateException("Only TODO, IN_PROGRESS or REJECTED tasks can be submitted.");
         }
 
         TaskStatus fromStatus = task.getCurrentStatus();
