@@ -160,6 +160,12 @@ public class TaskEvidenceService {
     }
 
     private void assertCanEdit(User user, Task task) {
+        if (task.isLocked()) {
+            throw new UnauthorizedActionException("Task is currently locked awaiting reassignment.");
+        }
+        if (!task.isPersonal() && task.getCurrentStatus() != com.example.taskflow.domain.TaskStatus.IN_PROGRESS) {
+            throw new IllegalStateException("Evidence can only be attached when task is IN_PROGRESS.");
+        }
         boolean isAssignee = task.isPersonal()
                 ? (task.getCreator() != null && task.getCreator().getId().equals(user.getId()))
                 : (task.getAssignee() != null && task.getAssignee().getId().equals(user.getId()));

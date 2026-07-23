@@ -134,6 +134,10 @@ public class TaskLifecycleService {
         }
         
         task.setAssignee(newAssignee);
+        if (task.isLocked() || task.getCurrentStatus() == TaskStatus.REJECTED) {
+            task.setLocked(false);
+            task.setCurrentStatus(TaskStatus.IN_PROGRESS);
+        }
         Task updated = taskRepository.save(task);
         taskAuditService.recordStatus(updated, updated.getCurrentStatus().name(), updated.getCurrentStatus().name(), "REASSIGNED", user, "Reassigned to " + newAssignee.getUsername());
         return taskResponseMapper.mapToTaskResponseDTO(updated);

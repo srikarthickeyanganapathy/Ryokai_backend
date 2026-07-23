@@ -78,6 +78,14 @@ public class ChecklistService {
             throw new IllegalArgumentException("Item does not belong to this task");
         }
 
+        if (item.getTask().isLocked()) {
+            throw new com.example.taskflow.exception.UnauthorizedActionException("Task is locked awaiting reassignment.");
+        }
+
+        if (!item.getTask().isPersonal() && item.getTask().getCurrentStatus() != com.example.taskflow.domain.TaskStatus.IN_PROGRESS) {
+            throw new IllegalStateException("Checklist items can only be toggled when task is IN_PROGRESS.");
+        }
+
         item.setIsCompleted(!item.getIsCompleted());
         ChecklistItem saved = checklistItemRepository.save(item);
 

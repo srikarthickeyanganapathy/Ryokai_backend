@@ -65,7 +65,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(org.springframework.dao.OptimisticLockingFailureException.class)
     public ResponseEntity<Object> handleOptimisticLockingFailureException(org.springframework.dao.OptimisticLockingFailureException ex, HttpServletRequest request) {
-        return new ResponseEntity<>(createErrorResponse(HttpStatus.CONFLICT, "Conflict", "The resource was modified by another transaction. Please refresh and try again.", "OPTIMISTIC_LOCK_FAILURE", request), HttpStatus.CONFLICT);
+        return new ResponseEntity<>(createErrorResponse(HttpStatus.CONFLICT, "Conflict", "The resource was modified by another transaction. Please refresh and try again.", "OPTIMISTIC_LOCK_CONFLICT", request), HttpStatus.CONFLICT);
     }
 
     @ExceptionHandler(AccessDeniedException.class)

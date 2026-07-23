@@ -70,12 +70,20 @@ public class Task {
     @JoinColumn(name = "approved_by_id")
     private User approvedBy;
     
+    @Column(name = "is_locked", nullable = false)
+    private boolean locked = false;
+
+    @Column(name = "deleted", nullable = false)
+    private boolean deleted = false;
+
     public void transitionTo(TaskStatus newStatus, User user) {
         this.currentStatus = newStatus;
         if (newStatus == TaskStatus.COMPLETED) {
             // Logic for completed at would go here if field existed
         } else if (newStatus == TaskStatus.APPROVED) {
             this.approvedBy = user;
+        } else if (newStatus == TaskStatus.REJECTED) {
+            this.locked = true;
         }
     }
     
