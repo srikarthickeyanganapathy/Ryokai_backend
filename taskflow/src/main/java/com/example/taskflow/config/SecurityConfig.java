@@ -1,6 +1,9 @@
 package com.example.taskflow.config;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Value;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -48,15 +51,15 @@ public class SecurityConfig {
                         .frameOptions(frame -> frame.deny())
                         .httpStrictTransportSecurity(hsts -> hsts.includeSubDomains(true).maxAgeInSeconds(31536000)))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/refresh",
-                                "/api/auth/forgot-password", "/api/auth/reset-password", "/api/auth/verify-email",
-                                "/api/auth/resend-verification")
+                        .requestMatchers("/api/v1/auth/login", "/api/v1/auth/register", "/api/v1/auth/refresh",
+                                "/api/v1/auth/forgot-password", "/api/v1/auth/reset-password", "/api/v1/auth/verify-email",
+                                "/api/v1/auth/resend-verification")
                         .permitAll()
                         .requestMatchers("/ws/**", "/ws").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
-                        .requestMatchers("/api/admin/roles/**", "/api/admin/permissions/**", "/api/admin/users/**")
+                        .requestMatchers("/api/v1/admin/roles/**", "/api/v1/admin/permissions/**", "/api/v1/admin/users/**")
                         .authenticated()
-                        .requestMatchers("/api/admin/**").hasRole("SUPER_ADMIN")
+                        .requestMatchers("/api/v1/admin/**").hasRole("SUPER_ADMIN")
                         .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/prometheus").permitAll()
                         .requestMatchers("/actuator/**").hasRole("SUPER_ADMIN")
                         .anyRequest().authenticated())
@@ -67,12 +70,16 @@ public class SecurityConfig {
                 .build();
     }
 
+    @Value("${app.security.cors.allowed-origins:http://localhost:5173}")
+    private String allowedOriginsRaw;
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Acceptable third-party hosting; review periodically.
-        configuration.setAllowedOrigins(List.of("http://localhost:5173", "https://tasksflowstf.netlify.app",
-                "https://cp38tvq6-5173.inc1.devtunnels.ms"));
+        List<String> origins = Arrays.stream(allowedOriginsRaw.split("\\s*,\\s*"))
+                .filter(s -> !s.isBlank())
+                .collect(Collectors.toList());
+        configuration.setAllowedOrigins(origins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Correlation-Id"));
         configuration.setAllowCredentials(true);

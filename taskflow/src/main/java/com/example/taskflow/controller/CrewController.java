@@ -43,7 +43,7 @@ import com.example.taskflow.service.UserService;
 import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping("/api/crews")
+@RequestMapping("/api/v1/crews")
 public class CrewController {
 
     private final CrewService crewService;

@@ -71,29 +71,30 @@ graph TD
 
 ```
 src/main/java/com/example/taskflow/
-├── config/              # Global Configuration & Security Chain (10 classes)
+├── config/              # Global Configuration & Security Chain
 │   ├── SecurityConfig           # Filter chain, CORS, HTTP headers, BCrypt(12)
 │   ├── WebSocketConfig          # STOMP broker, heartbeats, transport limits
 │   ├── AsyncConfig              # 3 thread pools + MDC decorator
 │   ├── CorrelationIdFilter      # MDC trace ID (X-Correlation-Id)
-│   ├── GlobalExceptionHandler   # @RestControllerAdvice (16 exception handlers)
+│   ├── GlobalExceptionHandler   # @RestControllerAdvice (custom & framework exception handlers)
 │   ├── DataSeeder               # Permission bootstrap on startup
 │   ├── MethodSecurityConfig     # @EnableMethodSecurity + CustomPermissionEvaluator
 │   ├── OpenApiConfig            # Springdoc OpenAPI 3.0 configuration
 │   ├── JacksonConfig            # Jackson ObjectMapper customization
 │   └── WebSocketHandshakeInterceptor  # Origin validation on WS upgrade
-├── controller/          # REST Controllers (35 classes)
-├── domain/              # JPA Entities & Enums (55 files, 2 domain events)
+├── controller/          # REST Controllers
+├── domain/              # JPA Entities & Enums
 │   └── events/task/     # Spring ApplicationEvents (TaskStatusChangedEvent, EvidenceUploadedEvent)
 ├── dto/                 # Request & Response DTO Data Contracts
-├── exception/           # Custom Domain Runtime Exceptions (11 classes)
+├── exception/           # Custom Domain Runtime Exceptions
 ├── mapper/              # DTO ↔ Entity mappers (TaskResponseMapper, etc.)
 ├── notification/        # Notification event types, email renderers, WebSocket listener
 ├── repository/          # Spring Data JPA Repositories
 ├── security/            # SpEL Evaluators, Permission Handlers, Role Strategies, Rate Limiting
 ├── service/             # Domain Services & Business Logic
+│   └── impl/            # Service implementations & TaskActivityEventListener (@TransactionalEventListener)
 ├── strategy/task/       # Task Scope Lifecycle Strategies (Strategy Pattern)
-│   ├── TaskLifecycleStrategy    # Base interface (8 methods)
+│   ├── TaskLifecycleStrategy    # Base interface (10 methods)
 │   ├── TaskScopeBehavior        # Mixin: initialStatus, canBeReviewed, onComplete
 │   ├── Approvable               # Mixin: canSubmit, canApprove, canReject (Org only)
 │   ├── Claimable                # Mixin: canClaim (Crew only)
@@ -101,7 +102,7 @@ src/main/java/com/example/taskflow/
 │   ├── CrewTaskStrategy         # CREW mode implementation
 │   ├── OrgTaskStrategy          # ORG mode implementation
 │   └── TaskStrategyFactory      # Mode → Strategy resolver
-└── util/                # JWT utilities, authentication filter
+└── util/                # JWT utilities, authentication filter, TaskMetrics
 ```
 
 ---
@@ -133,7 +134,7 @@ These are the rules that govern the codebase structure and must be maintained as
 | `WebSocketConfig` | STOMP endpoints (`/ws`), simple broker (`/topic`, `/queue`), heartbeat 10s/10s, 64KB message limit, `StompAuthChannelInterceptor` |
 | `AsyncConfig` | Three `ThreadPoolTaskExecutor` beans: `emailExecutor`, `realtimeExecutor`, `auditExecutor` — all with `CallerRunsPolicy` backpressure and `MdcTaskDecorator` |
 | `CorrelationIdFilter` | `@Order(HIGHEST_PRECEDENCE)` — reads `X-Correlation-Id` header (validated regex `^[A-Za-z0-9-]{1,64}$`), generates UUID if missing, sets MDC and response header |
-| `GlobalExceptionHandler` | `@RestControllerAdvice` — maps 16 exception types to structured JSON `{ timestamp, status, error, message, code, path, correlationId }` |
+| `GlobalExceptionHandler` | `@RestControllerAdvice` — maps application-specific and framework exceptions to structured JSON `{ timestamp, status, error, message, code, path, correlationId }` |
 | `DataSeeder` | `CommandLineRunner` — seeds all `PermissionType` enum values into `permissions` table (idempotent) |
 | `MethodSecurityConfig` | `@EnableMethodSecurity` — registers `CustomPermissionEvaluator` as the global `PermissionEvaluator` |
 | `OpenApiConfig` | Springdoc configuration for Swagger UI at `/swagger-ui/index.html` |

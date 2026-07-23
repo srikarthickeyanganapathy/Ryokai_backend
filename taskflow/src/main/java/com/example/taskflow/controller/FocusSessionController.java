@@ -18,7 +18,7 @@ import com.example.taskflow.service.UserService;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping(value = "/api/focus", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
+@RequestMapping(value = "/api/v1/focus", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
 @RequiredArgsConstructor
 public class FocusSessionController {
 

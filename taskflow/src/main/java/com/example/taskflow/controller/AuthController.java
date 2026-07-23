@@ -61,7 +61,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping(value = "/api/auth", produces = MediaType.APPLICATION_JSON_VALUE)
+@RequestMapping(value = "/api/v1/auth", produces = MediaType.APPLICATION_JSON_VALUE)
 public class AuthController {
 
     private static final Logger log = LoggerFactory.getLogger(AuthController.class);
@@ -77,6 +77,7 @@ public class AuthController {
     private final AuthService authService;
     private final SecurityAuditService securityAuditService;
     private final TokenDenylistService tokenDenylistService;
+    private final com.example.taskflow.security.ClientIpResolver clientIpResolver;
 
     // --- Externalized rate-limit configuration (tunable via application.properties) ---
 
@@ -105,7 +106,8 @@ public class AuthController {
                           RealtimeBroadcaster realtimeBroadcaster,
                           AuthService authService,
                           SecurityAuditService securityAuditService,
-                          TokenDenylistService tokenDenylistService) {
+                          TokenDenylistService tokenDenylistService,
+                          com.example.taskflow.security.ClientIpResolver clientIpResolver) {
         this.authenticationManager = authenticationManager;
         this.jwtUtil = jwtUtil;
         this.userService = userService;
@@ -117,6 +119,7 @@ public class AuthController {
         this.authService = authService;
         this.securityAuditService = securityAuditService;
         this.tokenDenylistService = tokenDenylistService;
+        this.clientIpResolver = clientIpResolver;
     }
 
     // --- Rate limiting bucket caches ---
@@ -170,14 +173,10 @@ public class AuthController {
     }
 
     /**
-     * Extract the client IP from the request, respecting X-Forwarded-For for proxied environments.
+     * Extract the client IP safely via shared ClientIpResolver.
      */
     private String extractClientIp(HttpServletRequest httpRequest) {
-        String ip = httpRequest.getHeader("X-Forwarded-For");
-        if (ip == null || ip.isEmpty()) {
-            return httpRequest.getRemoteAddr();
-        }
-        return ip.split(",")[0].trim();
+        return clientIpResolver.extractClientIp(httpRequest);
     }
 
     @PostMapping("/login")

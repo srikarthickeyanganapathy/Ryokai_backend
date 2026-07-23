@@ -56,7 +56,7 @@ Additional mixin interfaces provide opt-in capabilities:
 
 | File | Role |
 | :--- | :--- |
-| `strategy/task/TaskLifecycleStrategy.java` | Base interface (8 methods) |
+| `strategy/task/TaskLifecycleStrategy.java` | Base interface (10 methods) |
 | `strategy/task/TaskStrategyFactory.java` | `TaskMode` → Strategy resolver |
 | `strategy/task/PersonalTaskStrategy.java` | PERSONAL mode rules |
 | `strategy/task/CrewTaskStrategy.java` | CREW mode rules |

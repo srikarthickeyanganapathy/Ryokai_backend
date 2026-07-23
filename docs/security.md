@@ -91,12 +91,12 @@ Method security annotations (`@PreAuthorize("hasPermission(#taskId, 'Task', 'EDI
 
 ### Global Auth Rate Limit (`RateLimitFilter`)
 
-Applied to all `/api/auth/*` paths via servlet filter:
+Applied to all `/api/v1/auth/*` paths via servlet filter:
 
 | Path Pattern | Limit | Window | Per |
 | :--- | :--- | :--- | :--- |
-| `/api/auth/forgot-password` | 5 requests | 1 hour | IP |
-| `/api/auth/*` (all others) | 10 requests | 1 minute | IP |
+| `/api/v1/auth/forgot-password` | 5 requests | 1 hour | IP |
+| `/api/v1/auth/*` (all others) | 10 requests | 1 minute | IP |
 
 **Trusted Proxy Validation (SEC-M03)**: `X-Forwarded-For` header is only honored if `request.getRemoteAddr()` is in the `app.security.trusted-proxies` whitelist.
 
@@ -104,12 +104,12 @@ Applied to all `/api/auth/*` paths via servlet filter:
 
 | Endpoint | Limit | Window | Per |
 | :--- | :--- | :--- | :--- |
-| `POST /api/auth/login` | 10/15min + 50/15min | 15 min | IP+username, IP |
-| `POST /api/auth/register` | 5/60min | 1 hour | IP |
-| `POST /api/session/refresh` | 30/15min | 15 min | IP |
-| `GET /api/session/verify-email` | 10/15min | 15 min | IP |
-| `POST /api/session/logout` | 20/15min | 15 min | IP |
-| `POST /api/session/resend-verification` | 5/60min | 1 hour | IP+email |
+| `POST /api/v1/auth/login` | 10/15min + 50/15min | 15 min | IP+username, IP |
+| `POST /api/v1/auth/register` | 5/60min | 1 hour | IP |
+| `POST /api/v1/session/refresh` | 30/15min | 15 min | IP |
+| `GET /api/v1/session/verify-email` | 10/15min | 15 min | IP |
+| `POST /api/v1/session/logout` | 20/15min | 15 min | IP |
+| `POST /api/v1/session/resend-verification` | 5/60min | 1 hour | IP+email |
 
 All rate limit capacities are configurable via `@Value` annotations (e.g., `${ratelimit.login.capacity:10}`).
 
@@ -131,12 +131,31 @@ All rate limit capacities are configurable via `@Value` annotations (e.g., `${ra
 | SEC-8 | **CSV Injection** | `DashboardController.escapeCsv()` prepends `'` to cells starting with `=+\-@` | ✅ Verified |
 | SEC-9 | **Correlation ID Injection** | `CorrelationIdFilter` validates format via regex `^[A-Za-z0-9-]{1,64}$` | ✅ Verified |
 | SEC-10 | **HTTP Headers** | HSTS (31536000s), X-Frame-Options DENY, X-XSS-Protection 1;mode=block | ✅ Verified |
+| SEC-11 | **IP Extraction Spoofing** | Shared `ClientIpResolver` enforces `app.security.trusted-proxies` across filters and controllers | ✅ Verified |
+| SEC-12 | **CORS Configuration** | Allowed origins externalized to `app.security.cors.allowed-origins` (`CORS_ALLOWED_ORIGINS` env var) | ✅ Verified |
 
 ### Known Gaps (Needs Verification / Resolution)
 
-| # | Issue | Risk | Recommended Fix |
-| :--- | :--- | :--- | :--- |
-| SEC-G1 | `AuthController.extractClientIp()` trusts `X-Forwarded-For` unconditionally (unlike fixed `RateLimitFilter`) | IP spoofing for rate limit bypass | Apply same trusted-proxy validation as `RateLimitFilter` |
-| SEC-G2 | `SessionController.extractClientIp()` has same issue as SEC-G1 | Same | Same fix |
-| SEC-G3 | Token denylist is Caffeine in-memory only | Revoked tokens accepted on other instances in multi-node deployment | Migrate to Redis-backed denylist |
-| SEC-G4 | CORS origins are hardcoded in `SecurityConfig` and `WebSocketConfig` | Requires code change to update allowed origins | Externalize to `application.yml` |
+| # | Issue | Risk | Recommended Fix | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| SEC-G3 | Token denylist is Caffeine in-memory only | Revoked tokens accepted on other instances in multi-node deployment | Migrate to Redis-backed denylist | 🟡 Open (Future Roadmap) |
+
+---
+
+## 7. Admin Impersonation & Security Context Framework
+
+### `ImpersonationSession` (`security/ImpersonationSession.java`)
+- **Purpose**: Encapsulates a time-bounded administrative impersonation token for platform support and compliance auditing.
+- **Fields**:
+  - `adminUserId` (`Long`): Authenticated platform admin initiating impersonation.
+  - `targetUserId` (`Long`): Target user identity being assumed.
+  - `reason` (`String`): Mandatory justification or support ticket reference.
+  - `ticketId` (`String`): External compliance tracking ticket ID.
+  - `expiresAt` (`LocalDateTime`): Hard expiration timestamp.
+- **Validation**: `isValid()` verifies `expiresAt` is present and strictly in the future.
+
+### `AuthorizationContext` (`security/AuthorizationContext.java`)
+- **Purpose**: Thread-bound security snapshot carrying subject claims, role priority, permissions, and active impersonation metadata.
+- **Fields**: `userId`, `organizationId`, `role`, `rolePriority`, `crewIds`, `permissions`, `isPlatformAdmin`, `impersonation` (`ImpersonationSession`).
+- **Permission Resolution**: `hasPermission(permission)` evaluates granular string tokens (or `*` wildcard), while `isInCrew(crewId)` performs set-membership validation.
+

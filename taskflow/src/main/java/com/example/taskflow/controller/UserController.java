@@ -33,7 +33,7 @@ import jakarta.validation.Valid;
 import org.springframework.transaction.annotation.Transactional;
 
 @RestController
-@RequestMapping(value = "/api/users", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
+@RequestMapping(value = "/api/v1/users", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
 public class UserController {
 
     private final UserProfileService userProfileService;

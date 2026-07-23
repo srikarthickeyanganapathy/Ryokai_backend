@@ -20,7 +20,7 @@ import com.example.taskflow.service.PasswordResetService;
 import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping(value = "/api/auth", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
+@RequestMapping(value = "/api/v1/auth", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
 public class PasswordResetController {
 
     private final PasswordResetService passwordResetService;

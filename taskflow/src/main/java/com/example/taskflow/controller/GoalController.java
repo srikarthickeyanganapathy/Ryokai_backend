@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping(value = "/api/organizations/{orgId}/goals", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
+@RequestMapping(value = "/api/v1/organizations/{orgId}/goals", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
 @RequiredArgsConstructor
 public class GoalController {
 

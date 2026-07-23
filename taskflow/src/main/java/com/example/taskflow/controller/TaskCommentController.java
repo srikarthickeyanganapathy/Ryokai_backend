@@ -26,7 +26,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 
 @RestController
-@RequestMapping(value = "/api/tasks", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
+@RequestMapping(value = "/api/v1/tasks", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
 @Validated
 public class TaskCommentController {
 

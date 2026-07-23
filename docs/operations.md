@@ -164,8 +164,8 @@ All executors:
 | KI-2 | **Token Denylist** | JWT denylist is Caffeine in-memory | Revoked tokens accepted on other instances | Migrate to Redis-backed denylist | 🔴 Open |
 | KI-3 | **Email Dispatch** | Async via `emailExecutor` (max 5 threads, queue 1000) | Under extreme load, CallerRunsPolicy blocks request thread | Add message broker (Kafka/RabbitMQ) for reliable delivery | 🟡 Mitigated |
 | KI-4 | **STOMP Scale** | WebSocket broadcast via in-memory `SimpleBrokerMessageHandler` | WebSocket connections tied to single node | Add Redis pub/sub broker relay for multi-node WS | 🔴 Open |
-| KI-5 | **CORS** | Allowed origins hardcoded in `SecurityConfig` and `WebSocketConfig` | Requires code change for new frontends | Externalize to `application.yml` | 🟡 Low Risk |
-| KI-6 | **IP Spoofing** | `AuthController.extractClientIp()` trusts `X-Forwarded-For` unconditionally | Rate limit bypass via header spoofing | Apply trusted-proxy validation (same as `RateLimitFilter`) | 🔴 Open |
+| KI-5 | **CORS** | Allowed origins previously hardcoded | Externalized to `app.security.cors.allowed-origins` (`CORS_ALLOWED_ORIGINS` env var) | Resolved | 🟢 Resolved |
+| KI-6 | **IP Spoofing** | Unvalidated `X-Forwarded-For` header trust | Refactored to shared `ClientIpResolver` enforcing `app.security.trusted-proxies` | Resolved | 🟢 Resolved |
 
 ---
 
@@ -187,3 +187,17 @@ All executors:
 | **Refresh Token TTL** | 7 days | `app.jwt.refresh-expiration-ms` |
 | **Password Reset Token TTL** | 1 hour | `PasswordResetToken.expiryDate` |
 | **Correlation ID Max Length** | 64 chars | `CorrelationIdFilter` regex |
+
+---
+
+## 7. Prometheus Metrics & Observability (`util/TaskMetrics.java`)
+
+Custom domain metrics exposed via Spring Boot Actuator (`/actuator/prometheus`):
+
+| Metric Name | Type | Labels | Description / Usage |
+| :--- | :--- | :--- | :--- |
+| `taskflow_tasks_total` | Counter | `status`, `priority` | Total task creation events tracked across status/priority |
+| `taskflow_task_duration_seconds` | Timer | `priority` | Duration measurement for task completion lifecycle |
+| `taskflow_auth_attempts_total` | Counter | `result` (`success` / `failure`) | Authentication attempt success/failure monitoring |
+| `taskflow_active_sessions` | Gauge | — | Real-time gauge for active user session count |
+

@@ -18,7 +18,7 @@ import com.example.taskflow.service.ChecklistService;
 import com.example.taskflow.service.UserService;
 
 @RestController
-@RequestMapping(value = "/api/tasks", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
+@RequestMapping(value = "/api/v1/tasks", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
 @Validated
 public class TaskChecklistController {
 

@@ -14,6 +14,8 @@ import com.example.taskflow.repository.TaskRepository;
 import com.example.taskflow.strategy.task.Approvable;
 import com.example.taskflow.strategy.task.TaskLifecycleStrategy;
 import com.example.taskflow.strategy.task.TaskStrategyFactory;
+import com.example.taskflow.domain.events.task.TaskStatusChangedEvent;
+import com.example.taskflow.event.DomainEventPublisher;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,17 +23,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Implementation of TaskStateTransitionService.
- * 
- * OCP (Open-Closed Principle) Note:
- * This class is designed to be open for extension but closed for modification.
- * For complex state transitions (like submit, approve, reject), it avoids hardcoded
- * conditional logic (e.g., if taskType == X) by delegating to the TaskLifecycleStrategy
- * via TaskStrategyFactory. If a new task type is introduced that requires an approval
- * workflow, the new strategy simply needs to implement the Approvable interface.
- * This class will automatically support the new workflow without any modifications.
- */
 @Service
 @RequiredArgsConstructor
 public class TaskStateTransitionServiceImpl implements TaskStateTransitionService {
@@ -43,6 +34,7 @@ public class TaskStateTransitionServiceImpl implements TaskStateTransitionServic
     private final RealtimeBroadcaster realtimeBroadcaster;
     private final TaskStrategyFactory taskStrategyFactory;
     private final TaskResponseMapper taskResponseMapper;
+    private final DomainEventPublisher domainEventPublisher;
 
     @Override
     @Transactional

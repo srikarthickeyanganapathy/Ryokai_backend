@@ -23,7 +23,7 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final RealtimeBroadcaster broadcaster;
-    private final org.springframework.context.ApplicationEventPublisher eventPublisher;
+    private final com.example.taskflow.event.DomainEventPublisher domainEventPublisher;
     private final java.util.List<com.example.taskflow.notification.NotificationEmailRenderer> emailRenderers;
 
     @Transactional
@@ -67,7 +67,7 @@ public class NotificationService {
         NotificationDTO dto = toDTO(n);
         long unreadCount = notificationRepository.countByUserIdAndReadFalse(recipient.getId());
         
-        eventPublisher.publishEvent(new com.example.taskflow.notification.NotificationCreatedEvent(dto, recipient.getUsername(), unreadCount));
+        domainEventPublisher.publish(new com.example.taskflow.notification.NotificationCreatedEvent(dto, recipient.getUsername(), unreadCount));
         
         if (recipient.isEmailNotificationsEnabled() && recipient.getEmail() != null) {
             log.info("Sending email notification to {}", recipient.getEmail());

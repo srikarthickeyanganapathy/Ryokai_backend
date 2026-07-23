@@ -34,7 +34,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 
 @RestController
-@RequestMapping(value = "/api/organizations", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
+@RequestMapping(value = "/api/v1/organizations", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
 @Validated
 public class OrganizationMembershipController {
 

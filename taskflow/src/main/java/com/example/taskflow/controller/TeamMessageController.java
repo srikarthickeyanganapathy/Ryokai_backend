@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/teams")
+@RequestMapping("/api/v1/teams")
 public class TeamMessageController {
 
     private final TeamMessageService teamMessageService;

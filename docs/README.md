@@ -4,16 +4,26 @@
 ===================================================================================
  SYSTEM SPECIFICATION & DOCUMENT METADATA
 ===================================================================================
- Document Version   : 1.4.0-PROD-SPEC
+ Document Version   : 1.5.0-PROD-SPEC (Locked Baseline)
  Target Framework   : Spring Boot 3.2.x / Spring Security 6.x
  JDK Version        : Java 17 LTS
  Persistence Layer  : Spring Data JPA / Hibernate 6 (PostgreSQL 15+)
  Transport Protocols: Synchronous REST (HTTP/1.1) + WebSocket (STOMP, native)
- Migration Engine   : Flyway (46 versioned migrations: V1 – V46)
- Notice             : Derived from current backend implementation. Update 
-                      alongside significant backend architectural changes.
+ Migration Engine   : Flyway (46 versioned migrations)
+ Notice             : Code is the source of truth. Documentation reflects 
+                      and explains actual implementation behavior.
 ===================================================================================
 ```
+
+---
+
+## Working Agreement on Baseline Lock (v1.5.0)
+
+From `v1.5.0-PROD-SPEC` onwards:
+1. **Implementation First**: Documentation changes must accompany code implementation changes in the same pull request.
+2. **No Speculative Docs**: No documentation-only architectural changes or speculative features in core docs.
+3. **ADR Accuracy**: Every ADR reflects implemented behavior and links directly to target code artifacts.
+4. **Code Priority**: If code and documentation desync in the future, code is the authority until docs are updated.
 
 ---
 
@@ -32,12 +42,9 @@
 | **Async** | Spring @Async | 3.2.x | Email, realtime, audit thread pools with MDC propagation |
 | **JWT** | JJWT | 0.12.6 | HS256 dual-key (access + refresh), token versioning |
 | **Email** | Spring Mail | 3.2.x | Gmail SMTP (async via `emailExecutor`) |
-| **Monitoring** | Spring Boot Actuator | 3.2.x | Health + Prometheus endpoints |
+| **Monitoring** | Spring Boot Actuator | 3.2.x | Health + Prometheus endpoints (`TaskMetrics`) |
 | **Documentation** | OpenAPI / Swagger | 3.0 (Springdoc) | Interactive API Spec |
 | **Build** | Maven | 3.9.x | Single-module build |
-
-> [!NOTE]
-> **Statistics such as controller counts (35), migration counts (46), and entity counts reflect the documented version (v1.4.0).** These numbers may diverge from the active codebase as development continues. Verify against the current implementation if precision is required.
 
 ---
 
@@ -67,7 +74,9 @@ Welcome to the Ryokai Backend Engineering Manual. The technical specification is
 | **v1.1.0** | 2026-07-21 | `f3c72d1` | Crew Collaboration Workspace, STOMP Whiteboards, Invite Link system |
 | **v1.2.0** | 2026-07-21 | `a918f4e` | Organization Multi-Tenancy, Role Priority Governance, HR Leave pipeline |
 | **v1.3.0** | 2026-07-22 | `7d21a0f` | Catalogued all system workflows across Auth, Org, Crew, Task, and Bridge |
-| **v1.4.0** | 2026-07-23 | `—` | Full architecture audit: async threading, notification pipeline, CorrelationIdFilter verified, 35 controllers inventoried, domain events, announcement/team-chat/evidence/workload APIs documented, architectural constraints added |
+| **v1.4.0** | 2026-07-23 | `b1c4e9f` | Full architecture audit across controllers, async pipeline, domain events, and security filters |
+| **v1.5.0** | 2026-07-23 | `HEAD` | **Locked Baseline**: Synced all entity models (`TaskEvidence`, `User`, `Project`, `Crew`, `Organization`, `SavedItem`), added `ImpersonationSession` and `TaskMetrics`, added missing exception handlers (`CrewNotFoundException`, etc.), completed API simplification review |
+
 
 ---
 

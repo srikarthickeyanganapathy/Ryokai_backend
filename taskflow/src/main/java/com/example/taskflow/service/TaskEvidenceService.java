@@ -17,6 +17,8 @@ import com.example.taskflow.exception.TaskNotFoundException;
 import com.example.taskflow.exception.UnauthorizedActionException;
 import com.example.taskflow.repository.TaskEvidenceRepository;
 import com.example.taskflow.repository.TaskRepository;
+import com.example.taskflow.domain.events.task.EvidenceUploadedEvent;
+import com.example.taskflow.event.DomainEventPublisher;
 import com.example.taskflow.security.RoleStrategyFactory;
 
 @Service
@@ -26,15 +28,18 @@ public class TaskEvidenceService {
     private final TaskRepository taskRepository;
     private final TaskAuditService taskAuditService;
     private final RoleStrategyFactory roleStrategyFactory;
+    private final DomainEventPublisher domainEventPublisher;
 
     public TaskEvidenceService(TaskEvidenceRepository evidenceRepository,
                                TaskRepository taskRepository,
                                TaskAuditService taskAuditService,
-                               RoleStrategyFactory roleStrategyFactory) {
+                               RoleStrategyFactory roleStrategyFactory,
+                               DomainEventPublisher domainEventPublisher) {
         this.evidenceRepository = evidenceRepository;
         this.taskRepository = taskRepository;
         this.taskAuditService = taskAuditService;
         this.roleStrategyFactory = roleStrategyFactory;
+        this.domainEventPublisher = domainEventPublisher;
     }
 
     @Transactional(readOnly = true)
@@ -85,6 +90,15 @@ public class TaskEvidenceService {
                         "type", request.getType().name()
                 )
         );
+
+        domainEventPublisher.publish(new EvidenceUploadedEvent(
+                task.getId(),
+                saved.getId(),
+                user.getId(),
+                saved.getType().name(),
+                saved.getTitle()
+        ));
+
         return toDto(saved);
     }
 

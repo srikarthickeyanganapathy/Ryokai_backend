@@ -35,6 +35,9 @@ server:
     enabled: true
 
 app:
+  security:
+    cors:
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,https://tasksflowstf.netlify.app,https://cp38tvq6-5173.inc1.devtunnels.ms,http://localhost:8080}
   notifications:
     enabled: true
   reminders:

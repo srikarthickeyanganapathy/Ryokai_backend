@@ -36,10 +36,16 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         registry.setUserDestinationPrefix("/user");
     }
 
+    @org.springframework.beans.factory.annotation.Value("${app.security.cors.allowed-origins:http://localhost:5173}")
+    private String allowedOriginsRaw;
+
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
+        String[] origins = java.util.Arrays.stream(allowedOriginsRaw.split("\\s*,\\s*"))
+                .filter(s -> !s.isBlank())
+                .toArray(String[]::new);
         registry.addEndpoint("/ws")
-                .setAllowedOrigins("http://localhost:5173", "https://tasksflowstf.netlify.app", "http://localhost:8080", "https://cp38tvq6-5173.inc1.devtunnels.ms")
+                .setAllowedOrigins(origins)
                 .addInterceptors(webSocketHandshakeInterceptor);
     }
 

@@ -29,7 +29,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import jakarta.servlet.http.HttpServletResponse;
 
 @RestController
-@RequestMapping(value = "/api/dashboard", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
+@RequestMapping(value = "/api/v1/dashboard", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
 public class DashboardController {
 
     private final DashboardService dashboardService;

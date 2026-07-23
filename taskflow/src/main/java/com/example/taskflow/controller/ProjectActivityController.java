@@ -16,7 +16,7 @@ import com.example.taskflow.repository.ProjectActivityLogRepository;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/api/projects")
+@RequestMapping("/api/v1/projects")
 @RequiredArgsConstructor
 public class ProjectActivityController {
 

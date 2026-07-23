@@ -13,7 +13,7 @@ import java.util.List;
  * All endpoints require SUPER_ADMIN role.
  */
 @RestController
-@RequestMapping(value = "/api/admin", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
+@RequestMapping(value = "/api/v1/admin", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
 @PreAuthorize("hasRole('SUPER_ADMIN')")
 public class AdminController {
 

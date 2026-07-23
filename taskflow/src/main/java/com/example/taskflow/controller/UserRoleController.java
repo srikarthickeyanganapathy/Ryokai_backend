@@ -17,7 +17,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import jakarta.validation.constraints.NotEmpty;
 
 @RestController
-@RequestMapping(value = "/api/admin", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
+@RequestMapping(value = "/api/v1/admin", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
 public class UserRoleController {
 
     private final RoleService roleService;

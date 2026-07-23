@@ -25,7 +25,7 @@ import com.example.taskflow.service.UserService;
 import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping(value = "/api/projects", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
+@RequestMapping(value = "/api/v1/projects", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
 public class ProjectController {
 
     private final ProjectService projectService;

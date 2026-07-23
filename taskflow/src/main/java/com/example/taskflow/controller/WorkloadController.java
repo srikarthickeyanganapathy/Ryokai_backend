@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping(value = "/api/organizations/{orgId}/workload", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
+@RequestMapping(value = "/api/v1/organizations/{orgId}/workload", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
 @RequiredArgsConstructor
 public class WorkloadController {
 

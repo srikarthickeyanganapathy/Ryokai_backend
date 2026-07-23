@@ -87,13 +87,15 @@ erDiagram
 ### Core Identity
 
 #### `User` (`domain/User.java`)
-- **Purpose**: Global identity across all modes.
-- **Fields**: `id`, `username` (unique), `email` (unique), `password` (BCrypt-12), `isSuperAdmin` (boolean), `emailVerified` (boolean), `emailNotificationsEnabled` (boolean), `tokenVersion` (int, for mass JWT invalidation).
+- **Purpose**: Global identity across all workspace modes.
+- **Fields**: `id`, `username` (unique), `email` (unique), `password` (BCrypt-12), `fullName`, `bio`, `avatarUrl`, `manager` (FK → User), `emailVerified` (boolean), `emailNotificationsEnabled` (boolean), `tokenVersion` (int, for mass JWT invalidation), `lastLoginAt`, `lastLoginIp`, `lastLoginUserAgent`, `createdAt`.
+- **Derived Methods**: `isSuperAdmin()` (checks if `roles` contains `"SUPER_ADMIN"`), `isMemberOf(Organization org)`.
 - **Relationships**: ManyToMany → `Role`, OneToMany → `OrganizationMembership`, `RefreshToken`, `Notification`, `Note`, `CalendarEvent`, `FocusSession`, `SavedItem`.
 
 #### `Role` (`domain/Role.java`)
-- **Purpose**: Custom RBAC role with integer priority rank, scoped to organization.
-- **Fields**: `id`, `name`, `description`, `priority` (int, lower = higher authority), `organization_id` (FK, nullable for global roles).
+- **Purpose**: Custom RBAC role with integer priority rank, scoped to organization or global.
+- **Fields**: `id`, `name`, `description`, `priority` (int, lower = higher authority), `builtin` (boolean), `organization` (FK, nullable for global roles), `createdAt`.
+- **Helper Methods**: `isBuiltinAdmin()`, `isBuiltinDirectorOrAbove()`, `isBuiltinManagerOrAbove()`.
 - **Relationships**: ManyToMany → `Permission`, ManyToOne → `Organization`.
 
 #### `Permission` (`domain/Permission.java`)
@@ -103,8 +105,8 @@ erDiagram
 ### Authentication
 
 #### `RefreshToken` (`domain/RefreshToken.java`)
-- **Purpose**: Persistent refresh token for JWT rotation with replay detection.
-- **Fields**: `id`, `tokenHash` (SHA-256 of raw token), `userId`, `deviceInfo` (User-Agent), `createdAt`, `expiresAt`, `replacedByTokenHash` (for rotation chain), `revoked` (boolean).
+- **Purpose**: Persistent refresh token for single-use JWT rotation with replay detection.
+- **Fields**: `id`, `tokenHash` (SHA-256 of raw token), `tokenId` (UUID), `user` (FK → User), `expiryDate`, `used` (boolean), `usedAt`, `deviceInfo` (User-Agent), `createdAt`.
 
 #### `PasswordResetToken` (`domain/PasswordResetToken.java`)
 - **Purpose**: One-time-use password reset token.
@@ -114,11 +116,12 @@ erDiagram
 
 #### `Organization` (`domain/Organization.java`)
 - **Purpose**: Multi-tenant enterprise vault boundary.
-- **Fields**: `id`, `name`, `description`, `slug` (unique), `suspended` (boolean), `deleted` (boolean, soft-delete).
-- **Relationships**: OneToMany → `OrganizationMembership`, `Team`, `Goal`, `Announcement`, `LeaveRequest`, `OrganizationInvite`.
+- **Fields**: `id`, `name`, `slug` (unique), `description`, `status` (`OrgStatus` enum: `ACTIVE`, `SUSPENDED`, `DELETED`), `createdBy` (FK → User), `createdAt`.
+- **Domain Methods**: `requireActive()`, `ensureNotLastAdmin(User user)`.
+- **Relationships**: OneToMany → `OrganizationMembership`, `Team`, `Role`.
 
 #### `OrganizationMembership` (`domain/OrganizationMembership.java`)
-- **Purpose**: Join table linking users to organizations with a specific role.
+- **Purpose**: Join table linking users to organizations with a specific org role.
 - **Fields**: `id`, `joinedAt`.
 - **Relationships**: ManyToOne → `User`, `Organization`, `Role` (orgRole, EAGER fetch).
 
@@ -138,12 +141,12 @@ erDiagram
 
 #### `OrganizationInvite` (`domain/OrganizationInvite.java`)
 - **Purpose**: In-app invite or shareable link for org membership.
-- **Fields**: `id`, `status` (PENDING/ACCEPTED/DECLINED/EXPIRED), `token` (UUID for link-based invites).
+- **Fields**: `id`, `status` (`PENDING`/`ACCEPTED`/`DECLINED`/`EXPIRED`), `token` (UUID for link-based invites).
 - **Relationships**: ManyToOne → `Organization`, `User` (inviter, invitee), `Role`.
 
 #### `LeaveRequest` (`domain/LeaveRequest.java`)
 - **Purpose**: HR leave request with approval workflow.
-- **Fields**: `id`, `reason`, `status` (PENDING/APPROVED/REJECTED), `reviewerComment`.
+- **Fields**: `id`, `reason`, `status` (`PENDING`/`APPROVED`/`REJECTED`), `reviewerComment`.
 - **Relationships**: ManyToOne → `Organization`, `User` (requester, reviewer).
 
 #### `Announcement` (`domain/Announcement.java`)
@@ -165,28 +168,28 @@ erDiagram
 
 #### `Task` (`domain/Task.java`)
 - **Purpose**: Dynamic multi-scoped task entity — the central business object.
-- **Fields**: `id`, `title`, `description`, `currentStatus` (`TaskStatus` enum), `priority` (`TaskPriority` enum), `dueDate`, `tags`, `archived`, `personal`, `mode` (`TaskMode` enum: PERSONAL/ORG/CREW), `rejectionReason`, `version` (`@Version` — optimistic locking).
+- **Fields**: `id`, `title`, `description`, `currentStatus` (`TaskStatus` enum), `priority` (`TaskPriority` enum), `dueDate`, `tags`, `archived`, `personal` (boolean), `mode` (`TaskMode` enum — `@Transient` property derived from `personal`/`crew`/`organization`), `rejectionReason`, `locked` (boolean), `coverImageUrl`, `approvedBy`, `version` (`@Version` — optimistic locking).
 - **Relationships**: ManyToOne → `User` (creator, assignee, reviewer), `Organization`, `Team`, `Crew`, `Project`. OneToMany → `TaskComment`, `ChecklistItem`, `TaskEvidence`, `TaskDependency`, `TaskStatusHistory`, `TaskActivityLog`.
 
 #### `TaskEvidence` (`domain/TaskEvidence.java`)
-- **Purpose**: Proof submitted for task review. Supports file upload metadata and link-based evidence.
-- **Fields**: `id`, `fileUrl`, `fileName`, `fileType`, `fileSizeBytes`, `evidenceType` (`FILE`/`LINK`/`TEXT`), `uploadedAt`, `deleted` (soft-delete), `deletedAt`, `deletedBy`.
-- **Relationships**: ManyToOne → `Task`, `User` (uploader).
+- **Purpose**: Polymorphic proof submitted for task review (soft-deletable for audit continuity).
+- **Fields**: `id`, `version` (`@Version`), `type` (`EvidenceType` enum: `LINK`, `GITHUB`, `SCREENSHOT`, `RECORDING`, `SNIPPET`, `NOTE`), `title`, `url`, `unfurlJson` (JSONB), `ghRepo`, `ghPrNo`, `ghCommit`, `ghState`, `imageKey`, `imageW`, `imageH`, `videoUrl`, `durationS`, `codeLang`, `codeBody`, `noteMd`, `createdAt`, `deleted` (boolean), `deletedAt`.
+- **Relationships**: ManyToOne → `Task`, `User` (addedBy, deletedBy).
 
 #### `TaskComment` (`domain/TaskComment.java`)
 - **Purpose**: Threaded comments on tasks.
-- **Fields**: `id`, `content`, `parentId` (self-referencing for threading), `createdAt`, `updatedAt`.
-- **Relationships**: ManyToOne → `Task`, `User` (author).
+- **Fields**: `id`, `comment` (text), `createdAt`, `updatedAt`.
+- **Relationships**: ManyToOne → `Task`, `User` (author), `TaskComment` (parent self-reference), OneToMany → `TaskComment` (replies).
 
 #### `ChecklistItem` (`domain/ChecklistItem.java`)
 - **Purpose**: Sub-task checklist items within a task.
-- **Fields**: `id`, `content`, `done` (boolean), `displayOrder`, `version` (`@Version`).
+- **Fields**: `id`, `text`, `isCompleted` (boolean), `displayOrder`, `deleted` (boolean), `completedAt`, `version` (`@Version`).
 - **Relationships**: ManyToOne → `Task`, `User` (createdBy).
 
 #### `TaskDependency` (`domain/TaskDependency.java`)
-- **Purpose**: Prerequisite relationships between tasks.
-- **Fields**: `id`, `dependencyType` (`BLOCKS`/`BLOCKED_BY`).
-- **Relationships**: ManyToOne → `Task` (task, dependsOn).
+- **Purpose**: Prerequisite relationships between tasks using a composite primary key.
+- **Fields**: `id` (`TaskDependencyId`: `taskId` + `dependsOnId`), `createdAt`.
+- **Relationships**: ManyToOne → `Task` (task), `Task` (dependsOn), `User` (createdBy).
 
 #### `TaskStatusHistory` (`domain/TaskStatusHistory.java`)
 - **Purpose**: Immutable audit trail of task status transitions.
@@ -197,7 +200,7 @@ erDiagram
 
 #### `Crew` (`domain/Crew.java`)
 - **Purpose**: Flat peer-to-peer collaboration group.
-- **Fields**: `id`, `name`, `description`, `visibility` (`PRIVATE`/`PUBLIC_LINK`/`PUBLIC`), `maxMembers`.
+- **Fields**: `id`, `name`, `slug` (unique), `description`, `avatarUrl`, `visibility` (`CrewVisibility` enum: `INVITE_ONLY`, `PUBLIC_LINK`, `PUBLIC`), `memberCap` (int, default 15), `createdAt`, `updatedAt`.
 - **Relationships**: ManyToOne → `User` (creator), OneToMany → `CrewMember`, `CrewChannel`, `CrewInvite`, ManyToMany → `Project` (sharedProjects).
 
 #### `CrewMember` (`domain/CrewMember.java`)
@@ -205,7 +208,7 @@ erDiagram
 - **Fields**: `role` (`OWNER`/`MEMBER`), `joinedAt`.
 
 #### `CrewChannel` (`domain/CrewChannel.java`)
-- **Fields**: `id`, `name`, `type` (`TEXT`/`VOICE`).
+- **Fields**: `id`, `name`, `type` (`TEXT`/`VOICE`), `position`.
 - **Relationships**: ManyToOne → `Crew`, OneToMany → `CrewMessage`.
 
 #### `CrewMessage` (`domain/CrewMessage.java`)
@@ -220,13 +223,13 @@ erDiagram
 
 #### `Project` (`domain/Project.java`)
 - **Purpose**: Task grouping mechanism across all three task modes.
-- **Fields**: `id`, `name`, `description`, `status` (`ACTIVE`/`COMPLETED`/`ARCHIVED`), `version` (`@Version`).
-- **Relationships**: ManyToOne → `User` (owner), `Crew` (sharedCrew — legacy single-crew). ManyToMany → `Crew` (sharedCrews), `User` (collaborators).
+- **Fields**: `id`, `name`, `description`, `color`, `dueDate`, `scope` (`ProjectScope` enum: `PERSONAL`, `CREW`, `ORGANIZATION`), `status` (`ProjectStatus` enum: `ACTIVE`, `COMPLETED`, `ARCHIVED`), `deleted` (boolean), `version` (`@Version`), `createdAt`, `updatedAt`.
+- **Relationships**: ManyToOne → `User` (ownerUser, createdBy), `Organization`, `Team`, `Crew`. ManyToMany → `Crew` (sharedCrews), `User` (collaborators).
 
 #### `Whiteboard` (`domain/Whiteboard.java`)
 - **Purpose**: Collaborative canvas for real-time drawing within a Crew.
-- **Fields**: `id`, `name`, `dataUrl` (LONGTEXT Base64), `lastSnapshotAt`.
-- **Relationships**: ManyToOne → `Crew`, `User` (creator).
+- **Fields**: `id`, `title`, `snapshotDataUrl` (Base64 data URL durability snapshot), `createdAt`, `updatedAt`.
+- **Relationships**: ManyToOne → `Crew`, `User` (createdBy).
 
 ### Productivity Domain
 
@@ -243,13 +246,14 @@ erDiagram
 - **Relationships**: ManyToOne → `User`.
 
 #### `SavedItem` (`domain/SavedItem.java`)
-- **Fields**: `id`, `savedAt`.
-- **Relationships**: ManyToOne → `User`, `Task`.
+- **Purpose**: Polymorphic bookmarking for user-saved entities.
+- **Fields**: `id`, `entityType` (`SavedEntityType` enum: `TASK`, `PROJECT`, `NOTE`, `ORGANIZATION`, `TEAM`), `entityId` (Long), `savedAt`.
+- **Relationships**: ManyToOne → `User`.
 
 ### Notification Domain
 
 #### `Notification` (`domain/Notification.java`)
-- **Fields**: `id`, `type` (`NotificationEvent` enum — 24 event types), `title`, `message`, `taskId`, `taskTitleSnapshot`, `read` (boolean), `createdAt`, `deduplicationKey`.
+- **Fields**: `id`, `type` (`NotificationEvent` enum — 24 event types), `title`, `message`, `taskId`, `taskTitleSnapshot`, `metadata` (JSONB), `read` (boolean), `createdAt`, `deduplicationKey`.
 - **Relationships**: ManyToOne → `User` (recipient), `User` (actor).
 
 ### Audit Domain
@@ -263,12 +267,18 @@ erDiagram
 - **Relationships**: ManyToOne → `User` (actor).
 
 #### `TaskActivityLog` (`domain/TaskActivityLog.java`)
-- **Fields**: `id`, `actionType`, `entityType`, `entityId`, `metadataJson` (JSONB), `source`, `ipAddress`, `userAgent`, `correlationId`.
+- **Fields**: `id`, `actionType`, `entityType`, `entityId`, `metadataJson` (JSONB), `source` (`AuditEventSource` enum), `ipAddress`, `userAgent`, `correlationId`, `createdAt`.
 - **Relationships**: ManyToOne → `Task`, `User` (actor).
 
 #### `ProjectActivityLog` (`domain/ProjectActivityLog.java`)
-- **Fields**: `id`, `actionType`, `entityType`, `entityId`, `metadataJson` (JSONB), `source`, `ipAddress`, `userAgent`, `correlationId`.
+- **Fields**: `id`, `actionType`, `entityType`, `entityId`, `metadataJson` (JSONB), `source` (`AuditEventSource` enum), `ipAddress`, `userAgent`, `correlationId`, `createdAt`.
 - **Relationships**: ManyToOne → `Project`, `User` (actor).
+
+### Additional Enums Reference
+
+- `ProjectScope`: `PERSONAL`, `CREW`, `ORGANIZATION`
+- `ProjectCollaboratorRole`: `VIEWER`, `EDITOR`, `ADMIN`
+- `AuditEventSource`: `API`, `SYSTEM`, `SCHEDULER`, `IMPORT`, `WEBSOCKET`, `MIGRATION`, `WEBHOOK`
 
 ### Domain Events (Spring ApplicationEvents)
 
@@ -282,12 +292,14 @@ erDiagram
 
 ## 4. Concurrency Control
 
-Three entities use `@Version` for optimistic locking. Concurrent modifications cause `OptimisticLockingFailureException` → HTTP `409 Conflict` (code: `OPTIMISTIC_LOCK_CONFLICT`):
+Four entities use `@Version` for optimistic locking. Concurrent modifications cause `OptimisticLockingFailureException` → HTTP `409 Conflict` (code: `OPTIMISTIC_LOCK_CONFLICT`):
 
 | Entity | Field | Reason |
 | :--- | :--- | :--- |
-| `Task` | `version` | Prevents concurrent status updates, edits |
-| `Project` | `version` | Prevents concurrent metadata updates |
+| `Task` | `version` | Prevents concurrent status updates and edits |
+| `Project` | `version` | Prevents concurrent project metadata updates |
 | `ChecklistItem` | `version` | Prevents concurrent checklist toggling |
+| `TaskEvidence` | `version` | Prevents concurrent evidence mutations |
 
 The crew task claim flow explicitly catches `OptimisticLockingFailureException` and converts it to `IllegalStateException("Task already claimed")`.
+

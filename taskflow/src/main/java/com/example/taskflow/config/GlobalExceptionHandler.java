@@ -108,6 +108,26 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(createErrorResponse(HttpStatus.FORBIDDEN, "Forbidden", ex.getMessage(), "ORGANIZATION_SUSPENDED", request), HttpStatus.FORBIDDEN);
     }
 
+    @ExceptionHandler(com.example.taskflow.exception.CrewNotFoundException.class)
+    public ResponseEntity<Object> handleCrewNotFoundException(com.example.taskflow.exception.CrewNotFoundException ex, HttpServletRequest request) {
+        return new ResponseEntity<>(createErrorResponse(HttpStatus.NOT_FOUND, "Not Found", ex.getMessage(), "CREW_NOT_FOUND", request), HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(com.example.taskflow.exception.CrewFullException.class)
+    public ResponseEntity<Object> handleCrewFullException(com.example.taskflow.exception.CrewFullException ex, HttpServletRequest request) {
+        return new ResponseEntity<>(createErrorResponse(HttpStatus.CONFLICT, "Conflict", ex.getMessage(), "CREW_FULL", request), HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(com.example.taskflow.exception.CrewInviteExpiredException.class)
+    public ResponseEntity<Object> handleCrewInviteExpiredException(com.example.taskflow.exception.CrewInviteExpiredException ex, HttpServletRequest request) {
+        return new ResponseEntity<>(createErrorResponse(HttpStatus.GONE, "Gone", ex.getMessage(), "CREW_INVITE_EXPIRED", request), HttpStatus.GONE);
+    }
+
+    @ExceptionHandler(com.example.taskflow.exception.ResourceNotFoundException.class)
+    public ResponseEntity<Object> handleResourceNotFoundException(com.example.taskflow.exception.ResourceNotFoundException ex, HttpServletRequest request) {
+        return new ResponseEntity<>(createErrorResponse(HttpStatus.NOT_FOUND, "Not Found", ex.getMessage(), "RESOURCE_NOT_FOUND", request), HttpStatus.NOT_FOUND);
+    }
+
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<Object> handleIllegalStateException(IllegalStateException ex, HttpServletRequest request) {
         return new ResponseEntity<>(createErrorResponse(HttpStatus.CONFLICT, "Conflict", ex.getMessage(), "INVALID_STATE", request), HttpStatus.CONFLICT);

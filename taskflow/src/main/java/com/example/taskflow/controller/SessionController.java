@@ -45,7 +45,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping(value = "/api/session", produces = MediaType.APPLICATION_JSON_VALUE)
+@RequestMapping(value = "/api/v1/session", produces = MediaType.APPLICATION_JSON_VALUE)
 public class SessionController {
 
     private static final Logger log = LoggerFactory.getLogger(SessionController.class);
@@ -58,6 +58,7 @@ public class SessionController {
     private final AuthService authService;
     private final SecurityAuditService securityAuditService;
     private final TokenDenylistService tokenDenylistService;
+    private final com.example.taskflow.security.ClientIpResolver clientIpResolver;
 
     @Value("${ratelimit.resend.capacity:5}")
     private int resendCapacity;
@@ -82,7 +83,8 @@ public class SessionController {
     public SessionController(JwtUtil jwtUtil, UserService userService, RefreshTokenService refreshTokenService,
                              UserProfileService userProfileService, RealtimeBroadcaster realtimeBroadcaster,
                              AuthService authService, SecurityAuditService securityAuditService,
-                             TokenDenylistService tokenDenylistService) {
+                             TokenDenylistService tokenDenylistService,
+                             com.example.taskflow.security.ClientIpResolver clientIpResolver) {
         this.jwtUtil = jwtUtil;
         this.userService = userService;
         this.refreshTokenService = refreshTokenService;
@@ -91,6 +93,7 @@ public class SessionController {
         this.authService = authService;
         this.securityAuditService = securityAuditService;
         this.tokenDenylistService = tokenDenylistService;
+        this.clientIpResolver = clientIpResolver;
     }
 
     private final Cache<String, Bucket> resendBuckets = Caffeine.newBuilder()
@@ -146,11 +149,7 @@ public class SessionController {
     }
 
     private String extractClientIp(HttpServletRequest httpRequest) {
-        String ip = httpRequest.getHeader("X-Forwarded-For");
-        if (ip == null || ip.isEmpty()) {
-            return httpRequest.getRemoteAddr();
-        }
-        return ip.split(",")[0].trim();
+        return clientIpResolver.extractClientIp(httpRequest);
     }
 
     @GetMapping("/verify-email")

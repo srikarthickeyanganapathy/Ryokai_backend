@@ -19,7 +19,7 @@ import com.example.taskflow.service.UserService;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping(value = "/api/calendar-events", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
+@RequestMapping(value = "/api/v1/calendar-events", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
 @RequiredArgsConstructor
 public class CalendarEventController {
 

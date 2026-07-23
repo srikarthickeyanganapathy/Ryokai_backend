@@ -10,65 +10,39 @@ This document captures architectural improvements identified during code review 
 
 ## 1. Event Bus Abstraction — `DomainEventPublisher` Interface
 
-**Priority**: Near-Term | **Impact**: High | **Effort**: Low
+**Priority**: Complete (Implemented in v1.5.0) | **Impact**: High | **Effort**: Low
 
-### Current State (✅ Verified)
-Business logic publishes domain events directly via Spring's `ApplicationEventPublisher`:
-
-```java
-// Current — tightly coupled to Spring
-applicationEventPublisher.publishEvent(new TaskStatusChangedEvent(task, oldStatus, newStatus));
-```
-
-### Recommended Change
-Define a `DomainEventPublisher` interface to decouple event production from transport:
+### Implemented State (✅ Verified)
+Business services publish domain events through the `DomainEventPublisher` interface, decoupled from Spring's `ApplicationEventPublisher`:
 
 ```java
+// Interface abstraction (com.example.taskflow.event.DomainEventPublisher)
 public interface DomainEventPublisher {
-    void publish(DomainEvent event);
+    void publish(Object event);
 }
 
-// Current implementation
+// Spring implementation (com.example.taskflow.event.SpringDomainEventPublisher)
 @Component
-class SpringDomainEventPublisher implements DomainEventPublisher {
-    private final ApplicationEventPublisher spring;
-    public void publish(DomainEvent event) { spring.publishEvent(event); }
-}
-
-// Future implementation (no service code changes)
-@Component
-class KafkaDomainEventPublisher implements DomainEventPublisher {
-    private final KafkaTemplate<String, DomainEvent> kafka;
-    public void publish(DomainEvent event) { kafka.send("domain-events", event); }
+public class SpringDomainEventPublisher implements DomainEventPublisher {
+    private final ApplicationEventPublisher applicationEventPublisher;
+    public void publish(Object event) {
+        if (event != null) applicationEventPublisher.publishEvent(event);
+    }
 }
 ```
 
 ### Why It Matters
-- Swapping from Spring Events → Kafka/RabbitMQ/Outbox requires changing only one class.
-- No business service code changes needed.
-- Enables gradual migration without feature branches.
+- Swapping from Spring Events → Kafka / RabbitMQ / Transactional Outbox Pattern requires modifying only one component implementation.
+- Business services (`NotificationService`, `TaskStateTransitionServiceImpl`, `TaskEvidenceService`) are 100% decoupled from Spring's event bus infrastructure.
+- Enables seamless event broker migration without altering domain logic.
 
 ---
 
 ## 2. Outbox Pattern for Reliable Event Delivery
 
-**Priority**: Near-Term | **Impact**: Critical | **Effort**: Medium
+**Priority**: Complete (Implemented in v1.5.0) | **Impact**: Critical | **Effort**: Medium
 
-### Problem
-Current flow:
-
-```
-Service Method
-  ├── DB Transaction (commit)
-  └── Publish Event (async listener)
-       ├── Send Email         ← can fail silently
-       ├── WebSocket Push     ← can fail silently  
-       └── Audit Log          ← can fail silently
-```
-
-If the application crashes between transaction commit and event publication, notifications/audit entries are silently lost.
-
-### Recommended Architecture
+### Implemented Architecture (✅ Verified)
 
 ```
 Service Method
@@ -77,23 +51,24 @@ Service Method
        └── INSERT INTO outbox_events (event_type, payload, status='PENDING')
        └── COMMIT (atomic — both succeed or both fail)
 
-Background Poller (every 500ms)
+OutboxPoller (Background Scheduler)
   └── SELECT * FROM outbox_events WHERE status='PENDING' ORDER BY created_at
-       ├── Dispatch to listeners
+       ├── Dispatch to ApplicationEventPublisher
        ├── UPDATE status='PROCESSED'
        └── On failure: UPDATE status='FAILED', retry_count++
 ```
 
-### Benefits
-- Zero event loss — events are part of the same DB transaction as business writes.
-- Retryable — failed events are retried with exponential backoff.
-- Auditable — complete event delivery history in the outbox table.
+### Components Created
+1. `Flyway V47__create_outbox_events_table.sql`: Database schema for atomic event persistence.
+2. `OutboxEvent.java`: JPA Entity for outbox tracking.
+3. `OutboxEventRepository.java`: Spring Data repository for pending outbox events.
+4. `OutboxDomainEventPublisher.java`: Pluggable `DomainEventPublisher` active when `app.events.publisher=outbox`.
+5. `OutboxPoller.java`: `@Scheduled` polling background service with automatic retry handling.
 
-### Migration Path
-1. Create `outbox_events` table (Flyway migration).
-2. Implement `OutboxDomainEventPublisher` (writes to outbox instead of Spring Events).
-3. Implement `OutboxPoller` (`@Scheduled`) that reads pending events and dispatches them.
-4. Swap `DomainEventPublisher` implementation (see item #1 above).
+### Benefits
+- **Zero event loss**: Events are committed atomically within the same DB transaction as business writes.
+- **Pluggable & Toggleable**: Switch between direct Spring events (`app.events.publisher=spring`) and Transactional Outbox (`app.events.publisher=outbox`) with a single configuration flag.
+- **Retryable & Auditable**: Failed events are retried up to 3 times with status audit history.
 
 ---
 
@@ -320,30 +295,19 @@ Read Side (new):
 
 ## 8. API Versioning
 
-**Priority**: Immediate | **Impact**: Low | **Effort**: Low
+**Priority**: Complete (Implemented in v1.5.0) | **Impact**: High | **Effort**: Low
 
 ### Current State
-All endpoints are unversioned: `/api/tasks`, `/api/organizations`, etc.
-
-### Recommendation
-Prefix all endpoints with `/api/v1`:
-
-```java
-// Before
-@RequestMapping("/api/tasks")
-
-// After
-@RequestMapping("/api/v1/tasks")
-```
+All endpoints across 35 REST controllers are versioned with the `/api/v1/` prefix: `/api/v1/tasks`, `/api/v1/organizations`, `/api/v1/auth`, etc.
 
 ### Benefits
-- Breaking changes can be introduced in `/api/v2` without disrupting existing clients.
-- Mobile apps with delayed update cycles can continue using `v1`.
-- Even if `v2` never comes, the cost of adding `/v1` today is near-zero.
+- Breaking changes can be introduced in `/api/v2` in the future without disrupting existing `v1` clients.
+- Mobile apps and frontend SPAs can rely on stable, versioned API contracts.
+- Prevents breaking client integrations when domain models evolve.
 
-### Migration Strategy
-1. Add `server.servlet.context-path` or a global `@RequestMapping` prefix.
-2. If clients already depend on `/api/...`, add a reverse proxy rewrite rule during transition.
+### Evolution Strategy
+1. Future breaking changes should be exposed under `/api/v2/` namespace.
+2. Legacy `/api/v1/` controllers can be deprecated gracefully when `v2` endpoints are published.
 
 ---
 

@@ -19,7 +19,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping(value = "/api/organizations/{orgId}/announcements", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
+@RequestMapping(value = "/api/v1/organizations/{orgId}/announcements", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
 @Validated
 public class AnnouncementController {
 
