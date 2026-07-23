@@ -7,6 +7,12 @@ Back to **[ADR Index](README.md)**
 ## Status
 **Proposed** (2026-07-23)
 
+## Decision Drivers
+- **DRY Principle** — Two tables with identical schemas duplicate service logic and maintenance burden.
+- **Cross-entity audit queries** — “What happened in this organization today?” requires joining multiple tables.
+- **Extensibility** — Each new entity type currently requires a new table + repository + service + controller.
+- **Performance** — Unified table grows faster but enables single-index queries across all entity types.
+
 ## Context
 The system currently has two separate activity log tables with nearly identical schemas:
 

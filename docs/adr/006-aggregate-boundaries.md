@@ -7,8 +7,22 @@ Back to **[ADR Index](README.md)**
 ## Status
 **Proposed** (2026-07-23)
 
+## Decision Drivers
+- **Consistency** — Prevent accidental cross-entity mutations that violate transactional boundaries.
+- **Evolvability** — Enable future CQRS/event sourcing by establishing clear aggregate event streams.
+- **Developer Clarity** — New engineers need to know which entities can be modified together.
+- **Performance** — Prevent unnecessarily large transaction scopes that hold database locks.
+
 ## Context
 As the domain model grows beyond 30+ entities, it becomes critical to define which entities form logical aggregates — groups of entities that are modified together within a single transaction boundary. Without explicit aggregate boundaries, developers risk creating cross-aggregate mutations that break consistency guarantees and make the system harder to reason about.
+
+## Alternatives Considered
+
+| Alternative | Why Not Selected |
+| :--- | :--- |
+| **No explicit boundaries (status quo)** | Works at current scale but creates technical debt. New developers create cross-aggregate joins without realizing the implications. |
+| **Strict DDD aggregates with aggregate root enforcement** | Requires repository-per-aggregate refactor and prohibiting direct child entity repositories. Too restrictive for current Spring Data JPA patterns. |
+| **Module boundaries (Java modules / packages)** | Architectural modules enforce compile-time isolation but don't map directly to transactional boundaries. Complementary, not a replacement. |
 
 Currently, the codebase implicitly respects aggregate boundaries (e.g., `ChecklistService` always loads the parent `Task` before modifying checklist items), but these boundaries are not documented or enforced architecturally.
 

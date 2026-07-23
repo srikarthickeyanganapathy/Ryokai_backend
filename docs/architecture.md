@@ -108,7 +108,7 @@ src/main/java/com/example/taskflow/
 
 ## 3. Architectural Constraints
 
-These are the rules that govern the codebase structure and must be maintained as the system grows:
+These are the rules that govern the codebase structure and must be maintained as the system grows. They are derived from the **[Architecture Principles (P-1 through P-9)](architecture-principles.md)**:
 
 | # | Constraint | Rationale |
 | :--- | :--- | :--- |

@@ -36,6 +36,9 @@
 | **Documentation** | OpenAPI / Swagger | 3.0 (Springdoc) | Interactive API Spec |
 | **Build** | Maven | 3.9.x | Single-module build |
 
+> [!NOTE]
+> **Statistics such as controller counts (35), migration counts (46), and entity counts reflect the documented version (v1.4.0).** These numbers may diverge from the active codebase as development continues. Verify against the current implementation if precision is required.
+
 ---
 
 ## Navigation Portal
@@ -43,7 +46,8 @@
 Welcome to the Ryokai Backend Engineering Manual. The technical specification is organized into modular documents:
 
 - 🏗️ **[Architecture Overview](architecture.md)** — Deployment topology, package layer dependencies, and architectural constraints.
-- 📜 **[Architecture Decision Records (ADRs)](adr/README.md)** — Individual ADRs detailing architectural design decisions.
+- 🧭 **[Architecture Principles](architecture-principles.md)** — 9 guiding principles (Security First, Explicit Over Implicit, Stateless APIs, etc.) with cross-references to constraints and ADRs.
+- 📜 **[Architecture Decision Records (ADRs)](adr/README.md)** — Individual ADRs with decision drivers, alternatives considered, and implementation links.
 - 🧬 **[Domain Model & Entity Catalogue](domain.md)** — Tri-modal workspace rules, entity relationship diagrams, and entity blueprints.
 - 🛡️ **[Security Architecture](security.md)** — Spring Security 6 filter chain, custom SpEL evaluators, RBAC role-priority matrix, rate limiting, and security audit.
 - 🔌 **[API Reference Catalogue](api.md)** — Complete endpoint inventory (35 controllers), HTTP verbs, permissions, DTO specifications, and OpenAPI links.
