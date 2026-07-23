@@ -139,3 +139,19 @@ These are the rules that govern the codebase structure and must be maintained as
 | `OpenApiConfig` | Springdoc configuration for Swagger UI at `/swagger-ui/index.html` |
 | `JacksonConfig` | Custom `ObjectMapper` configuration |
 | `WebSocketHandshakeInterceptor` | Validates origin header during WebSocket upgrade handshake |
+
+---
+
+## 5. Domain Aggregate Boundaries
+
+Five aggregate roots are defined, each with explicit transactional boundaries. See **[ADR-006](adr/006-aggregate-boundaries.md)** for the full decision record and **[Future Architecture](future-architecture.md#6-domain-aggregate-boundaries)** for the complete aggregate diagrams.
+
+| Aggregate Root | Child Entities | Cross-Aggregate References |
+| :--- | :--- | :--- |
+| **Task** | ChecklistItem, TaskEvidence, TaskComment, TaskDependency, TaskStatusHistory | `task.project_id`, `task.org_id`, `task.crew_id` |
+| **Project** | Collaborators (M:N), SharedCrews (M:N) | `project.owner_id` |
+| **Organization** | Role, Permission, Team, TeamMember, TeamObserver, Membership, Announcement, Goal, KeyResult, LeaveRequest | — |
+| **Crew** | CrewMember, CrewChannel, CrewMessage, CrewInvite, Whiteboard | `crew.creator_id` |
+| **User** | RefreshToken, Note, FocusSession, CalendarEvent, SavedItem, Notification | — |
+
+**Key rule**: Cross-aggregate references are by FK ID only. Deleting a Project soft-detaches tasks (`task.project_id = null`), never cascade-deletes them.

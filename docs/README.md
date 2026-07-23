@@ -51,6 +51,7 @@ Welcome to the Ryokai Backend Engineering Manual. The technical specification is
 - ⚡ **[Async Threading & Notification System](async-and-notifications.md)** — Thread pool executors, MDC propagation, notification pipeline (DB + WebSocket + Email), and deduplication.
 - 🛠️ **[Operations & Operational Runbooks](operations.md)** — Configuration reference, MDC trace logging, operational runbooks, secret rotation, known issues, and limits.
 - 🧪 **[Developer Guide & Onboarding](developer-guide.md)** — Step-by-step feature implementation walkthrough, testing infrastructure guide, exception catalogue, and domain glossary.
+- 🚀 **[Future Architecture & Evolution Roadmap](future-architecture.md)** — Event bus abstraction, outbox pattern, search, object storage, Redis, aggregate boundaries, CQRS, API versioning, feature flags, and background jobs.
 
 ---
 
