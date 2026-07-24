@@ -57,7 +57,24 @@ management:
       enabled: true
   metrics:
     tags:
-      application: ryokai
+      application: taskflow
+      service.name: taskflow
+      environment: ${SPRING_PROFILES_ACTIVE:dev}
     distribution:
       percentiles-histogram:
         "http.server.requests": true
+        "jdbc.connections": true
+  tracing:
+    sampling:
+      probability: 1.0
+    baggage:
+      correlation:
+        fields:
+          - correlationId
+          - traceId
+          - spanId
+          - userId
+          - requestId
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://tempo:4318/v1/traces}

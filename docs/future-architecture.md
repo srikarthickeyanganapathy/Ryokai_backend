@@ -1,432 +1,184 @@
-# Future Architecture & Evolution Roadmap
+# Architecture Evolution Roadmap
 
 Back to **[Master Index](README.md)** | View **[Architecture Overview](architecture.md)**
 
 ---
 
-This document captures architectural improvements identified during code review and architecture audit. Each item is ordered by priority and impact. Items are categorized as **immediate** (should be done before production), **near-term** (first 6 months), or **strategic** (6–18 months).
+This document tracks the technical evolution of the Ryokai Taskflow backend across past releases, active efforts, and future architectural milestones. 
 
----
+### Roadmap Item Lifecycle
 
-## 1. Event Bus Abstraction — `DomainEventPublisher` Interface
-
-**Priority**: Complete (Implemented in v1.5.0) | **Impact**: High | **Effort**: Low
-
-### Implemented State (✅ Verified)
-Business services publish domain events through the `DomainEventPublisher` interface, decoupled from Spring's `ApplicationEventPublisher`:
-
-```java
-// Interface abstraction (com.example.taskflow.event.DomainEventPublisher)
-public interface DomainEventPublisher {
-    void publish(Object event);
-}
-
-// Spring implementation (com.example.taskflow.event.SpringDomainEventPublisher)
-@Component
-public class SpringDomainEventPublisher implements DomainEventPublisher {
-    private final ApplicationEventPublisher applicationEventPublisher;
-    public void publish(Object event) {
-        if (event != null) applicationEventPublisher.publishEvent(event);
-    }
-}
-```
-
-### Why It Matters
-- Swapping from Spring Events → Kafka / RabbitMQ / Transactional Outbox Pattern requires modifying only one component implementation.
-- Business services (`NotificationService`, `TaskStateTransitionServiceImpl`, `TaskEvidenceService`) are 100% decoupled from Spring's event bus infrastructure.
-- Enables seamless event broker migration without altering domain logic.
-
----
-
-## 2. Outbox Pattern for Reliable Event Delivery
-
-**Priority**: Complete (Implemented in v1.5.0) | **Impact**: Critical | **Effort**: Medium
-
-### Implemented Architecture (✅ Verified)
-
-```
-Service Method
-  └── DB Transaction
-       ├── Business Write
-       └── INSERT INTO outbox_events (event_type, payload, status='PENDING')
-       └── COMMIT (atomic — both succeed or both fail)
-
-OutboxPoller (Background Scheduler)
-  └── SELECT * FROM outbox_events WHERE status='PENDING' ORDER BY created_at
-       ├── Dispatch to ApplicationEventPublisher
-       ├── UPDATE status='PROCESSED'
-       └── On failure: UPDATE status='FAILED', retry_count++
-```
-
-### Components Created
-1. `Flyway V47__create_outbox_events_table.sql`: Database schema for atomic event persistence.
-2. `OutboxEvent.java`: JPA Entity for outbox tracking.
-3. `OutboxEventRepository.java`: Spring Data repository for pending outbox events.
-4. `OutboxDomainEventPublisher.java`: Pluggable `DomainEventPublisher` active when `app.events.publisher=outbox`.
-5. `OutboxPoller.java`: `@Scheduled` polling background service with automatic retry handling.
-
-### Benefits
-- **Zero event loss**: Events are committed atomically within the same DB transaction as business writes.
-- **Pluggable & Toggleable**: Switch between direct Spring events (`app.events.publisher=spring`) and Transactional Outbox (`app.events.publisher=outbox`) with a single configuration flag.
-- **Retryable & Auditable**: Failed events are retried up to 3 times with status audit history.
-
----
-
-## 3. Full-Text Search Infrastructure
-
-**Priority**: Strategic | **Impact**: Medium | **Effort**: Medium
-
-### Current State (✅ Verified)
-All search queries use JPA repository methods with `LIKE` or specification-based filtering against PostgreSQL. This works for current data volumes but will degrade as data grows.
-
-### When to Migrate
-Consider search infrastructure when any of these thresholds are reached:
-- Task count > 100,000 per organization
-- Search response time > 200ms at p95
-- Users request cross-entity search (tasks + comments + evidence + notes)
-
-### Recommended Stack
-
-| Option | Best For | Integration Effort |
+| Status Icon | Lifecycle Phase | Definition |
 | :--- | :--- | :--- |
-| **PostgreSQL Full-Text Search** (`tsvector`) | Low-volume, single-entity search | Low — no new infrastructure |
-| **Meilisearch** | Fast typo-tolerant search, small teams | Medium — simple REST API |
-| **OpenSearch / Elasticsearch** | High-volume, faceted, cross-entity search | High — requires cluster management |
-
-### Architecture Pattern
-```
-Write Path:  Service → DB → Domain Event → Search Indexer → Search Engine
-Read Path:   Controller → Search Engine → Return IDs → DB Hydration (optional)
-```
+| **✅ Completed (vX.Y.Z)** | Delivered | Implemented in code, verified with tests, and retained as a permanent historical record. |
+| **🚧 In Progress** | Active Work | Implementation actively underway in current development phase. |
+| **📅 Planned (Near-Term)** | Approved | Architecture approved for immediate execution (0–6 months). |
+| **💡 Strategic / Future** | Long-Term | Evaluated concepts and scaling milestones (6–18 months). |
+| **❌ Dropped / Superseded** | Archived | Architecture decisions that were superseded or deemed unnecessary, with rationale documented. |
 
 ---
 
-## 4. Object Storage for Task Evidence
+## 1. ✅ Completed (v1.5.0)
 
-**Priority**: Near-Term | **Impact**: High | **Effort**: Low
+### 1.1 Domain Event Publisher Abstraction (`DomainEventPublisher`)
 
-### Current State (✅ Verified)
-`TaskEvidence` stores file metadata (`fileUrl`, `fileName`, `fileType`, `fileSizeBytes`) in the database. Actual file storage mechanism depends on deployment configuration.
+**Status**: ✅ Completed (v1.5.0) | **Impact**: High
 
-### Recommended Architecture
-
-```
-Upload Flow:
-  Client → Controller → Generate Pre-Signed Upload URL (S3/MinIO)
-  Client → S3 Direct Upload (bypasses backend)
-  Client → Controller → Save metadata (fileUrl = S3 key) to DB
-
-Download Flow:
-  Client → Controller → Generate Pre-Signed Download URL (60min TTL)
-  Client → S3 Direct Download (bypasses backend)
-```
-
-### Benefits
-- Backend never handles file bytes — reduces memory pressure and thread pool contention.
-- Pre-signed URLs provide time-limited, tamper-proof access.
-- S3-compatible storage (AWS S3, MinIO, Cloudflare R2) is horizontally scalable.
-- Virus scanning can be added as an S3 event trigger (Lambda + ClamAV).
+- **Implemented In**:
+  - [`event/DomainEventPublisher.java`](file:///c:/Users/SEC/OneDrive/Desktop/Project/Ryokai/Ryokai_backend/taskflow/src/main/java/com/example/taskflow/event/DomainEventPublisher.java)
+  - [`event/SpringDomainEventPublisher.java`](file:///c:/Users/SEC/OneDrive/Desktop/Project/Ryokai/Ryokai_backend/taskflow/src/main/java/com/example/taskflow/event/SpringDomainEventPublisher.java)
+- **Services Updated**: `NotificationService`, `TaskStateTransitionServiceImpl`, `TaskEvidenceService`.
+- **Notes**: Originally identified in v1.4.0 audit to decouple domain services from Spring's `ApplicationEventPublisher`. Serves as the foundation for event broker migrations (Kafka, RabbitMQ, Outbox).
 
 ---
 
-## 5. Distributed Cache (Redis)
+### 1.2 Transactional Outbox Pattern
 
-**Priority**: Immediate (before multi-node deployment) | **Impact**: Critical | **Effort**: Low
+**Status**: ✅ Completed (v1.5.0) | **Impact**: Critical
 
-### Current State (✅ Verified, documented in [operations.md](operations.md) KI-1, KI-2)
-Three components use Caffeine (in-memory, single-node):
-
-| Component | Data | Risk if Not Migrated |
-| :--- | :--- | :--- |
-| `TokenDenylistService` | Revoked JWT access tokens | Revoked tokens accepted on other nodes |
-| `RateLimitFilter` | Bucket4j rate limit buckets | Rate limits not shared across nodes |
-| `AuthController` | Per-endpoint rate limit buckets | Same as above |
-
-### Recommended Migration
-```java
-// Before (Caffeine)
-Cache<String, Boolean> denylist = Caffeine.newBuilder()
-    .expireAfterWrite(15, TimeUnit.MINUTES).build();
-
-// After (Redis via Spring Data Redis)
-@Bean
-public RedisTemplate<String, Boolean> denylistTemplate(RedisConnectionFactory factory) {
-    RedisTemplate<String, Boolean> template = new RedisTemplate<>();
-    template.setConnectionFactory(factory);
-    return template;
-}
-```
-
-### Priority
-This is the **#1 blocker** for horizontal scaling. Must be resolved before deploying behind a load balancer with multiple instances.
+- **Implemented In**:
+  - `db/migration/V47__create_outbox_events_table.sql`
+  - [`domain/OutboxEvent.java`](file:///c:/Users/SEC/OneDrive/Desktop/Project/Ryokai/Ryokai_backend/taskflow/src/main/java/com/example/taskflow/domain/OutboxEvent.java)
+  - [`repository/OutboxEventRepository.java`](file:///c:/Users/SEC/OneDrive/Desktop/Project/Ryokai/Ryokai_backend/taskflow/src/main/java/com/example/taskflow/repository/OutboxEventRepository.java)
+  - [`event/OutboxDomainEventPublisher.java`](file:///c:/Users/SEC/OneDrive/Desktop/Project/Ryokai/Ryokai_backend/taskflow/src/main/java/com/example/taskflow/event/OutboxDomainEventPublisher.java)
+  - [`event/OutboxPoller.java`](file:///c:/Users/SEC/OneDrive/Desktop/Project/Ryokai/Ryokai_backend/taskflow/src/main/java/com/example/taskflow/event/OutboxPoller.java)
+- **Notes**: Guarantees zero event loss by storing events atomically in `outbox_events` within the caller's DB transaction. Toggleable via `app.events.publisher=outbox`.
 
 ---
 
-## 6. Domain Aggregate Boundaries
+### 1.3 Universal API Versioning (`/api/v1/*`)
 
-**Priority**: Near-Term (documentation) | **Impact**: High | **Effort**: Documentation only
+**Status**: ✅ Completed (v1.5.0) | **Impact**: High
 
-### Why Document Aggregates
-Aggregate boundaries define which entities can be modified together in a single transaction. Without explicit boundaries, developers accidentally create cross-aggregate mutations that break consistency guarantees.
-
-### Defined Aggregates
-
-```
-┌─────────────────────────────────────┐
-│         TASK AGGREGATE              │
-│  ┌─────────────────────────────┐    │
-│  │ Task (Root)                 │    │
-│  │  ├── ChecklistItem[]       │    │
-│  │  ├── TaskEvidence[]        │    │
-│  │  ├── TaskComment[]         │    │
-│  │  ├── TaskDependency[]      │    │
-│  │  └── TaskStatusHistory[]   │    │
-│  └─────────────────────────────┘    │
-│  Rule: All child entities are       │
-│  modified through TaskService.      │
-│  Never modify ChecklistItem         │
-│  without loading the parent Task.   │
-└─────────────────────────────────────┘
-
-┌─────────────────────────────────────┐
-│       PROJECT AGGREGATE             │
-│  ┌─────────────────────────────┐    │
-│  │ Project (Root)              │    │
-│  │  ├── Collaborators[] (M:N)  │    │
-│  │  └── SharedCrews[] (M:N)    │    │
-│  └─────────────────────────────┘    │
-│  Rule: Tasks reference Project      │
-│  by FK but are NOT part of this     │
-│  aggregate. Task.project_id is a    │
-│  cross-aggregate reference.         │
-└─────────────────────────────────────┘
-
-┌─────────────────────────────────────┐
-│     ORGANIZATION AGGREGATE          │
-│  ┌─────────────────────────────┐    │
-│  │ Organization (Root)         │    │
-│  │  ├── Role[]                 │    │
-│  │  │    └── Permission[] (M:N)│    │
-│  │  ├── Team[]                 │    │
-│  │  │    ├── TeamMember[]      │    │
-│  │  │    └── TeamObserver[]    │    │
-│  │  ├── OrganizationMembership│    │
-│  │  ├── Announcement[]        │    │
-│  │  ├── Goal[]                 │    │
-│  │  │    └── KeyResult[]       │    │
-│  │  └── LeaveRequest[]         │    │
-│  └─────────────────────────────┘    │
-│  Rule: Cross-org references are     │
-│  forbidden. Task.org_id is a        │
-│  cross-aggregate FK reference.      │
-└─────────────────────────────────────┘
-
-┌─────────────────────────────────────┐
-│         CREW AGGREGATE              │
-│  ┌─────────────────────────────┐    │
-│  │ Crew (Root)                 │    │
-│  │  ├── CrewMember[]           │    │
-│  │  ├── CrewChannel[]          │    │
-│  │  │    └── CrewMessage[]     │    │
-│  │  ├── CrewInvite[]           │    │
-│  │  └── Whiteboard[]           │    │
-│  └─────────────────────────────┘    │
-│  Rule: Whiteboard strokes are       │
-│  broadcast without DB writes.       │
-│  Only snapshots persist.            │
-└─────────────────────────────────────┘
-
-┌─────────────────────────────────────┐
-│         USER AGGREGATE              │
-│  ┌─────────────────────────────┐    │
-│  │ User (Root)                 │    │
-│  │  ├── RefreshToken[]         │    │
-│  │  ├── Note[]                 │    │
-│  │  ├── FocusSession[]         │    │
-│  │  ├── CalendarEvent[]        │    │
-│  │  ├── SavedItem[]            │    │
-│  │  └── Notification[]         │    │
-│  └─────────────────────────────┘    │
-│  Rule: User.tokenVersion controls   │
-│  mass JWT invalidation. Incrementing│
-│  it is a User aggregate operation.  │
-└─────────────────────────────────────┘
-```
-
-### Cross-Aggregate Reference Rules
-1. **Task → Project**: FK reference only. Deleting a project sets `task.project_id = null` (soft detachment, not cascade).
-2. **Task → Organization**: FK reference only. Task inherits org context but is not part of the Organization aggregate.
-3. **Task → Crew**: Same as above.
-4. **Project → Crew (shared)**: M:N join table. Sharing/unsharing is a Project aggregate operation.
-5. **OrganizationMembership → User**: Cross-aggregate join. User exists independently of any organization.
+- **Implemented In**: All 35 REST Controllers and `SecurityConfig.java`.
+- **Notes**: Prefixed all public/authenticated REST endpoints under `/api/v1/...` namespace to protect client compatibility ahead of frontend release.
 
 ---
 
-## 7. Read Model / CQRS for Analytics
+### 1.4 Full-Stack Observability & Distributed Tracing Stack
 
-**Priority**: Strategic | **Impact**: Medium | **Effort**: High
+**Status**: ✅ Completed (v1.5.0) | **Impact**: Critical
 
-### Problem
-As data grows, read-heavy endpoints will become bottlenecks:
-
-| Endpoint | Current Implementation | Scaling Concern |
-| :--- | :--- | :--- |
-| `GET /api/dashboard/stats` | Aggregate queries on `tasks` table | Full table scans with complex filters |
-| `GET /api/notifications` | Query `notifications` table | High cardinality per user |
-| `GET /api/organizations/{orgId}/workload` | Cross-join tasks × memberships | O(members × tasks) |
-| Calendar view | Query `calendar_events` + task due dates | Date range scans across two tables |
-
-### Recommended Future Architecture (CQRS Lite)
-```
-Command Side (current):
-  Controller → Service → Repository → PostgreSQL (write)
-
-Read Side (new):
-  Domain Event → Projection Builder → Read Model (materialized view / denormalized table)
-  Dashboard Controller → Read Model (fast read)
-```
-
-### When to Implement
-- When `DashboardService` queries exceed 100ms at p95.
-- When notification count per user exceeds 10,000.
-- Start with PostgreSQL materialized views before introducing a separate read database.
+- **Implemented In**:
+  - `pom.xml` (`micrometer-tracing-bridge-otel`, `opentelemetry-exporter-otlp`)
+  - `application.yml` & `logback-spring.xml` (MDC correlation enrichment: `correlationId`, `traceId`, `spanId`, `userId`, `requestId`)
+  - `monitoring/` stack (`tempo`, `loki`, `alloy`, `prometheus`, `alertmanager`, `grafana`)
+  - `docs/observability.md`
+- **Notes**: Full 3D Observability stack with auto-instrumentation, derived trace-log links in Grafana, custom business KPI metrics, and 8 Alertmanager alert rules.
 
 ---
 
-## 8. API Versioning
+### 1.5 Client IP Security & Trusted Proxy Resolution (`ClientIpResolver`)
 
-**Priority**: Complete (Implemented in v1.5.0) | **Impact**: High | **Effort**: Low
+**Status**: ✅ Completed (v1.5.0) | **Impact**: High
 
-### Current State
-All endpoints across 35 REST controllers are versioned with the `/api/v1/` prefix: `/api/v1/tasks`, `/api/v1/organizations`, `/api/v1/auth`, etc.
-
-### Benefits
-- Breaking changes can be introduced in `/api/v2` in the future without disrupting existing `v1` clients.
-- Mobile apps and frontend SPAs can rely on stable, versioned API contracts.
-- Prevents breaking client integrations when domain models evolve.
-
-### Evolution Strategy
-1. Future breaking changes should be exposed under `/api/v2/` namespace.
-2. Legacy `/api/v1/` controllers can be deprecated gracefully when `v2` endpoints are published.
+- **Implemented In**: [`security/ClientIpResolver.java`](file:///c:/Users/SEC/OneDrive/Desktop/Project/Ryokai/Ryokai_backend/taskflow/src/main/java/com/example/taskflow/security/ClientIpResolver.java). Integrated into `RateLimitFilter`, `AuthController`, and `SessionController`.
+- **Notes**: Resolves `SEC-11` open audit item by enforcing configurable trusted proxy IP whitelist (`app.security.trusted-proxies`) when parsing `X-Forwarded-For`.
 
 ---
 
-## 9. Feature Flags
+### 1.6 Externalized CORS Configuration
 
-**Priority**: Strategic | **Impact**: Medium | **Effort**: Medium
+**Status**: ✅ Completed (v1.5.0) | **Impact**: Medium
 
-### Current State
-Feature availability is controlled by role checks and hardcoded conditionals.
-
-### Recommended Approach
-
-```java
-// Simple — configuration-based (Phase 1)
-@Value("${features.whiteboard-v2.enabled:false}")
-private boolean whiteboardV2Enabled;
-
-// Advanced — database-backed with per-org targeting (Phase 2)
-if (featureFlagService.isEnabled("whiteboard-v2", currentOrg)) {
-    // new behavior
-}
-```
-
-### Use Cases
-| Flag | Purpose |
-| :--- | :--- |
-| `evidence-virus-scan` | Enable ClamAV scanning before evidence upload |
-| `websocket-redis-broker` | Toggle between in-memory and Redis WS broker |
-| `notification-email-digest` | Send daily digest instead of per-event emails |
-| `api-v2` | Route to v2 controllers for selected orgs |
+- **Implemented In**: `application.yml` (`app.security.cors.allowed-origins`), `SecurityConfig.java`, `WebSocketConfig.java`.
+- **Notes**: Resolves `SEC-12` open audit item by externalizing allowed origin URLs for easy environment deployment.
 
 ---
 
-## 10. Background Job Scheduler
+## 2. 🚧 In Progress
 
-**Priority**: Near-Term | **Impact**: High | **Effort**: Low
-
-### Current State (✅ Verified)
-`@EnableScheduling` is configured in `AsyncConfig`, but no `@Scheduled` methods are currently implemented beyond the async executors.
-
-### Jobs Needed
-
-| Job | Schedule | Description |
-| :--- | :--- | :--- |
-| `ExpiredInviteCleanup` | Daily 02:00 UTC | Delete `OrganizationInvite` and `CrewInvite` where `status=PENDING` and `expiresAt < now()` |
-| `ExpiredRefreshTokenCleanup` | Daily 03:00 UTC | Delete `RefreshToken` where `expiresAt < now()` |
-| `ExpiredPasswordResetCleanup` | Hourly | Delete `PasswordResetToken` where `expiryDate < now()` or `used = true` |
-| `NotificationArchival` | Weekly | Archive `Notification` older than 90 days to cold storage or delete |
-| `SoftDeleteCleanup` | Weekly | Hard-delete `TaskEvidence` where `deleted = true` and `deletedAt < 30 days ago` |
-| `ReminderEmails` | Every 15 min | Send reminder for tasks approaching `dueDate` (24h, 1h thresholds) |
-
-### Recommended Stack
-
-| Option | Complexity | Distributed Support |
-| :--- | :--- | :--- |
-| Spring `@Scheduled` | Low | ❌ No (runs on every node) |
-| **ShedLock** + Spring `@Scheduled` | Low | ✅ Yes (distributed lock via DB/Redis) |
-| Quartz Scheduler | Medium | ✅ Yes (built-in clustering) |
-| JobRunr | Medium | ✅ Yes (dashboard included) |
-
-For the current architecture, **ShedLock** is the recommended starting point — minimal code change, prevents duplicate execution across nodes.
+*No active in-progress items at this timestamp. All v1.5.0 roadmap items are fully implemented and verified.*
 
 ---
 
-## 11. Unified Activity Log (Design Consideration)
+## 3. 📅 Planned (Near-Term: 0–6 Months)
 
-**Priority**: Near-Term | **Impact**: Medium | **Effort**: Medium
+### 3.1 Distributed Cache Migration (Redis)
 
-### Current State (✅ Verified)
-Two separate activity log tables exist with nearly identical schemas:
+**Status**: 📅 Planned | **Priority**: Immediate (Before Multi-Node Deployment) | **Effort**: Low
 
-| Table | Entity | File |
-| :--- | :--- | :--- |
-| `task_activity_logs` | `TaskActivityLog` | `domain/TaskActivityLog.java` |
-| `project_activity_logs` | `ProjectActivityLog` | `domain/ProjectActivityLog.java` |
-
-Both contain: `actionType`, `entityType`, `entityId`, `metadataJson`, `source`, `ipAddress`, `userAgent`, `correlationId`.
-
-### Option A: Unified Table (Recommended for Simplicity)
-
-```sql
-CREATE TABLE activity_logs (
-    id              BIGSERIAL PRIMARY KEY,
-    entity_type     VARCHAR(50) NOT NULL,  -- 'TASK', 'PROJECT', 'ORGANIZATION', 'CREW', 'GOAL'
-    entity_id       BIGINT NOT NULL,
-    action_type     VARCHAR(100) NOT NULL,
-    actor_id        BIGINT REFERENCES users(id),
-    metadata_json   JSONB,
-    source          VARCHAR(50),
-    ip_address      VARCHAR(45),
-    user_agent      TEXT,
-    correlation_id  VARCHAR(64),
-    created_at      TIMESTAMP DEFAULT NOW(),
-    INDEX idx_activity_entity (entity_type, entity_id),
-    INDEX idx_activity_actor (actor_id),
-    INDEX idx_activity_created (created_at)
-);
-```
-
-**Advantages**: Single audit infrastructure for all entity types. New entities (Goal, LeaveRequest, Crew) get activity logging for free. Single query for "show me everything User X did today."
-
-**Trade-off**: Table grows faster. Requires partitioning by `created_at` for high-volume deployments.
-
-### Option B: Keep Separate Tables (Current)
-
-**Advantages**: Each table stays smaller. Different indexes optimized per access pattern. No risk of cross-entity query interference.
-
-**Trade-off**: Duplicated schema, duplicated service logic, each new entity type requires a new table + repository + service.
-
-### Recommendation
-Unify if you expect to add activity logging to more entity types (Goal, Organization, Crew, Announcement). Keep separate if Task and Project will remain the only audited entities.
+- **Target State**: Replace single-node Caffeine caches with Redis for:
+  1. `TokenDenylistService` (revoked JWT tokens)
+  2. `RateLimitFilter` & `AuthController` (Bucket4j distributed rate-limit buckets)
+- **Rationale**: #1 prerequisite for scaling backend horizontally behind a load balancer.
 
 ---
 
-## Priority Matrix
+### 3.2 Background Job Scheduler (ShedLock + `@Scheduled`)
+
+**Status**: 📅 Planned | **Priority**: High | **Effort**: Low
+
+- **Target State**: Integrate ShedLock over Spring `@Scheduled` to execute distributed cron jobs:
+  - Daily cleanup of expired `OrganizationInvite` and `CrewInvite` records.
+  - Daily purge of expired `RefreshToken` and `PasswordResetToken` entries.
+  - Weekly notification archival.
+  - Periodic task due-date reminder triggers.
+
+---
+
+### 3.3 Direct S3 Object Storage for Task Evidence
+
+**Status**: 📅 Planned | **Priority**: High | **Effort**: Medium
+
+- **Target State**: Introduce S3-compatible pre-signed upload/download URLs (AWS S3, MinIO, Cloudflare R2).
+- **Rationale**: Offloads file payload bytes from Spring Boot JVM memory directly to object storage.
+
+---
+
+### 3.4 Explicit Domain Aggregate Boundaries Documentation
+
+**Status**: 📅 Planned | **Priority**: High | **Effort**: Documentation Only
+
+- **Target State**: Document strict transactional boundary invariants for Task Aggregate, Project Aggregate, Organization Aggregate, Crew Aggregate, and User Aggregate to prevent unintended cross-aggregate mutations in future features.
+
+---
+
+### 3.5 Unified Activity Log Schema Evaluation
+
+**Status**: 📅 Planned | **Priority**: Medium | **Effort**: Medium
+
+- **Target State**: Evaluate consolidating `task_activity_logs` and `project_activity_logs` into a single partitioned `activity_logs` table (`entity_type`, `entity_id`, `action_type`, `metadata_json`).
+
+---
+
+## 4. 💡 Strategic / Future (6–18 Months)
+
+### 4.1 Full-Text Search Infrastructure (PostgreSQL `tsvector` / Meilisearch)
+
+**Status**: 💡 Strategic | **Priority**: Medium | **Effort**: Medium
+
+- **Trigger**: When organization task count > 100,000 or cross-entity search (tasks + comments + notes) is requested.
+
+---
+
+### 4.2 CQRS Read Model for High-Volume Analytics
+
+**Status**: 💡 Strategic | **Priority**: Medium | **Effort**: High
+
+- **Trigger**: When dashboard aggregate analytics endpoints (`GET /api/v1/dashboard/stats`) exceed 100ms P95 latency.
+
+---
+
+### 4.3 Enterprise Feature Flag System
+
+**Status**: 💡 Strategic | **Priority**: Medium | **Effort**: Medium
+
+- **Target State**: Database-backed feature flags with per-organization targeting for zero-downtime feature rollouts.
+
+---
+
+## 5. ❌ Dropped / Superseded
+
+*No items dropped or superseded in v1.5.0.*
+
+---
+
+## Evolution Matrix & Summary
 
 ```mermaid
 quadrantChart
-    title Priority vs Effort
+    title Architecture Evolution Priority Matrix
     x-axis Low Effort --> High Effort
     y-axis Low Impact --> High Impact
     quadrant-1 Do First
@@ -434,20 +186,24 @@ quadrantChart
     quadrant-3 Quick Wins
     quadrant-4 Defer
     Redis Cache: [0.25, 0.95]
-    API Versioning: [0.15, 0.35]
-    Event Bus Interface: [0.2, 0.7]
+    API Versioning (Done): [0.15, 0.35]
+    Event Bus Interface (Done): [0.2, 0.7]
+    Outbox Pattern (Done): [0.5, 0.9]
+    Observability Stack (Done): [0.45, 0.95]
+    Client IP Security (Done): [0.15, 0.85]
+    CORS Externalization (Done): [0.1, 0.5]
     Background Jobs: [0.3, 0.75]
     Object Storage: [0.35, 0.8]
     Aggregate Docs: [0.1, 0.6]
-    Outbox Pattern: [0.5, 0.9]
     Feature Flags: [0.55, 0.5]
     Unified Activity: [0.45, 0.55]
     Full-Text Search: [0.65, 0.55]
     CQRS Read Model: [0.85, 0.6]
 ```
 
-| Phase | Items | Timeline |
+| Lifecycle Phase | Count | Key Milestones |
 | :--- | :--- | :--- |
-| **Immediate** | Redis Cache (#5), API Versioning (#8) | Before production |
-| **Near-Term** | Event Bus (#1), Background Jobs (#10), Object Storage (#4), Aggregate Docs (#6), Unified Activity (#11) | 0–6 months |
-| **Strategic** | Outbox Pattern (#2), Search (#3), CQRS (#7), Feature Flags (#9) | 6–18 months |
+| **✅ Completed (v1.5.0)** | 6 | Event Bus Abstraction, Outbox Pattern, Universal API Versioning (`/api/v1`), 3D Observability Stack, Client IP Whitelist, CORS Externalization |
+| **🚧 In Progress** | 0 | All v1.5.0 targets delivered |
+| **📅 Planned (Near-Term)** | 5 | Redis Cache, ShedLock Jobs, S3 Direct Storage, Aggregate Boundaries, Unified Activity Log |
+| **💡 Strategic / Future** | 3 | Full-Text Search, CQRS Read Models, Feature Flags |

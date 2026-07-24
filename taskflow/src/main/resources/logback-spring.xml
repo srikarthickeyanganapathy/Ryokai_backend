@@ -5,7 +5,7 @@
     <springProfile name="dev">
         <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
             <encoder>
-                <pattern>%cyan(%d{HH:mm:ss.SSS}) %highlight(%-5level) %yellow([%thread]) %blue(%logger{36}) - %msg%n</pattern>
+                <pattern>%cyan(%d{HH:mm:ss.SSS}) %highlight(%-5level) %yellow([%thread]) %magenta([traceId=%X{traceId:-} spanId=%X{spanId:-} corrId=%X{correlationId:-}]) %blue(%logger{36}) - %msg%n</pattern>
             </encoder>
         </appender>
         <root level="INFO"><appender-ref ref="CONSOLE"/></root>
@@ -15,12 +15,13 @@
         <appender name="JSON" class="ch.qos.logback.core.ConsoleAppender">
             <encoder class="net.logstash.logback.encoder.LogstashEncoder">
                 <includeMdcKeyName>correlationId</includeMdcKeyName>
+                <includeMdcKeyName>traceId</includeMdcKeyName>
+                <includeMdcKeyName>spanId</includeMdcKeyName>
                 <includeMdcKeyName>userId</includeMdcKeyName>
                 <includeMdcKeyName>requestId</includeMdcKeyName>
-                <customFields>{"app":"taskflow","env":"prod"}</customFields>
+                <customFields>{"application":"taskflow","service.name":"taskflow","environment":"prod"}</customFields>
             </encoder>
         </appender>
-        <!-- Ensure container stdout receives JSON format -->
         <root level="INFO">
             <appender-ref ref="JSON"/>
         </root>

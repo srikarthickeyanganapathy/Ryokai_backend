@@ -1,0 +1,74 @@
+groups:
+  - name: taskflow_system_alerts
+    rules:
+      - alert: HighCpuUsage
+        expr: system_cpu_usage > 0.80
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU Usage (>80%)"
+          description: "System CPU utilization is at {{ $value | humanizePercentage }} on {{ $labels.instance }}."
+
+      - alert: HighMemoryUsage
+        expr: (jvm_memory_used_bytes{area="heap"} / jvm_memory_max_bytes{area="heap"}) > 0.85
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High JVM Heap Memory Usage (>85%)"
+          description: "JVM Heap usage is at {{ $value | humanizePercentage }} on {{ $labels.instance }}."
+
+      - alert: DatabaseDown
+        expr: hikaricp_connections_active == 0 and hikaricp_connections_idle == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database HikariCP Connection Pool Unavailable"
+          description: "HikariCP has 0 active and 0 idle connections to PostgreSQL."
+
+      - alert: HighHttp5xxErrorRate
+        expr: (sum(rate(http_server_requests_seconds_count{status=~"5.."}[5m])) / sum(rate(http_server_requests_seconds_count[5m]))) * 100 > 5
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High HTTP 5xx Error Rate (>5%)"
+          description: "HTTP 5xx error rate is currently at {{ $value | printf \"%.2f\" }}% over the last 5 minutes."
+
+      - alert: HighApiLatency
+        expr: histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket[5m])) by (le)) > 1.5
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High P95 API Latency (>1.5s)"
+          description: "P95 response time is {{ $value | printf \"%.2f\" }} seconds across endpoints."
+
+      - alert: HighDiskUsage
+        expr: (disk_free_bytes / disk_total_bytes) < 0.15
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low Disk Space (<15% free)"
+          description: "Disk free space is below 15% on {{ $labels.instance }}."
+
+      - alert: DeadJvmInstance
+        expr: up{job="taskflow-backend"} == 0
+        for: 30s
+        labels:
+          severity: page
+        annotations:
+          summary: "Taskflow Application Instance DOWN"
+          description: "Taskflow backend instance {{ $labels.instance }} is unreachable."
+
+      - alert: TooManyLoginFailures
+        expr: sum(rate(taskflow_login_failure_total[5m])) > 10
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High Authentication Failure Rate"
+          description: "More than 10 login failures per minute detected (potential brute force attack)."

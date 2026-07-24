@@ -43,6 +43,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping(value = "/api/v1/session", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -227,6 +228,7 @@ public class SessionController {
     }
 
     @PostMapping("/logout")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> logoutUser(@Valid @RequestBody TokenRefreshRequestDTO request, HttpServletRequest httpRequest) {
         String ip = extractClientIp(httpRequest);
         String deviceInfo = httpRequest.getHeader("User-Agent");
@@ -264,6 +266,7 @@ public class SessionController {
     }
 
     @PostMapping("/logout-all")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> logoutAll(@RequestBody(required = false) TokenRefreshRequestDTO request,
                                         HttpServletRequest httpRequest) {
         String ip = extractClientIp(httpRequest);

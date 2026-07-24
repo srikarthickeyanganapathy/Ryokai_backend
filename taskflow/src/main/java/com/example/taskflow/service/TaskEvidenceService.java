@@ -29,17 +29,20 @@ public class TaskEvidenceService {
     private final TaskAuditService taskAuditService;
     private final RoleStrategyFactory roleStrategyFactory;
     private final DomainEventPublisher domainEventPublisher;
+    private final com.example.taskflow.util.TaskMetrics taskMetrics;
 
     public TaskEvidenceService(TaskEvidenceRepository evidenceRepository,
                                TaskRepository taskRepository,
                                TaskAuditService taskAuditService,
                                RoleStrategyFactory roleStrategyFactory,
-                               DomainEventPublisher domainEventPublisher) {
+                               DomainEventPublisher domainEventPublisher,
+                               com.example.taskflow.util.TaskMetrics taskMetrics) {
         this.evidenceRepository = evidenceRepository;
         this.taskRepository = taskRepository;
         this.taskAuditService = taskAuditService;
         this.roleStrategyFactory = roleStrategyFactory;
         this.domainEventPublisher = domainEventPublisher;
+        this.taskMetrics = taskMetrics;
     }
 
     @Transactional(readOnly = true)
@@ -98,6 +101,8 @@ public class TaskEvidenceService {
                 saved.getType().name(),
                 saved.getTitle()
         ));
+
+        taskMetrics.recordFileUpload(saved.getType().name());
 
         return toDto(saved);
     }

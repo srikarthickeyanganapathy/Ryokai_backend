@@ -117,7 +117,7 @@ These are the rules that govern the codebase structure and must be maintained as
 | AC-2 | **Domain Entities are pure JPA POJOs.** No `@Autowired`, no business methods beyond `transitionTo()`. | Prevents hidden coupling and keeps entities portable. |
 | AC-3 | **Strategies never reference Controller classes.** They operate on domain objects and return booleans. | Maintains clean layered separation. |
 | AC-4 | **DTOs never reach Repository layer.** Services map DTOs to entities before persistence. | Prevents API contract changes from breaking queries. |
-| AC-5 | **Permission checks always occur before state transitions.** `@PreAuthorize` on controller + strategy validation in service. | Defense-in-depth: two-layer authorization. |
+| AC-5 | **Permission checks always occur before state transitions.** Controller layer enforces baseline Authentication / Coarse Auth; Service layer enforces Business Auth. | Defense-in-depth: multi-layer authorization ([ADR-008](adr/008-hybrid-authorization-model.md)). |
 | AC-6 | **Cross-mode dependencies are forbidden.** Personal tasks depend only on personal tasks (same creator); Org on Org (same org); Crew on Crew (same crew). | Enforces tri-modal workspace isolation ([ADR-003](adr/003-tri-modal-workspaces.md)). |
 | AC-7 | **Super Admin cannot access organization task data.** `SuperAdminStrategy` restricts to personal tasks only. | Privacy boundary — platform operators vs. tenant data. |
 | AC-8 | **Reviewers must have strictly higher role priority than assignees.** Assignees cannot self-review. | Prevents vertical privilege escalation ([ADR-005](adr/005-rbac-role-priority.md)). |

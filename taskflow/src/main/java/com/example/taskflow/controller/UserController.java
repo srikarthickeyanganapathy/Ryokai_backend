@@ -48,6 +48,7 @@ public class UserController {
     }
 
     @GetMapping("/me")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<UserResponseDTO> getProfile(@AuthenticationPrincipal UserDetails userDetails) {
         User user = userService.getCurrentUser(userDetails.getUsername());
         return ResponseEntity.ok(UserResponseDTO.from(user));
@@ -70,6 +71,7 @@ public class UserController {
     }
 
     @PutMapping("/me")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<UserResponseDTO> updateProfile(
             @AuthenticationPrincipal UserDetails userDetails,
             @Valid @RequestBody UpdateProfileRequestDTO request) {
@@ -78,7 +80,18 @@ public class UserController {
         return ResponseEntity.ok(updated);
     }
 
+    @PostMapping(value = "/me/avatar", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<UserResponseDTO> uploadAvatar(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam("file") MultipartFile file) {
+        User user = userService.getCurrentUser(userDetails.getUsername());
+        UserResponseDTO updated = userProfileService.uploadAvatar(user, file);
+        return ResponseEntity.ok(updated);
+    }
+
     @PostMapping("/me/password")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> changePassword(
             @AuthenticationPrincipal UserDetails userDetails,
             @Valid @RequestBody ChangePasswordRequestDTO request) {
@@ -88,6 +101,7 @@ public class UserController {
     }
 
     @GetMapping("/me/sessions")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<SessionDTO>> getSessions(@AuthenticationPrincipal UserDetails userDetails, HttpServletRequest request) {
         User user = userService.getCurrentUser(userDetails.getUsername());
         
@@ -102,6 +116,7 @@ public class UserController {
     }
 
     @DeleteMapping("/me/sessions/{tokenId}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> revokeSession(@AuthenticationPrincipal UserDetails userDetails, @PathVariable String tokenId) {
         User user = userService.getCurrentUser(userDetails.getUsername());
         userProfileService.revokeSession(user, tokenId);

@@ -89,6 +89,11 @@ public class ProjectController {
         return ResponseEntity.ok(projectService.shareProjectToCrew(projectId, request.getCrewId(), request.getCollaboratorIds(), currentUser));
     }
 
+    /**
+     * @deprecated Unsharing a project from a crew is now handled via CrewController
+     * (DELETE /api/v1/crews/{crewId}/projects/{projectId}).
+     */
+    @Deprecated
     @DeleteMapping("/{projectId}/share/crew")
     @PreAuthorize("hasPermission(#projectId, 'Project', 'EDIT')")
     public ResponseEntity<ProjectResponseDTO> unshareProjectFromCrew(

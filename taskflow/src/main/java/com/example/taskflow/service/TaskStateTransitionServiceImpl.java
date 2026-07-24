@@ -47,6 +47,8 @@ public class TaskStateTransitionServiceImpl implements TaskStateTransitionServic
             return taskResponseMapper.mapToTaskResponseDTO(task);
         }
 
+        validateDependenciesResolved(taskId);
+
         TaskStatus fromStatus = task.getCurrentStatus();
         task.setCurrentStatus(TaskStatus.COMPLETED);
         Task updated = taskRepository.save(task);
@@ -70,6 +72,8 @@ public class TaskStateTransitionServiceImpl implements TaskStateTransitionServic
         if (task.getCurrentStatus() != TaskStatus.IN_PROGRESS && task.getCurrentStatus() != TaskStatus.REJECTED && task.getCurrentStatus() != TaskStatus.TODO) {
             throw new IllegalStateException("Only TODO, IN_PROGRESS or REJECTED tasks can be submitted.");
         }
+
+        validateDependenciesResolved(taskId);
 
         TaskStatus fromStatus = task.getCurrentStatus();
         task.setCurrentStatus(TaskStatus.SUBMITTED);
@@ -197,6 +201,8 @@ public class TaskStateTransitionServiceImpl implements TaskStateTransitionServic
             throw new IllegalStateException("Only TODO or ASSIGNED crew tasks can be completed.");
         }
 
+        validateDependenciesResolved(taskId);
+
         TaskStatus fromStatus = task.getCurrentStatus();
         if (fromStatus == TaskStatus.TODO && task.getAssignee() == null) {
             task.setAssignee(user);
@@ -271,5 +277,15 @@ public class TaskStateTransitionServiceImpl implements TaskStateTransitionServic
             throw new UnauthorizedActionException("Task mode " + s.getSupportedMode() + " does not support approvals");
         }
         return (Approvable) s;
+    }
+
+    private void validateDependenciesResolved(Long taskId) {
+        List<TaskDependency> dependencies = taskDependencyRepository.findByTask_Id(taskId);
+        for (TaskDependency dep : dependencies) {
+            TaskStatus status = dep.getDependsOn().getCurrentStatus();
+            if (status != TaskStatus.COMPLETED && status != TaskStatus.APPROVED) {
+                throw new IllegalStateException("Cannot submit or complete task: Blocked by unresolved task '" + dep.getDependsOn().getTitle() + "'");
+            }
+        }
     }
 }

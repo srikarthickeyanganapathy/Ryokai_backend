@@ -68,6 +68,24 @@ public class UserProfileService {
     }
 
     @Transactional
+    public UserResponseDTO uploadAvatar(User user, org.springframework.web.multipart.MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Avatar file cannot be empty");
+        }
+        try {
+            String contentType = file.getContentType() != null ? file.getContentType() : "image/png";
+            String base64 = java.util.Base64.getEncoder().encodeToString(file.getBytes());
+            String dataUrl = "data:" + contentType + ";base64," + base64;
+
+            user.setAvatarUrl(dataUrl);
+            User savedUser = userRepository.save(user);
+            return UserResponseDTO.from(savedUser);
+        } catch (java.io.IOException e) {
+            throw new RuntimeException("Failed to read avatar image file", e);
+        }
+    }
+
+    @Transactional
     public void changePassword(User user, ChangePasswordRequestDTO dto) {
         if (!passwordEncoder.matches(dto.currentPassword(), user.getPassword())) {
             throw new IllegalArgumentException("Current password is incorrect");

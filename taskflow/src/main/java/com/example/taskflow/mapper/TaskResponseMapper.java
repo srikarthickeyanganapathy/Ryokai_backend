@@ -35,18 +35,18 @@ public class TaskResponseMapper {
             Map<Long, List<TaskDependency>> blockingByTaskId,
             Map<Long, List<TaskDependency>> blockedByByTaskId) {
         Long taskId = task.getId();
-        List<TaskDependency> blocking = (blockingByTaskId != null)
+        List<TaskDependency> prerequisites = (blockingByTaskId != null)
             ? blockingByTaskId.getOrDefault(taskId, java.util.Collections.emptyList())
             : taskDependencyRepository.findByTask_Id(taskId);
-        List<TaskDependency> blockedBy = (blockedByByTaskId != null)
+        List<TaskDependency> downstream = (blockedByByTaskId != null)
             ? blockedByByTaskId.getOrDefault(taskId, java.util.Collections.emptyList())
             : taskDependencyRepository.findByDependsOn_Id(taskId);
         
-        List<TaskSummaryDTO> blocksDto = blocking.stream()
+        List<TaskSummaryDTO> blockedByDto = prerequisites.stream()
             .map(d -> new TaskSummaryDTO(d.getDependsOn().getId(), d.getDependsOn().getTitle(), d.getDependsOn().getCurrentStatus()))
             .collect(Collectors.toList());
             
-        List<TaskSummaryDTO> blockedByDto = blockedBy.stream()
+        List<TaskSummaryDTO> blocksDto = downstream.stream()
             .map(d -> new TaskSummaryDTO(d.getTask().getId(), d.getTask().getTitle(), d.getTask().getCurrentStatus()))
             .collect(Collectors.toList());
 

@@ -23,11 +23,17 @@ public class CustomUserDetailsService implements UserDetailsService {
     }
 
     public static class CustomUserDetails extends org.springframework.security.core.userdetails.User {
+        private final User user;
         private final Integer tokenVersion;
 
         public CustomUserDetails(User user, Collection<? extends org.springframework.security.core.GrantedAuthority> authorities) {
             super(user.getUsername(), user.getPassword(), authorities);
+            this.user = user;
             this.tokenVersion = user.getTokenVersion();
+        }
+
+        public User getUser() {
+            return user;
         }
 
         public Integer getTokenVersion() {

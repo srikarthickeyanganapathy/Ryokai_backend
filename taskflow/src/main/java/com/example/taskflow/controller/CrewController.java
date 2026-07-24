@@ -42,8 +42,11 @@ import com.example.taskflow.service.UserService;
 
 import jakarta.validation.Valid;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+
 @RestController
 @RequestMapping("/api/v1/crews")
+@PreAuthorize("isAuthenticated()")
 public class CrewController {
 
     private final CrewService crewService;

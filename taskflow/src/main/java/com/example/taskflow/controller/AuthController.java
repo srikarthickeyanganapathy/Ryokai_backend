@@ -78,6 +78,7 @@ public class AuthController {
     private final SecurityAuditService securityAuditService;
     private final TokenDenylistService tokenDenylistService;
     private final com.example.taskflow.security.ClientIpResolver clientIpResolver;
+    private final com.example.taskflow.util.TaskMetrics taskMetrics;
 
     // --- Externalized rate-limit configuration (tunable via application.properties) ---
 
@@ -107,7 +108,8 @@ public class AuthController {
                           AuthService authService,
                           SecurityAuditService securityAuditService,
                           TokenDenylistService tokenDenylistService,
-                          com.example.taskflow.security.ClientIpResolver clientIpResolver) {
+                          com.example.taskflow.security.ClientIpResolver clientIpResolver,
+                          com.example.taskflow.util.TaskMetrics taskMetrics) {
         this.authenticationManager = authenticationManager;
         this.jwtUtil = jwtUtil;
         this.userService = userService;
@@ -120,6 +122,7 @@ public class AuthController {
         this.securityAuditService = securityAuditService;
         this.tokenDenylistService = tokenDenylistService;
         this.clientIpResolver = clientIpResolver;
+        this.taskMetrics = taskMetrics;
     }
 
     // --- Rate limiting bucket caches ---
@@ -201,26 +204,33 @@ public class AuthController {
             );
         } catch (LockedException e) {
             securityAuditService.record("LOGIN_FAILED", null, request.getUsername(), ip, deviceInfo, "Account locked", false);
+            taskMetrics.recordLoginFailure("Account locked");
             throw e;
         } catch (DisabledException e) {
             securityAuditService.record("LOGIN_FAILED", null, request.getUsername(), ip, deviceInfo, "Account disabled", false);
+            taskMetrics.recordLoginFailure("Account disabled");
             throw e;
         } catch (AccountExpiredException e) {
             securityAuditService.record("LOGIN_FAILED", null, request.getUsername(), ip, deviceInfo, "Account expired", false);
+            taskMetrics.recordLoginFailure("Account expired");
             throw e;
         } catch (CredentialsExpiredException e) {
             securityAuditService.record("LOGIN_FAILED", null, request.getUsername(), ip, deviceInfo, "Credentials expired", false);
+            taskMetrics.recordLoginFailure("Credentials expired");
             throw e;
         } catch (BadCredentialsException e) {
             securityAuditService.record("LOGIN_FAILED", null, request.getUsername(), ip, deviceInfo, "Invalid credentials", false);
+            taskMetrics.recordLoginFailure("Invalid credentials");
             throw new InvalidCredentialsException("Invalid username or password");
         } catch (InternalAuthenticationServiceException e) {
             log.error("Internal authentication error for user {}: {}", request.getUsername(), e.getMessage(), e);
             securityAuditService.record("LOGIN_FAILED", null, request.getUsername(), ip, deviceInfo, "Internal authentication error", false);
+            taskMetrics.recordLoginFailure("Internal authentication error");
             throw e;
         } catch (AuthenticationException e) {
             // Catch-all for any other AuthenticationException subtypes
             securityAuditService.record("LOGIN_FAILED", null, request.getUsername(), ip, deviceInfo, e.getClass().getSimpleName(), false);
+            taskMetrics.recordLoginFailure(e.getClass().getSimpleName());
             throw e;
         }
 
@@ -234,6 +244,7 @@ public class AuthController {
         String refreshToken = refreshTokenService.createRefreshChain(user.getId(), deviceInfo, tokenId);
         
         securityAuditService.record("LOGIN_SUCCESS", user.getId(), user.getUsername(), ip, deviceInfo, null, true);
+        taskMetrics.recordLoginSuccess();
         
         try {
             userProfileService.recordLoginTime(user.getUsername(), ip, deviceInfo);
@@ -265,6 +276,7 @@ public class AuthController {
         }
 
         JwtResponseDTO response = authService.register(request, deviceInfo, ip);
+        taskMetrics.recordRegistration();
 
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(response);

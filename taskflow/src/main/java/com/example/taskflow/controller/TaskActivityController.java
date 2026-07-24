@@ -10,8 +10,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.example.taskflow.domain.TaskActivityLog;
-import com.example.taskflow.repository.TaskActivityLogRepository;
+import com.example.taskflow.dto.ActivityLogDTO;
+import com.example.taskflow.service.ActivityLogService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -20,14 +20,19 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class TaskActivityController {
 
-    private final TaskActivityLogRepository activityLogRepository;
+    private final ActivityLogService activityLogService;
 
+    /**
+     * @deprecated Task activity logs are consumed via paged task history in TaskController
+     * (GET /api/v1/tasks/{id}/history).
+     */
+    @Deprecated
     @GetMapping("/{taskId}/activities")
     @PreAuthorize("hasPermission(#taskId, 'Task', 'VIEW')")
-    public ResponseEntity<Page<TaskActivityLog>> getTaskActivities(
+    public ResponseEntity<Page<ActivityLogDTO>> getTaskActivities(
             @PathVariable Long taskId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return ResponseEntity.ok(activityLogRepository.findByTaskIdOrderByCreatedAtDesc(taskId, PageRequest.of(page, size)));
+        return ResponseEntity.ok(activityLogService.getTaskActivityLogs(taskId, PageRequest.of(page, size)));
     }
 }

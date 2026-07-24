@@ -22,6 +22,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -29,7 +30,13 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "tasks")
+@Table(name = "tasks", indexes = {
+    @Index(name = "idx_task_org_status", columnList = "org_id, current_status"),
+    @Index(name = "idx_task_assignee_status", columnList = "assigned_to, current_status"),
+    @Index(name = "idx_task_team", columnList = "team_id"),
+    @Index(name = "idx_task_crew", columnList = "crew_id"),
+    @Index(name = "idx_task_due_date", columnList = "due_date")
+})
 @Getter
 @Setter
 @NoArgsConstructor

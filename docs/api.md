@@ -52,15 +52,16 @@ Back to **[Master Index](README.md)**
 | `PUT` | `/api/v1/tasks/{taskId}` | `EDIT` | `TaskRequestDTO` → `TaskResponseDTO` |
 | `DELETE` | `/api/v1/tasks/{taskId}` | `DELETE` | — → `204 No Content` |
 | `PUT` | `/api/v1/tasks/{taskId}/archive` | `ARCHIVE` | — → `TaskResponseDTO` |
+| `GET` | `/api/v1/tasks/{taskId}/history` | `VIEW` | — → `List<ActivityEventDTO>` |
 
 ### 6. Task Assignment (`controller/TaskAssignmentController.java`)
 | Method | Path | Permission | DTO In → DTO Out |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/api/v1/tasks/personal` | Authenticated | `TaskRequestDTO` → `TaskResponseDTO` (201) |
-| `POST` | `/api/v1/tasks/crew?crewId={id}` | Authenticated | `TaskRequestDTO` → `TaskResponseDTO` (201) |
-| `POST` | `/api/v1/tasks/assign` | Authenticated | `TaskRequestDTO` → `TaskResponseDTO` (201) |
-| `POST` | `/api/v1/tasks/bulk-assign` | Authenticated | `BulkAssignRequestDTO` → `BulkAssignResponseDTO` |
-| `PUT` | `/api/v1/tasks/{taskId}/reassign` | `EDIT` | `TaskReassignRequestDTO` → `TaskResponseDTO` |
+| `POST` | `/api/v1/tasks/personal` | `TASK_CREATE` | `TaskRequestDTO` → `TaskResponseDTO` (201) |
+| `POST` | `/api/v1/tasks/crew?crewId={id}` | `TASK_CREATE` | `TaskRequestDTO` → `TaskResponseDTO` (201) |
+| `POST` | `/api/v1/tasks/assign` | `TASK_CREATE` | `TaskRequestDTO` → `TaskResponseDTO` (201) |
+| `POST` | `/api/v1/tasks/bulk-assign` | `TASK_CREATE` | `BulkAssignRequestDTO` → `BulkAssignResponseDTO` |
+| `PUT` | `/api/v1/tasks/{taskId}/reassign` | `REASSIGN` | `TaskReassignRequestDTO` → `TaskResponseDTO` |
 
 ### 7. Task State Transitions (`controller/TaskStateController.java`)
 | Method | Path | Permission | DTO In → DTO Out |
@@ -69,7 +70,8 @@ Back to **[Master Index](README.md)**
 | `POST` | `/api/v1/tasks/{taskId}/approve` | `REVIEW` | — → `TaskResponseDTO` |
 | `POST` | `/api/v1/tasks/{taskId}/reject` | `REVIEW` | `RejectReasonDTO` → `TaskResponseDTO` |
 | `POST` | `/api/v1/tasks/{taskId}/recall` | `EDIT` | — → `TaskResponseDTO` |
-| `POST` | `/api/v1/tasks/{taskId}/claim` | Crew Member | — → `TaskResponseDTO` |
+| `POST` | `/api/v1/tasks/{taskId}/claim` | `EDIT` | — → `TaskResponseDTO` |
+| `POST` | `/api/v1/tasks/{taskId}/complete` | `EDIT` | — → `TaskResponseDTO` |
 | `POST` | `/api/v1/tasks/{taskId}/complete-crew` | `EDIT` | — → `TaskResponseDTO` |
 
 ### 8. Task Evidence (`controller/TaskEvidenceController.java`)
@@ -82,11 +84,12 @@ Back to **[Master Index](README.md)**
 ### 9. Task Checklists (`controller/TaskChecklistController.java`)
 | Method | Path | Permission | DTO In → DTO Out |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/api/v1/tasks/{taskId}/checklists` | `VIEW` | — → `List<ChecklistItemDTO>` |
+| `GET` | `/api/v1/tasks/{taskId}/checklists` | `VIEW` | — → `List<ChecklistItemDTO>` | (REMOVED: Deferred Feature)
 | `POST` | `/api/v1/tasks/{taskId}/checklists` | `EDIT` | `ChecklistItemRequestDTO` → `ChecklistItemDTO` (201) |
 | `PUT` | `/api/v1/tasks/{taskId}/checklists/{itemId}` | `EDIT` | `ChecklistItemRequestDTO` → `ChecklistItemDTO` |
 | `POST` | `/api/v1/tasks/{taskId}/checklists/{itemId}/toggle` | `EDIT` | — → `ChecklistItemDTO` |
 | `DELETE` | `/api/v1/tasks/{taskId}/checklists/{itemId}` | `EDIT` | — → `204 No Content` |
+| `PUT` | `/api/v1/tasks/{taskId}/checklists/order` | `EDIT` | `List<Long>` → `200 OK` |
 
 ### 10. Task Comments (`controller/TaskCommentController.java`)
 | Method | Path | Permission | DTO In → DTO Out |
@@ -221,6 +224,7 @@ Back to **[Master Index](README.md)**
 | `POST` | `/api/v1/crews/{crewId}/whiteboards` | Crew Member | `WhiteboardRequestDTO` → `WhiteboardResponseDTO` (201) |
 | `GET` | `/api/v1/crews/{crewId}/whiteboards` | Crew Member | — → `List<WhiteboardResponseDTO>` |
 | `PUT` | `/api/v1/crews/{crewId}/whiteboards/{boardId}/snapshot` | Crew Member | `SnapshotRequestDTO` → `200 OK` |
+| `DELETE` | `/api/v1/crews/{crewId}/whiteboards/{boardId}` | Crew Member | — → `204 No Content` |
 
 ### 26. Whiteboard WebSocket (`controller/WhiteboardSocketController.java`)
 | Transport | Destination | Direction |
@@ -276,14 +280,13 @@ Back to **[Master Index](README.md)**
 ### 33. Admin (`controller/AdminController.java`)
 | Method | Path | Permission | DTO In → DTO Out |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/api/v1/admin/users` | SuperAdmin | — → `List<UserResponseDTO>` |
-| `PUT` | `/api/v1/admin/users/{userId}/toggle-super-admin` | SuperAdmin | — → `UserResponseDTO` |
+| `PUT` | `/api/v1/admin/users/{userId}/toggle-super-admin` | SuperAdmin | — → `UserResponseDTO` | (REMOVED: Deferred Feature)
 
 ### 34. Global Roles (`controller/RoleController.java`)
 | Method | Path | Permission | DTO In → DTO Out |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/api/v1/roles` | Authenticated | — → `List<RoleResponseDTO>` |
-| `POST` | `/api/v1/roles` | Authenticated | `RoleCreateRequestDTO` → `RoleResponseDTO` (201) |
+| `GET` | `/api/v1/admin/roles` | Authenticated | — → `List<RoleResponseDTO>` |
+| `POST` | `/api/v1/admin/roles` | Authenticated | `RoleCreateRequestDTO` → `RoleResponseDTO` (201) |
 
 ### 35. User Roles (`controller/UserRoleController.java`)
 | Method | Path | Permission | DTO In → DTO Out |

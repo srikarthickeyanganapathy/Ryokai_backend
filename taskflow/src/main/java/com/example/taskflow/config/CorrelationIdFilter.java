@@ -37,11 +37,13 @@ public class CorrelationIdFilter implements Filter {
 
         httpResponse.setHeader(CORRELATION_ID_HEADER_NAME, correlationId);
         MDC.put(CORRELATION_ID_LOG_VAR_NAME, correlationId);
+        MDC.put("requestId", correlationId);
         
         try {
             chain.doFilter(request, response);
         } finally {
             MDC.remove(CORRELATION_ID_LOG_VAR_NAME);
+            MDC.remove("requestId");
         }
     }
 }

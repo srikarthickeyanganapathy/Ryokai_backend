@@ -14,8 +14,11 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+
 @RestController
 @RequestMapping("/api/v1/teams")
+@PreAuthorize("isAuthenticated()")
 public class TeamMessageController {
 
     private final TeamMessageService teamMessageService;

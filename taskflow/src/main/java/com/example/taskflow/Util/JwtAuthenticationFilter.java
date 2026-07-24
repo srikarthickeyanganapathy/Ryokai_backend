@@ -28,7 +28,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final com.example.taskflow.service.TokenDenylistService tokenDenylistService;
 
     public JwtAuthenticationFilter(JwtUtil jwtUtil, CustomUserDetailsService customUserDetailsService,
-                                   com.example.taskflow.service.TokenDenylistService tokenDenylistService) {
+            com.example.taskflow.service.TokenDenylistService tokenDenylistService) {
         this.jwtUtil = jwtUtil;
         this.customUserDetailsService = customUserDetailsService;
         this.tokenDenylistService = tokenDenylistService;
@@ -45,68 +45,75 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String tokenHeader = request.getHeader("Authorization");
 
-        if (tokenHeader != null && tokenHeader.startsWith("Bearer ")) {
-            String token = tokenHeader.substring(7);
+        try {
+            if (tokenHeader != null && tokenHeader.startsWith("Bearer ")) {
+                String token = tokenHeader.substring(7);
 
-            try {
-                if (jwtUtil.isAccessTokenValid(token)) {
-                    String username = jwtUtil.extractUsername(token);
+                try {
+                    if (jwtUtil.isAccessTokenValid(token)) {
+                        String username = jwtUtil.extractUsername(token);
 
-                    if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                        // Check if this token has been revoked (e.g., via logout)
-                        String tokenId = jwtUtil.extractTokenId(token);
-                        if (tokenDenylistService.isDenied(tokenId)) {
-                            SecurityContextHolder.clearContext();
-                            sendUnauthorizedResponse(response, "Token has been revoked");
-                            return;
-                        }
-
-                        UserDetails userDetails = customUserDetailsService.loadUserByUsername(username);
-
-                        if (userDetails instanceof CustomUserDetailsService.CustomUserDetails customUser) {
-                            Integer jwtVersion = jwtUtil.extractTokenVersion(token);
-                            if (jwtVersion == null || !jwtVersion.equals(customUser.getTokenVersion())) {
+                        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                            // Check if this token has been revoked (e.g., via logout)
+                            String tokenId = jwtUtil.extractTokenId(token);
+                            if (tokenDenylistService.isDenied(tokenId)) {
                                 SecurityContextHolder.clearContext();
-                                sendUnauthorizedResponse(response, "Token invalidated: missing or mismatched version");
+                                sendUnauthorizedResponse(response, "Token has been revoked");
                                 return;
                             }
-                        }
 
-                        UsernamePasswordAuthenticationToken authToken =
-                                new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-                        authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                        SecurityContextHolder.getContext().setAuthentication(authToken);
+                            UserDetails userDetails = customUserDetailsService.loadUserByUsername(username);
+
+                            if (userDetails instanceof CustomUserDetailsService.CustomUserDetails customUser) {
+                                Integer jwtVersion = jwtUtil.extractTokenVersion(token);
+                                if (jwtVersion == null || !jwtVersion.equals(customUser.getTokenVersion())) {
+                                    SecurityContextHolder.clearContext();
+                                    sendUnauthorizedResponse(response,
+                                            "Token invalidated: missing or mismatched version");
+                                    return;
+                                }
+                                org.slf4j.MDC.put("userId", String.valueOf(customUser.getUser().getId()));
+                            } else {
+                                org.slf4j.MDC.put("userId", username);
+                            }
+
+                            UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                                    userDetails, null, userDetails.getAuthorities());
+                            authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                            SecurityContextHolder.getContext().setAuthentication(authToken);
+                        }
+                    } else {
+                        SecurityContextHolder.clearContext();
+                        sendUnauthorizedResponse(response, "Invalid token");
+                        return;
                     }
-                } else {
+                } catch (JwtException e) {
                     SecurityContextHolder.clearContext();
-                    sendUnauthorizedResponse(response, "Invalid token");
+                    sendUnauthorizedResponse(response, "Invalid or expired token");
                     return;
                 }
-            } catch (JwtException e) {
+            } else if (tokenHeader != null && tokenHeader.startsWith("Bearer")) {
                 SecurityContextHolder.clearContext();
-                sendUnauthorizedResponse(response, "Invalid or expired token");
+                sendUnauthorizedResponse(response, "Malformed Authorization header format");
                 return;
             }
-        } else if (tokenHeader != null && tokenHeader.startsWith("Bearer")) {
-             // Missing space
-             sendUnauthorizedResponse(response, "Invalid Authorization header format");
-             return;
-        }
 
-        filterChain.doFilter(request, response);
+            filterChain.doFilter(request, response);
+        } finally {
+            org.slf4j.MDC.remove("userId");
+        }
     }
 
     private void sendUnauthorizedResponse(HttpServletResponse response, String message) throws IOException {
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
         response.setContentType("application/json");
         String correlationId = MDC.get("correlationId");
-        
+
         String jsonResponse = String.format(
                 "{\"timestamp\":\"%s\",\"status\":401,\"error\":\"Unauthorized\",\"code\":\"INVALID_TOKEN\",\"message\":\"%s\",\"correlationId\":\"%s\"}",
                 LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
                 message,
-                correlationId != null ? correlationId : ""
-        );
+                correlationId != null ? correlationId : "");
         response.getWriter().write(jsonResponse);
     }
 }
