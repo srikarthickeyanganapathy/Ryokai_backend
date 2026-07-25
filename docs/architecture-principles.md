@@ -70,7 +70,7 @@ Side effects (notifications, audit, email) are triggered by domain events, not e
 Errors should be visible and structured, not silently swallowed. But error handling should not crash the system.
 
 **In practice:**
-- `GlobalExceptionHandler` maps all 16 exception types to structured JSON responses with correlation IDs.
+- `GlobalExceptionHandler` maps 21 exception handlers (across 11 custom domain exceptions and 10 framework exceptions) to structured JSON responses with correlation IDs.
 - `CallerRunsPolicy` on async executors provides backpressure without dropping work.
 - Optimistic locking conflicts return HTTP 409 with a clear error code — not a 500.
 - Rate limit exceeded returns HTTP 429 with retry-after guidance.
@@ -91,7 +91,7 @@ Code should be understandable by a developer who has never seen it before. Docum
 **In practice:**
 - ADRs explain *why* decisions were made, not just *what* was built.
 - Architectural constraints are explicit numbered rules, not tribal knowledge.
-- Exception types have descriptive names (`InvalidStateTransitionException`, not `BadRequestException`).
+- Exception types have descriptive names (`UnauthorizedActionException`, not `BadRequestException`).
 - Strategy pattern makes task mode behavior discoverable without reading conditional chains.
 - Verification levels (✅ Verified, 🔍 Observed, ⚠️ Needs Verification) in documentation distinguish facts from assumptions.
 

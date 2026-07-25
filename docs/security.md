@@ -10,9 +10,9 @@ Back to **[Master Index](README.md)**
 graph TD
     ClientRequest["HTTP Request (Header: Authorization / X-Correlation-Id)"] --> CorrelationIdFilter["1. CorrelationIdFilter<br/>(Order: HIGHEST_PRECEDENCE)<br/>MDC: X-Correlation-Id → UUID if missing<br/>Regex: ^[A-Za-z0-9-]{1,64}$"]
     CorrelationIdFilter --> CorsFilter["2. CorsFilter<br/>(Origins: localhost:5173, Netlify, DevTunnels)<br/>Methods: GET,POST,PUT,DELETE,OPTIONS<br/>Headers: Authorization, Content-Type, X-Correlation-Id"]
-    CorsFilter --> RateLimitFilter["3. RateLimitFilter (Bucket4j + Caffeine)<br/>Applies to: /api/auth/* only<br/>General: 10 req/min/IP<br/>Forgot-password: 5 req/hr/IP<br/>Trusted proxy validation (SEC-M03)"]
+    CorsFilter --> RateLimitFilter["3. RateLimitFilter (Bucket4j + Caffeine)<br/>Applies to: /api/v1/auth/* only<br/>General: 10 req/min/IP<br/>Forgot-password: 5 req/hr/IP<br/>Trusted proxy validation (SEC-M03)"]
     RateLimitFilter --> JwtAuthFilter["4. JwtAuthenticationFilter<br/>Bearer JWT → parse claims → token denylist check<br/>→ token version check → set SecurityContext<br/>Skips: /ws/** paths"]
-    JwtAuthFilter --> UserAuthFilter["5. UsernamePasswordAuthenticationFilter<br/>(Bypassed for JWT; active for /api/auth/login)"]
+    JwtAuthFilter --> UserAuthFilter["5. UsernamePasswordAuthenticationFilter<br/>(Bypassed for JWT; active for /api/v1/auth/login)"]
     UserAuthFilter --> ExceptionFilter["6. ExceptionTranslationFilter<br/>(Catches AccessDenied/AuthenticationException)"]
     ExceptionFilter --> SecurityInterceptor["7. MethodSecurity (@PreAuthorize)<br/>(CustomPermissionEvaluator → DomainPermissionHandlers)"]
     SecurityInterceptor --> DispatcherServlet["8. DispatcherServlet → Target Controller"]
@@ -34,9 +34,9 @@ graph TD
 
 1. **Issuance**: Login generates both tokens with a shared `tokenId` UUID.
 2. **Validation**: `JwtAuthenticationFilter` validates signature → checks denylist → loads UserDetails → compares `tv` claim with `User.tokenVersion`.
-3. **Refresh**: `POST /api/session/refresh` — old refresh token invalidated, new token pair issued. Device change detected via User-Agent comparison.
-4. **Revocation (single)**: `POST /api/session/logout` — access token added to Caffeine denylist (TTL = remaining lifetime), refresh token deleted.
-5. **Revocation (all)**: `POST /api/session/logout-all` — `User.tokenVersion` incremented (invalidates all outstanding JWTs), all refresh tokens deleted.
+3. **Refresh**: `POST /api/v1/session/refresh` — old refresh token invalidated, new token pair issued. Device change detected via User-Agent comparison.
+4. **Revocation (single)**: `POST /api/v1/session/logout` — access token added to Caffeine denylist (TTL = remaining lifetime), refresh token deleted.
+5. **Revocation (all)**: `POST /api/v1/session/logout-all` — `User.tokenVersion` incremented (invalidates all outstanding JWTs), all refresh tokens deleted.
 6. **Replay Detection**: If a previously-replaced refresh token is presented, `TokenRefreshException(REUSE_DETECTED)` → HTTP 401.
 
 ---

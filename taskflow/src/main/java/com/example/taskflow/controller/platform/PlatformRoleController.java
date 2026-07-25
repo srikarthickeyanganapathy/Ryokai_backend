@@ -1,20 +1,15 @@
-package com.example.taskflow.controller;
+package com.example.taskflow.controller.platform;
 
 import java.util.List;
 import java.util.Set;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.bind.annotation.*;
 
+import com.example.taskflow.domain.User;
 import com.example.taskflow.dto.AssignPermissionsRequestDTO;
 import com.example.taskflow.dto.PermissionResponseDTO;
 import com.example.taskflow.dto.RoleCreateRequestDTO;
@@ -22,45 +17,44 @@ import com.example.taskflow.dto.RoleResponseDTO;
 import com.example.taskflow.dto.RoleUpdateRequestDTO;
 import com.example.taskflow.service.RoleService;
 import com.example.taskflow.service.UserService;
-import com.example.taskflow.domain.User;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
 
 import jakarta.validation.Valid;
 
+/**
+ * Platform Control Plane role and permission governance endpoints.
+ * Maintained in platform namespace per ADR-009 for super-admin governance and future extensibility.
+ */
 @RestController
-@RequestMapping(value = "/api/v1/admin", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
-public class RoleController {
+@RequestMapping(value = "/api/v1/platform", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
+@PreAuthorize("hasRole('SUPER_ADMIN')")
+public class PlatformRoleController {
 
     private final RoleService roleService;
     private final UserService userService;
 
-    public RoleController(RoleService roleService, UserService userService) {
+    public PlatformRoleController(RoleService roleService, UserService userService) {
         this.roleService = roleService;
         this.userService = userService;
     }
 
-    // --- Roles ---
-
     @GetMapping("/roles")
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<List<RoleResponseDTO>> getAllRoles() {
         return ResponseEntity.ok(roleService.getAllRoles());
     }
 
     @PostMapping("/roles")
     public ResponseEntity<RoleResponseDTO> createRole(
-            @RequestBody @Valid RoleCreateRequestDTO request,
+            @Valid @RequestBody RoleCreateRequestDTO request,
             @AuthenticationPrincipal UserDetails principal) {
         User caller = userService.getCurrentUser(principal.getUsername());
-        RoleResponseDTO created = roleService.createRole(request, caller);
-        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+        return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED)
+                .body(roleService.createRole(request, caller));
     }
 
     @PutMapping("/roles/{id}")
     public ResponseEntity<RoleResponseDTO> updateRole(
-            @PathVariable Long id, 
-            @RequestBody @Valid RoleUpdateRequestDTO request,
+            @PathVariable Long id,
+            @Valid @RequestBody RoleUpdateRequestDTO request,
             @AuthenticationPrincipal UserDetails principal) {
         User caller = userService.getCurrentUser(principal.getUsername());
         return ResponseEntity.ok(roleService.updateRole(id, request, caller));
@@ -75,8 +69,6 @@ public class RoleController {
         return ResponseEntity.noContent().build();
     }
 
-    // --- Permissions ---
-
     @GetMapping("/permissions")
     public ResponseEntity<List<PermissionResponseDTO>> getAllPermissions() {
         return ResponseEntity.ok(roleService.getAllPermissions());
@@ -89,8 +81,8 @@ public class RoleController {
 
     @PutMapping("/roles/{id}/permissions")
     public ResponseEntity<Set<PermissionResponseDTO>> assignRolePermissions(
-            @PathVariable Long id, 
-            @RequestBody @Valid AssignPermissionsRequestDTO request,
+            @PathVariable Long id,
+            @Valid @RequestBody AssignPermissionsRequestDTO request,
             @AuthenticationPrincipal UserDetails principal) {
         User caller = userService.getCurrentUser(principal.getUsername());
         return ResponseEntity.ok(roleService.assignRolePermissions(id, request, caller));

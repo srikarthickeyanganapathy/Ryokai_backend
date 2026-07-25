@@ -128,7 +128,13 @@ erDiagram
 #### `Team` (`domain/Team.java`)
 - **Purpose**: Sub-group within an organization for team-based task scoping.
 - **Fields**: `id`, `name`, `slug`.
-- **Relationships**: ManyToOne → `Organization`, ManyToMany → `User` (members).
+- **Relationships**: ManyToOne → `Organization`, OneToMany → `TeamMember` (members).
+
+#### `TeamMember` (`domain/TeamMember.java`)
+- **Purpose**: Explicit join table linking users to teams within an organization.
+- **Key**: Composite (`teamId`, `userId` via `TeamMemberId`).
+- **Fields**: `joinedAt`.
+- **Relationships**: ManyToOne → `Team`, `User`.
 
 #### `TeamObserver` (`domain/TeamObserver.java`)
 - **Purpose**: Read-only auditor role on a team. Vetoed from all write operations.
@@ -274,11 +280,18 @@ erDiagram
 - **Fields**: `id`, `actionType`, `entityType`, `entityId`, `metadataJson` (JSONB), `source` (`AuditEventSource` enum), `ipAddress`, `userAgent`, `correlationId`, `createdAt`.
 - **Relationships**: ManyToOne → `Project`, `User` (actor).
 
+### Outbox Event Domain
+
+#### `OutboxEvent` (`domain/OutboxEvent.java`)
+- **Fields**: `id`, `aggregateType`, `aggregateId`, `eventType`, `payload` (JSONB), `status` (`OutboxStatus` enum), `createdAt`, `processedAt`, `retryCount`, `lastError`.
+- **Purpose**: Persisted atomically within domain transactions to guarantee reliable asynchronous event publishing via the Outbox Poller.
+
 ### Additional Enums Reference
 
 - `ProjectScope`: `PERSONAL`, `CREW`, `ORGANIZATION`
 - `ProjectCollaboratorRole`: `VIEWER`, `EDITOR`, `ADMIN`
 - `AuditEventSource`: `API`, `SYSTEM`, `SCHEDULER`, `IMPORT`, `WEBSOCKET`, `MIGRATION`, `WEBHOOK`
+- `OutboxStatus`: `PENDING`, `PROCESSED`, `FAILED`
 
 ### Domain Events (Spring ApplicationEvents)
 

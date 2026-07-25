@@ -72,20 +72,26 @@ class TaskAssignmentServiceTest {
 
 | Exception Class | Thrown By Component | HTTP Code | Error Code | Root Cause / Scenario |
 | :--- | :--- | :--- | :--- | :--- |
-| `ResourceNotFoundException` | `TaskRepository`, `UserRepository` | `404` | `RESOURCE_NOT_FOUND` | Requested entity ID does not exist in DB |
+| `ResourceNotFoundException` | Various repositories/services | `404` | `RESOURCE_NOT_FOUND` | Requested generic entity ID does not exist in DB |
+| `TaskNotFoundException` | `TaskRepository`, `TaskService` | `404` | `TASK_NOT_FOUND` | Requested task ID does not exist |
+| `UserNotFoundException` | `UserRepository`, `UserService` | `404` | `USER_NOT_FOUND` | Requested user ID or username does not exist |
+| `CrewNotFoundException` | `CrewRepository`, `CrewService` | `404` | `CREW_NOT_FOUND` | Requested crew ID does not exist |
+| `CrewFullException` | `CrewService` | `400` | `CREW_FULL` | Attempting to join a crew that has reached capacity |
+| `CrewInviteExpiredException` | `CrewService` | `400` | `INVITE_EXPIRED` | Attempting to accept an expired crew invite |
+| `UsernameConflictException` | `AuthService`, `UserService` | `409` | `USERNAME_CONFLICT` | Registration or profile update with existing username/email |
+| `InvalidCredentialsException` | `AuthService` | `401` | `INVALID_CREDENTIALS` | Invalid login credentials provided |
 | `UnauthorizedActionException` | `TaskHierarchyValidator`, `OrgTaskStrategy` | `403` | `UNAUTHORIZED_ACTION` | Role priority violation or cross-org action |
-| `InvalidStateTransitionException` | `OrgTaskStrategy`, `TaskStateTransitionServiceImpl` | `400` | `INVALID_STATE_TRANSITION` | Submitting task without evidence or invalid state jump |
+| `OrganizationSuspendedException` | `OrganizationService`, `PlatformOrganizationService` | `403` | `ORGANIZATION_SUSPENDED` | Action attempted on a suspended organization |
+| `IllegalStateException` | `OrgTaskStrategy`, `TaskStateTransitionServiceImpl` | `409` | `INVALID_STATE` | Submitting task without evidence or invalid state jump |
 | `AccessDeniedException` | `CustomPermissionEvaluator`, `ProjectService` | `403` | `ACCESS_DENIED` | Insufficient permissions for the operation |
 | `MethodArgumentNotValidException` | Spring MVC Validation Layer | `400` | `VALIDATION_ERROR` | `@NotBlank`, `@Size`, or `@Min` constraint violation |
 | `IllegalArgumentException` | `PersonalTaskStrategy`, `TaskAssignmentServiceImpl` | `400` | `ILLEGAL_ARGUMENT` | Assigning personal task to another user |
 | `TokenRefreshException` | `RefreshTokenService` | `401` | `TOKEN_REFRESH_ERROR` | Expired, revoked, or reused refresh token |
 | `OptimisticLockingFailureException` | Hibernate/JPA | `409` | `OPTIMISTIC_LOCK_CONFLICT` | Concurrent modification of Task/Project/ChecklistItem |
-| `DataIntegrityViolationException` | Hibernate/JPA | `409` | `DATA_INTEGRITY_VIOLATION` | Unique constraint violation (duplicate username/email) |
+| `DataIntegrityViolationException` | Hibernate/JPA | `409` | `DATA_INTEGRITY_VIOLATION` | Unique constraint violation in database |
 | `HttpRequestMethodNotSupportedException` | Spring MVC | `405` | `METHOD_NOT_ALLOWED` | Wrong HTTP method on endpoint |
-| `RateLimitExceededException` | `RateLimitFilter`, `AuthController` | `429` | `RATE_LIMIT_EXCEEDED` | Too many requests from client IP |
-| `BadCredentialsException` | `AuthServiceImpl` | `401` | `AUTHENTICATION_FAILED` | Wrong username or password |
-| `DisabledException` | `JwtAuthenticationFilter` | `403` | `ACCOUNT_DISABLED` | Email not verified |
-| `AccountSuspendedException` | `OrganizationService` | `403` | `ACCOUNT_SUSPENDED` | Organization suspended by admin |
+| `BadCredentialsException` | `AuthServiceImpl`, Spring Security | `401` | `AUTHENTICATION_FAILED` | Wrong username or password |
+| `DisabledException` | `JwtAuthenticationFilter` | `403` | `ACCOUNT_DISABLED` | Email not verified or user account disabled |
 
 ### Structured Error Response Format
 

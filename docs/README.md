@@ -9,7 +9,7 @@
  JDK Version        : Java 17 LTS
  Persistence Layer  : Spring Data JPA / Hibernate 6 (PostgreSQL 15+)
  Transport Protocols: Synchronous REST (HTTP/1.1) + WebSocket (STOMP, native)
- Migration Engine   : Flyway (46 versioned migrations)
+ Migration Engine   : Flyway (48 versioned migrations)
  Notice             : Code is the source of truth. Documentation reflects 
                       and explains actual implementation behavior.
 ===================================================================================
@@ -36,7 +36,7 @@ From `v1.5.0-PROD-SPEC` onwards:
 | **Security** | Spring Security | 6.x | Authentication & Authorization |
 | **ORM / JPA** | Hibernate / Spring Data JPA | 6.x | Relational Persistence |
 | **Database** | PostgreSQL | 15+ | Production Data Store (JSONB for audit metadata) |
-| **Migration** | Flyway | 10.x | 46 versioned migration scripts |
+| **Migration** | Flyway | 10.x | 48 versioned migration scripts |
 | **WebSocket** | Spring STOMP (native) | 3.2.x | Real-time task updates, whiteboard, notifications |
 | **Rate Limiting** | Bucket4j + Caffeine | 8.x | In-Memory Token Bucket (IP-based + per-user) |
 | **Async** | Spring @Async | 3.2.x | Email, realtime, audit thread pools with MDC propagation |
@@ -59,7 +59,6 @@ Welcome to the Ryokai Backend Engineering Manual. The technical specification is
 - 🛡️ **[Security Architecture](security.md)** — Spring Security 6 filter chain, custom SpEL evaluators, RBAC role-priority matrix, rate limiting, and security audit.
 - 🔌 **[API Reference Catalogue](api.md)** — Complete endpoint inventory (35 controllers), HTTP verbs, permissions, DTO specifications, and OpenAPI links.
 - 🔄 **[Workflows & Sequence Diagrams](workflows.md)** — Comprehensive workflow catalog, entity state machines, and sequence diagrams.
-- ⚡ **[Async Threading & Notification System](async-and-notifications.md)** — Thread pool executors, MDC propagation, notification pipeline (DB + WebSocket + Email), and deduplication.
 - 🛠️ **[Operations & Operational Runbooks](operations.md)** — Configuration reference, MDC trace logging, operational runbooks, secret rotation, known issues, and limits.
 - 👁️ **[Observability & Monitoring Stack](observability.md)** — OpenTelemetry distributed tracing, Tempo, Loki log aggregation, Grafana Alloy, Prometheus metrics, Alertmanager, Grafana dashboards, and debugging runbook.
 - 🧪 **[Developer Guide & Onboarding](developer-guide.md)** — Step-by-step feature implementation walkthrough, testing infrastructure guide, exception catalogue, and domain glossary.

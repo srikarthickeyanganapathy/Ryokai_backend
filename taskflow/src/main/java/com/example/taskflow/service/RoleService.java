@@ -107,7 +107,7 @@ public class RoleService {
 
     @Transactional
     public List<RoleResponseDTO> getAllRoles() {
-        return roleRepository.findAllByOrderByNameAsc().stream()
+        return roleRepository.findByOrganizationIdIsNullOrderByNameAsc().stream()
             .map(this::mapToRoleResponseDTO)
             .collect(Collectors.toList());
     }

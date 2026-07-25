@@ -138,11 +138,13 @@ All executors:
 ### Runbook 2: Database Schema Migration & DDL Management
 1. Ensure Spring JPA DDL auto is set to `validate` in production (`spring.jpa.hibernate.ddl-auto: validate`).
 2. Flyway will automatically apply pending migrations from `db/migration/` on application startup.
-3. **46 migrations** (V1 – V46) are currently defined. Key migrations:
+3. **48 migrations** (V1 – V48) are currently defined. Key migrations:
    - V1: Core schema (users, organizations, roles, tasks, projects)
    - V15-V20: Crew system (channels, messages, whiteboards)
    - V30-V35: Security audit tables, notification system
    - V40-V46: Evidence soft-delete, task status history, team messages
+   - V47: Transactional outbox domain events table (`outbox_events`)
+   - V48: Performance indexes on frequently queried foreign keys and status columns
 4. Validate column constraints, index additions, and foreign key definitions against entity annotations.
 
 ### Runbook 3: Disaster Recovery & Backup Restoration
@@ -188,6 +190,15 @@ All executors:
 | **Password Reset Token TTL** | 1 hour | `PasswordResetToken.expiryDate` |
 | **Correlation ID Max Length** | 64 chars | `CorrelationIdFilter` regex |
 
+### Scheduled Background Jobs
+| Service Class | Method | Cron / Fixed Delay | Timezone / Description |
+| :--- | :--- | :--- | :--- |
+| `PasswordResetService` | `cleanExpiredTokens()` | `0 0 0 * * ?` (Daily at 00:00) | `Asia/Kolkata` (Purges expired password reset tokens) |
+| `TokenCleanupService` | `cleanupExpiredTokens()` | `0 0 0 * * ?` (Daily at 00:00) | `Asia/Kolkata` (Purges expired refresh and verification tokens) |
+| `TaskNotificationService` | `sendDueSoonReminders()` | `0 0 8 * * ?` (Daily at 08:00) | `Asia/Kolkata` (Sends 24h due-soon task reminders) |
+| `TaskNotificationService` | `sendOverdueReminders()` | `0 0 9 * * ?` (Daily at 09:00) | `Asia/Kolkata` (Sends overdue task notifications) |
+| `OutboxPoller` | `pollAndDispatch()` | `fixedDelay = 1000ms` | Polls and publishes pending transactional outbox events |
+
 ---
 
 ## 7. Prometheus Metrics & Observability (`util/TaskMetrics.java`)
@@ -196,8 +207,19 @@ Custom domain metrics exposed via Spring Boot Actuator (`/actuator/prometheus`):
 
 | Metric Name | Type | Labels | Description / Usage |
 | :--- | :--- | :--- | :--- |
-| `taskflow_tasks_total` | Counter | `status`, `priority` | Total task creation events tracked across status/priority |
-| `taskflow_task_duration_seconds` | Timer | `priority` | Duration measurement for task completion lifecycle |
+| `taskflow_websocket_connections_active` | Gauge | — | Active WebSocket STOMP sessions |
+| `taskflow_login_success_total` | Counter | — | Total successful authentication attempts |
 | `taskflow_auth_attempts_total` | Counter | `result` (`success` / `failure`) | Authentication attempt success/failure monitoring |
+| `taskflow_login_failure_total` | Counter | `reason` | Total failed authentication attempts by reason |
+| `taskflow_registrations_total` | Counter | — | Total user registrations |
+| `taskflow_organizations_created_total` | Counter | — | Total organizations created |
+| `taskflow_workspaces_created_total` | Counter | `type` | Total workspaces created by type |
+| `taskflow_projects_created_total` | Counter | `scope` | Total projects created by scope |
+| `taskflow_tasks_created_total` | Counter | `status`, `priority` | Total tasks created by status and priority |
+| `taskflow_tasks_total` | Counter | `status`, `priority` | Total task creation events tracked across status/priority |
+| `taskflow_tasks_completed_total` | Counter | `priority` | Total tasks completed by priority |
+| `taskflow_task_duration_seconds` | Timer | `priority` | Duration measurement for task completion lifecycle |
+| `taskflow_file_uploads_total` | Counter | `file_type` | Total file evidence uploads by file type |
+| `taskflow_websocket_connections_total` | Counter | `event` (`connect` / `disconnect`) | Total WebSocket connect and disconnect events |
 | `taskflow_active_sessions` | Gauge | — | Real-time gauge for active user session count |
 

@@ -38,7 +38,11 @@ public class DataSeeder {
 
     @Bean
     @Transactional
-    public CommandLineRunner initData(PermissionRepository permissionRepository) {
+    public CommandLineRunner initData(PermissionRepository permissionRepository,
+                                      RoleRepository roleRepository,
+                                      UserRepository userRepository,
+                                      PasswordEncoder passwordEncoder,
+                                      Environment env) {
         return args -> {
             // ====================================================================
             // Always bootstrap: Permissions
@@ -48,6 +52,16 @@ public class DataSeeder {
             for (PermissionType type : PermissionType.values()) {
                 createPermissionIfNotFound(type.name(), type.getDescription(), permissionRepository);
             }
+
+            // Seed Super Admin Role
+            Set<Permission> allPermissions = new HashSet<>(permissionRepository.findAll());
+            createRoleIfNotFound("SUPER_ADMIN", "System Super Administrator", allPermissions, roleRepository);
+
+            // Seed Super Admin User
+            String adminUser = env.getProperty("app.admin.username", "superadmin");
+            String adminPass = env.getProperty("app.admin.password", "SuperAdmin123!");
+            
+            createUserIfNotFound(adminUser, adminPass, "SUPER_ADMIN", roleRepository, userRepository, passwordEncoder);
         };
     }
 

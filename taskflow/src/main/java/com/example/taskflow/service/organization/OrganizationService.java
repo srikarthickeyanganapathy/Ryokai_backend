@@ -1,4 +1,4 @@
-package com.example.taskflow.service;
+package com.example.taskflow.service.organization;
 
 import java.util.List;
 
@@ -10,9 +10,4 @@ public interface OrganizationService {
     OrganizationResponseDTO getOrganization(Long orgId, User caller);
     List<OrganizationResponseDTO> listUserOrganizations(Long userId);
     OrganizationResponseDTO getUserOrganization(Long userId);
-    List<OrganizationResponseDTO> listAllOrganizations();
-    OrganizationResponseDTO getOrganizationAsAdmin(Long orgId);
-    OrganizationResponseDTO suspendOrganization(Long id);
-    OrganizationResponseDTO activateOrganization(Long id);
-    void deleteOrganization(Long id);
 }

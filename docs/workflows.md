@@ -73,19 +73,19 @@ sequenceDiagram
 ## 2. Organization & Enterprise Vault Workflows
 
 ### Workflow 2.1: Provisioning Corporate Organization & Custom RBAC
-- **APIs**: `POST /api/organizations` & `POST /api/organizations/{id}/roles` ([OrganizationController.java](../taskflow/src/main/java/com/example/taskflow/controller/OrganizationController.java), [OrganizationRoleController.java](../taskflow/src/main/java/com/example/taskflow/controller/OrganizationRoleController.java))
-- **Execution**: Admin creates Organization -> Owner membership assigned -> Admin creates custom roles specifying integer `priority` (e.g. Director=90, Manager=50, Lead=30, Member=10) -> Permissions assigned via `PUT /api/organizations/{id}/roles/{roleId}/permissions`.
+- **APIs**: `POST /api/v1/organizations` & `POST /api/v1/organizations/{id}/roles` ([OrganizationController.java](../taskflow/src/main/java/com/example/taskflow/controller/organization/OrganizationController.java), [OrganizationRoleController.java](../taskflow/src/main/java/com/example/taskflow/controller/organization/OrganizationRoleController.java))
+- **Execution**: Admin creates Organization -> Owner membership assigned -> Admin creates custom roles specifying integer `priority` (e.g. Director=90, Manager=50, Lead=30, Member=10) -> Permissions assigned via `PUT /api/v1/organizations/{id}/roles/{roleId}/permissions`.
 
 ### Workflow 2.2: Department Team Structuring & Observer Oversight
-- **APIs**: `POST /api/organizations/{id}/teams` & `POST /api/organizations/teams/{teamId}/observers` ([OrganizationTeamController.java](../taskflow/src/main/java/com/example/taskflow/controller/OrganizationTeamController.java))
-- **Execution**: Admin creates team under Organization -> Members added via `POST /teams/{teamId}/members` -> Read-only `TeamObserver`s assigned via `POST /teams/{teamId}/observers` for auditor/management visibility without mutation permissions.
+- **APIs**: `POST /api/v1/organizations/{id}/teams` & `POST /api/v1/organizations/teams/{teamId}/observers` ([OrganizationTeamController.java](../taskflow/src/main/java/com/example/taskflow/controller/organization/OrganizationTeamController.java))
+- **Execution**: Admin creates team under Organization -> Members added via `POST /api/v1/organizations/teams/{teamId}/members` -> Read-only `TeamObserver`s assigned via `POST /api/v1/organizations/teams/{teamId}/observers` for auditor/management visibility without mutation permissions.
 
 ### Workflow 2.3: In-App & Link Invitations
-- **APIs**: `POST /api/organizations/{orgId}/invites` & `POST /api/organizations/{orgId}/invites/link` ([OrganizationInviteController.java](../taskflow/src/main/java/com/example/taskflow/controller/OrganizationInviteController.java))
-- **Execution**: Admin generates in-app invite for username or shareable link token -> Invitee accepts via `POST /api/invites/{inviteId}/accept` or `POST /api/invites/token/{token}/accept` -> Invitee assigned specified role in `organization_memberships`.
+- **APIs**: `POST /api/v1/organizations/{orgId}/invites` & `POST /api/v1/organizations/{orgId}/invites/link` ([OrganizationInviteController.java](../taskflow/src/main/java/com/example/taskflow/controller/organization/OrganizationInviteController.java))
+- **Execution**: Admin generates in-app invite for username or shareable link token -> Invitee accepts via `POST /api/v1/invites/{inviteId}/accept` or `POST /api/v1/invites/token/{token}/accept` -> Invitee assigned specified role in `organization_memberships`.
 
 ### Workflow 2.4: HR Leave Request & Active Task Reassignment
-- **APIs**: `POST /api/organizations/{id}/leave` & `POST /api/organizations/{id}/leave/{requestId}/approve` ([OrganizationMembershipController.java](../taskflow/src/main/java/com/example/taskflow/controller/OrganizationMembershipController.java))
+- **APIs**: `POST /api/v1/organizations/{id}/leave`, `POST .../leave/{requestId}/approve`, `POST .../leave/{requestId}/reject`, `GET .../leave`, `GET .../leave/status` ([OrganizationMembershipController.java](../taskflow/src/main/java/com/example/taskflow/controller/organization/OrganizationMembershipController.java))
 - **Diagram 9**: HR Leave Request & Task Reassignment
 ```mermaid
 sequenceDiagram
@@ -96,12 +96,12 @@ sequenceDiagram
     participant TaskRepo as TaskRepository
     participant DB as Database
 
-    Employee->>HRCtrl: POST /api/organizations/{orgId}/leave (LeaveReasonDTO)
+    Employee->>HRCtrl: POST /api/v1/organizations/{orgId}/leave (LeaveReasonDTO)
     HRCtrl->>LeaveSvc: requestLeave(orgId, Employee, reason)
     LeaveSvc->>DB: INSERT INTO leave_requests (status='PENDING')
     HRCtrl-->>Employee: 201 Created (LeaveRequestDTO)
 
-    Manager->>HRCtrl: POST /api/organizations/{orgId}/leave/{requestId}/approve
+    Manager->>HRCtrl: POST /api/v1/organizations/{orgId}/leave/{requestId}/approve
     HRCtrl->>LeaveSvc: approveLeave(orgId, requestId, Manager)
     LeaveSvc->>DB: UPDATE leave_requests SET status = 'APPROVED'
     LeaveSvc->>TaskRepo: findByAssignee(Employee)
@@ -110,7 +110,7 @@ sequenceDiagram
 ```
 
 ### Workflow 2.5: Admin Force-Leave / Dissolution
-- **APIs**: `POST /api/organizations/{id}/admin-leave` ([OrganizationMembershipController.java](../taskflow/src/main/java/com/example/taskflow/controller/OrganizationMembershipController.java))
+- **APIs**: `POST /api/v1/organizations/{id}/admin-leave` ([OrganizationMembershipController.java](../taskflow/src/main/java/com/example/taskflow/controller/organization/OrganizationMembershipController.java))
 - **Execution**: Owner chooses successor user ID and specifies whether to transfer ownership or dissolve org -> `OrganizationLifecycleService.leaveOrDissolve` validates no active non-terminal tasks remain -> Updates owner or soft-deletes organization.
 
 ---

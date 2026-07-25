@@ -17,7 +17,6 @@ Back to **[Master Index](README.md)**
 | :--- | :--- | :--- | :--- |
 | `POST` | `/api/v1/auth/register` | Public | `RegisterRequestDTO` → `201 Created` |
 | `POST` | `/api/v1/auth/login` | Public (rate limited: 10/15min per IP+user) | `LoginRequestDTO` → `JwtResponseDTO` |
-| `POST` | `/api/v1/auth/forgot-password` | Public (rate limited: 5/hr per IP) | `ForgotPasswordRequestDTO` → `200 OK` |
 
 ### 2. Session Management (`controller/SessionController.java`)
 | Method | Path | Permission | DTO In → DTO Out |
@@ -84,7 +83,6 @@ Back to **[Master Index](README.md)**
 ### 9. Task Checklists (`controller/TaskChecklistController.java`)
 | Method | Path | Permission | DTO In → DTO Out |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/api/v1/tasks/{taskId}/checklists` | `VIEW` | — → `List<ChecklistItemDTO>` | (REMOVED: Deferred Feature)
 | `POST` | `/api/v1/tasks/{taskId}/checklists` | `EDIT` | `ChecklistItemRequestDTO` → `ChecklistItemDTO` (201) |
 | `PUT` | `/api/v1/tasks/{taskId}/checklists/{itemId}` | `EDIT` | `ChecklistItemRequestDTO` → `ChecklistItemDTO` |
 | `POST` | `/api/v1/tasks/{taskId}/checklists/{itemId}/toggle` | `EDIT` | — → `ChecklistItemDTO` |
@@ -125,14 +123,14 @@ Back to **[Master Index](README.md)**
 | `POST` | `/api/v1/projects/{projectId}/share/crew` | Authenticated | `ShareProjectRequestDTO` → `ProjectResponseDTO` |
 | `DELETE` | `/api/v1/projects/{projectId}/share/crew` | Authenticated | — → `ProjectResponseDTO` |
 
-### 15. Organization Management (`controller/OrganizationController.java`)
+### 15. Organization Management (`controller/organization/OrganizationController.java`)
 | Method | Path | Permission | DTO In → DTO Out |
 | :--- | :--- | :--- | :--- |
 | `POST` | `/api/v1/organizations` | Authenticated | `OrganizationRequestDTO` → `OrganizationResponseDTO` (201) |
 | `GET` | `/api/v1/organizations/{orgId}` | Authenticated | — → `OrganizationResponseDTO` |
 | `PUT` | `/api/v1/organizations/{orgId}` | Authenticated | `OrganizationRequestDTO` → `OrganizationResponseDTO` |
 
-### 16. Organization Roles (`controller/OrganizationRoleController.java`)
+### 16. Organization Roles (`controller/organization/OrganizationRoleController.java`)
 | Method | Path | Permission | DTO In → DTO Out |
 | :--- | :--- | :--- | :--- |
 | `POST` | `/api/v1/organizations/{orgId}/roles` | `ROLE_MANAGE` | `RoleCreateRequestDTO` → `RoleResponseDTO` (201) |
@@ -141,7 +139,7 @@ Back to **[Master Index](README.md)**
 | `DELETE` | `/api/v1/organizations/{orgId}/roles/{roleId}` | `ROLE_MANAGE` | — → `204 No Content` |
 | `PUT` | `/api/v1/organizations/{orgId}/roles/{roleId}/permissions` | `ROLE_MANAGE` | `List<PermissionType>` → `RoleResponseDTO` |
 
-### 17. Organization Membership (`controller/OrganizationMembershipController.java`)
+### 17. Organization Membership (`controller/organization/OrganizationMembershipController.java`)
 | Method | Path | Permission | DTO In → DTO Out |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/v1/organizations/{orgId}/members` | Authenticated | — → `List<MemberResponseDTO>` |
@@ -152,7 +150,7 @@ Back to **[Master Index](README.md)**
 | `POST` | `/api/v1/organizations/{orgId}/leave/{requestId}/reject` | `LEAVE_REQUEST_MANAGE` | `LeaveRejectDTO` → `LeaveRequestDTO` |
 | `POST` | `/api/v1/organizations/{orgId}/admin-leave` | Org Owner | `AdminLeaveRequestDTO` → `200 OK` |
 
-### 18. Organization Invites (`controller/OrganizationInviteController.java`)
+### 18. Organization Invites (`controller/organization/OrganizationInviteController.java`)
 | Method | Path | Permission | DTO In → DTO Out |
 | :--- | :--- | :--- | :--- |
 | `POST` | `/api/v1/organizations/{orgId}/invites` | Authenticated | `InviteMemberRequestDTO` → `OrganizationInviteDTO` (201) |
@@ -162,7 +160,7 @@ Back to **[Master Index](README.md)**
 | `POST` | `/api/v1/invites/{inviteId}/decline` | Authenticated | — → `OrganizationInviteDTO` |
 | `POST` | `/api/v1/invites/token/{token}/accept` | Authenticated | — → `OrganizationInviteDTO` |
 
-### 19. Organization Teams (`controller/OrganizationTeamController.java`)
+### 19. Organization Teams (`controller/organization/OrganizationTeamController.java`)
 | Method | Path | Permission | DTO In → DTO Out |
 | :--- | :--- | :--- | :--- |
 | `POST` | `/api/v1/organizations/{orgId}/teams` | Authenticated | `CreateTeamRequestDTO` → `TeamResponseDTO` (201) |
@@ -277,19 +275,28 @@ Back to **[Master Index](README.md)**
 | `GET` | `/api/v1/dashboard/stats` | Authenticated | — → `DashboardStatsDTO` (multi-scoped aggregates) |
 | `GET` | `/api/v1/dashboard/export/csv` | Authenticated | — → `text/csv` (CSV injection protected) |
 
-### 33. Admin (`controller/AdminController.java`)
+### 33. Platform User Governance (`controller/platform/PlatformUserController.java`)
 | Method | Path | Permission | DTO In → DTO Out |
 | :--- | :--- | :--- | :--- |
-| `PUT` | `/api/v1/admin/users/{userId}/toggle-super-admin` | SuperAdmin | — → `UserResponseDTO` | (REMOVED: Deferred Feature)
+| `GET` | `/api/v1/platform/users/{userId}/roles` | SuperAdmin | — → `Set<RoleResponseDTO>` |
+| `PUT` | `/api/v1/platform/users/{userId}/roles` | SuperAdmin | `List<String>` (role names) → `Set<RoleResponseDTO>` |
 
-### 34. Global Roles (`controller/RoleController.java`)
+### 34. Platform Role & Permission Governance (`controller/platform/PlatformRoleController.java`)
 | Method | Path | Permission | DTO In → DTO Out |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/api/v1/admin/roles` | Authenticated | — → `List<RoleResponseDTO>` |
-| `POST` | `/api/v1/admin/roles` | Authenticated | `RoleCreateRequestDTO` → `RoleResponseDTO` (201) |
+| `GET` | `/api/v1/platform/roles` | SuperAdmin | — → `List<RoleResponseDTO>` |
+| `POST` | `/api/v1/platform/roles` | SuperAdmin | `RoleCreateRequestDTO` → `RoleResponseDTO` (201) |
+| `PUT` | `/api/v1/platform/roles/{id}` | SuperAdmin | `RoleUpdateRequestDTO` → `RoleResponseDTO` |
+| `DELETE` | `/api/v1/platform/roles/{id}` | SuperAdmin | — → `204 No Content` |
+| `GET` | `/api/v1/platform/permissions` | SuperAdmin | — → `List<PermissionResponseDTO>` |
+| `GET` | `/api/v1/platform/roles/{id}/permissions` | SuperAdmin | — → `Set<PermissionResponseDTO>` |
+| `PUT` | `/api/v1/platform/roles/{id}/permissions` | SuperAdmin | `AssignPermissionsRequestDTO` → `Set<PermissionResponseDTO>` |
 
-### 35. User Roles (`controller/UserRoleController.java`)
+### 35. Platform Organization Governance (`controller/platform/PlatformOrganizationController.java`)
 | Method | Path | Permission | DTO In → DTO Out |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/api/v1/users/{userId}/roles` | Authenticated | — → `List<RoleResponseDTO>` |
-| `PUT` | `/api/v1/users/{userId}/roles` | Authenticated | `List<Long>` (role IDs) → `200 OK` |
+| `GET` | `/api/v1/platform/organizations` | SuperAdmin | — → `List<OrganizationResponseDTO>` |
+| `GET` | `/api/v1/platform/organizations/{id}` | SuperAdmin | — → `OrganizationResponseDTO` |
+| `POST` | `/api/v1/platform/organizations/{id}/suspend` | SuperAdmin | — → `OrganizationResponseDTO` |
+| `POST` | `/api/v1/platform/organizations/{id}/activate` | SuperAdmin | — → `OrganizationResponseDTO` |
+| `DELETE` | `/api/v1/platform/organizations/{id}` | SuperAdmin | — → `204 No Content` |

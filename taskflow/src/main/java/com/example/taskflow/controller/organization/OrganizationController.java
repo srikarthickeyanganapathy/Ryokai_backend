@@ -1,4 +1,4 @@
-package com.example.taskflow.controller;
+package com.example.taskflow.controller.organization;
 
 import java.util.List;
 
@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.example.taskflow.domain.User;
 import com.example.taskflow.dto.CreateOrganizationRequestDTO;
 import com.example.taskflow.dto.OrganizationResponseDTO;
-import com.example.taskflow.service.OrganizationService;
+import com.example.taskflow.service.organization.OrganizationService;
 import com.example.taskflow.service.UserService;
 
 import jakarta.validation.Valid;

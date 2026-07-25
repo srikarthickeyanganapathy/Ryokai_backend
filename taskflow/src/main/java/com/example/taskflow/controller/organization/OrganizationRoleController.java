@@ -1,4 +1,4 @@
-package com.example.taskflow.controller;
+package com.example.taskflow.controller.organization;
 
 import java.util.List;
 import java.util.Set;
@@ -24,7 +24,7 @@ import com.example.taskflow.dto.PermissionResponseDTO;
 import com.example.taskflow.dto.RoleCreateRequestDTO;
 import com.example.taskflow.dto.RoleResponseDTO;
 import com.example.taskflow.dto.RoleUpdateRequestDTO;
-import com.example.taskflow.service.RoleService;
+import com.example.taskflow.service.organization.OrganizationRoleService;
 import com.example.taskflow.service.UserService;
 
 import jakarta.validation.Valid;
@@ -35,11 +35,11 @@ import jakarta.validation.constraints.Min;
 @Validated
 public class OrganizationRoleController {
 
-    private final RoleService roleService;
+    private final OrganizationRoleService organizationRoleService;
     private final UserService userService;
 
-    public OrganizationRoleController(RoleService roleService, UserService userService) {
-        this.roleService = roleService;
+    public OrganizationRoleController(OrganizationRoleService organizationRoleService, UserService userService) {
+        this.organizationRoleService = organizationRoleService;
         this.userService = userService;
     }
 
@@ -55,7 +55,7 @@ public class OrganizationRoleController {
     public ResponseEntity<List<RoleResponseDTO>> listRoles(
             @PathVariable @Min(1) Long id,
             @AuthenticationPrincipal UserDetails userDetails) {
-        return ResponseEntity.ok(roleService.getRolesByOrganizationId(id));
+        return ResponseEntity.ok(organizationRoleService.getRolesByOrganizationId(id));
     }
 
     @PostMapping("/{id}/roles")
@@ -67,7 +67,7 @@ public class OrganizationRoleController {
         User user = getCurrentUser(userDetails);
         RoleCreateRequestDTO orgRequest = new RoleCreateRequestDTO(
             request.name(), request.description(), id, request.priority());
-        RoleResponseDTO response = roleService.createRole(orgRequest, user);
+        RoleResponseDTO response = organizationRoleService.createRole(orgRequest, user);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -79,7 +79,7 @@ public class OrganizationRoleController {
             @Valid @RequestBody RoleUpdateRequestDTO request,
             @AuthenticationPrincipal UserDetails userDetails) {
         User user = getCurrentUser(userDetails);
-        RoleResponseDTO response = roleService.updateRole(roleId, request, user);
+        RoleResponseDTO response = organizationRoleService.updateRole(roleId, request, user);
         return ResponseEntity.ok(response);
     }
 
@@ -90,7 +90,7 @@ public class OrganizationRoleController {
             @PathVariable @Min(1) Long roleId,
             @AuthenticationPrincipal UserDetails userDetails) {
         User user = getCurrentUser(userDetails);
-        roleService.deleteRole(roleId, user);
+        organizationRoleService.deleteRole(roleId, user);
         return ResponseEntity.noContent().build();
     }
 
@@ -102,7 +102,7 @@ public class OrganizationRoleController {
             @Valid @RequestBody AssignPermissionsRequestDTO request,
             @AuthenticationPrincipal UserDetails userDetails) {
         User user = getCurrentUser(userDetails);
-        Set<PermissionResponseDTO> response = roleService.assignRolePermissions(roleId, request, user);
+        Set<PermissionResponseDTO> response = organizationRoleService.assignRolePermissions(roleId, request, user);
         return ResponseEntity.ok(response);
     }
 }

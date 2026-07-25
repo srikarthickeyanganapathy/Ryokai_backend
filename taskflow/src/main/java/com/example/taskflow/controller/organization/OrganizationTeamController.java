@@ -1,4 +1,4 @@
-package com.example.taskflow.controller;
+package com.example.taskflow.controller.organization;
 
 import java.util.List;
 import java.util.stream.Collectors;

@@ -20,6 +20,8 @@ public interface RoleRepository extends JpaRepository<Role, Long> {
     
     List<Role> findByOrganizationId(Long organizationId);
     
+    List<Role> findByOrganizationIdIsNullOrderByNameAsc();
+    
     List<Role> findAllByOrderByNameAsc();
 
     @Query("SELECT r FROM Role r LEFT JOIN FETCH r.permissions WHERE r.name = :name")

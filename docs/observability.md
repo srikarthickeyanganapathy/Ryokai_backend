@@ -114,14 +114,19 @@ Prometheus scrapes metrics from `/actuator/prometheus` every 5 seconds.
 ### Custom Domain & Business KPIs
 - `taskflow_login_success_total`: Total successful authentication attempts.
 - `taskflow_login_failure_total`: Total failed authentication attempts (tagged by `reason`).
+- `taskflow_auth_attempts_total`: Authentication attempt success/failure monitoring (tagged by `result`).
 - `taskflow_registrations_total`: Total user registrations.
 - `taskflow_organizations_created_total`: Organizations created.
 - `taskflow_workspaces_created_total`: Workspaces created (tagged by `type`).
 - `taskflow_projects_created_total`: Projects created (tagged by `scope`).
 - `taskflow_tasks_created_total`: Tasks created (tagged by `status`, `priority`).
+- `taskflow_tasks_total`: Total task creation events tracked across status/priority.
 - `taskflow_tasks_completed_total`: Tasks completed (tagged by `priority`).
+- `taskflow_task_duration_seconds`: Duration timer for task completion lifecycle (tagged by `priority`).
 - `taskflow_file_uploads_total`: Evidence / attachment uploads (tagged by `file_type`).
 - `taskflow_websocket_connections_active`: Active STOMP WebSocket gauge.
+- `taskflow_websocket_connections_total`: WebSocket connect and disconnect events (tagged by `event`).
+- `taskflow_active_sessions`: Real-time gauge for active user session count.
 
 ---
 

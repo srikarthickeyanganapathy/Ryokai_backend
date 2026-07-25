@@ -15,9 +15,9 @@ graph TD
         direction TB
         CorrelationFilter["1. CorrelationIdFilter<br/>(MDC: X-Correlation-Id, Order: HIGHEST_PRECEDENCE)"]
         CorsFilter["2. CorsFilter<br/>(Origins: localhost:5173, Netlify, DevTunnels)"]
-        RateLimiter["3. RateLimitFilter<br/>(Bucket4j + Caffeine, /api/auth/* only)"]
+        RateLimiter["3. RateLimitFilter<br/>(Bucket4j + Caffeine, /api/v1/auth/* only)"]
         JwtAuth["4. JwtAuthenticationFilter<br/>(Bearer JWT → SecurityContext + token version check)"]
-        UserAuthFilter["5. UsernamePasswordAuthenticationFilter<br/>(Bypassed for JWT; active for /api/auth/login)"]
+        UserAuthFilter["5. UsernamePasswordAuthenticationFilter<br/>(Bypassed for JWT; active for /api/v1/auth/login)"]
         ExceptionFilter["6. ExceptionTranslationFilter<br/>(Catches AccessDenied/AuthenticationException)"]
         SecurityInterceptor["7. MethodSecurity<br/>(SpEL: CustomPermissionEvaluator → DomainPermissionHandlers)"]
         
@@ -29,7 +29,7 @@ graph TD
         ExceptionFilter --> SecurityInterceptor
         SecurityInterceptor --> Dispatcher["DispatcherServlet"]
         
-        Dispatcher --> RESTControllers["REST Controllers (35 classes)"]
+        Dispatcher --> RESTControllers["REST Controllers (34 classes)"]
         Dispatcher --> WSController["WebSocket Controllers (STOMP)"]
         
         RESTControllers --> Services["Domain Services & Strategies"]
@@ -83,15 +83,20 @@ src/main/java/com/example/taskflow/
 │   ├── JacksonConfig            # Jackson ObjectMapper customization
 │   └── WebSocketHandshakeInterceptor  # Origin validation on WS upgrade
 ├── controller/          # REST Controllers
-├── domain/              # JPA Entities & Enums
+│   ├── platform/        # Control Plane / Super Admin governance (PlatformUserController, etc.)
+│   └── organization/    # Organization vault & team governance (OrganizationController, etc.)
+├── domain/              # JPA Entities & Enums (Task, User, Organization, OutboxEvent, etc.)
 │   └── events/task/     # Spring ApplicationEvents (TaskStatusChangedEvent, EvidenceUploadedEvent)
 ├── dto/                 # Request & Response DTO Data Contracts
+├── event/               # Transactional Outbox Pattern (OutboxPoller, OutboxDomainEventPublisher)
 ├── exception/           # Custom Domain Runtime Exceptions
 ├── mapper/              # DTO ↔ Entity mappers (TaskResponseMapper, etc.)
 ├── notification/        # Notification event types, email renderers, WebSocket listener
 ├── repository/          # Spring Data JPA Repositories
 ├── security/            # SpEL Evaluators, Permission Handlers, Role Strategies, Rate Limiting
 ├── service/             # Domain Services & Business Logic
+│   ├── platform/        # Control Plane services (PlatformUserService, PlatformRoleService, etc.)
+│   ├── organization/    # Organization vault services (OrganizationService, OrganizationRoleService, etc.)
 │   └── impl/            # Service implementations & TaskActivityEventListener (@TransactionalEventListener)
 ├── strategy/task/       # Task Scope Lifecycle Strategies (Strategy Pattern)
 │   ├── TaskLifecycleStrategy    # Base interface (10 methods)

@@ -1,4 +1,4 @@
-package com.example.taskflow.service;
+package com.example.taskflow.service.organization.impl;
 
 import com.example.taskflow.domain.Organization;
 import com.example.taskflow.domain.OrganizationMembership;
@@ -10,6 +10,8 @@ import com.example.taskflow.repository.OrganizationMembershipRepository;
 import com.example.taskflow.repository.OrganizationRepository;
 import com.example.taskflow.repository.RoleRepository;
 import com.example.taskflow.repository.PermissionRepository;
+import com.example.taskflow.service.AuditService;
+import com.example.taskflow.service.organization.OrganizationService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -57,7 +59,7 @@ public class OrganizationServiceImpl implements OrganizationService {
             "TASK_REASSIGN", "TASK_ARCHIVE", "ROLE_MANAGE",
             "ORG_MEMBER_INVITE", "ORG_MEMBER_REMOVE", "LEAVE_REQUEST_MANAGE",
             "TEAM_CREATE", "TEAM_MANAGE", "PROJECT_CREATE", "PROJECT_MANAGE",
-            "TASK_OVERRIDE");
+            "TASK_OVERRIDE", "ANNOUNCEMENT_MANAGE", "GOAL_MANAGE");
 
         Role adminRole = new Role();
         adminRole.setName("ADMIN");
@@ -109,60 +111,6 @@ public class OrganizationServiceImpl implements OrganizationService {
         if (memberships.isEmpty())
             return null;
         return mapToResponseDTO(memberships.get(0).getOrganization());
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<OrganizationResponseDTO> listAllOrganizations() {
-        return organizationRepository.findAll().stream()
-                .map(this::mapToResponseDTO)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public OrganizationResponseDTO getOrganizationAsAdmin(Long orgId) {
-        Organization org = organizationRepository.findById(orgId)
-                .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + orgId));
-        return mapToResponseDTO(org);
-    }
-
-    @Override
-    @Transactional
-    public OrganizationResponseDTO suspendOrganization(Long id) {
-        Organization org = organizationRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + id));
-
-        if (org.getStatus() == Organization.OrgStatus.DELETED) {
-            throw new IllegalStateException("Cannot suspend a deleted organization");
-        }
-
-        org.setStatus(Organization.OrgStatus.SUSPENDED);
-        return mapToResponseDTO(organizationRepository.save(org));
-    }
-
-    @Override
-    @Transactional
-    public OrganizationResponseDTO activateOrganization(Long id) {
-        Organization org = organizationRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + id));
-
-        if (org.getStatus() == Organization.OrgStatus.DELETED) {
-            throw new IllegalStateException("Cannot activate a deleted organization");
-        }
-
-        org.setStatus(Organization.OrgStatus.ACTIVE);
-        return mapToResponseDTO(organizationRepository.save(org));
-    }
-
-    @Override
-    @Transactional
-    public void deleteOrganization(Long id) {
-        Organization org = organizationRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + id));
-
-        org.setStatus(Organization.OrgStatus.DELETED);
-        organizationRepository.save(org);
     }
 
     private OrganizationResponseDTO mapToResponseDTO(Organization org) {
