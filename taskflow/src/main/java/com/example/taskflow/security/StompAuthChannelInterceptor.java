@@ -102,6 +102,11 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
                     throw new org.springframework.security.access.AccessDeniedException("Invalid board ID format");
                 }
             }
+        } else if (accessor != null && StompCommand.SEND.equals(accessor.getCommand())) {
+            String destination = accessor.getDestination();
+            if (destination != null && (destination.startsWith("/topic/") || destination.startsWith("/queue/"))) {
+                throw new org.springframework.security.access.AccessDeniedException("Direct SEND to broker destinations is forbidden. Send via /app endpoints.");
+            }
         }
         
         return message;

@@ -135,11 +135,17 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Object> handleIllegalArgumentException(IllegalArgumentException ex, HttpServletRequest request) {
+        if (ex.getMessage() != null && ex.getMessage().toLowerCase().contains("not found")) {
+            return new ResponseEntity<>(createErrorResponse(HttpStatus.NOT_FOUND, "Not Found", ex.getMessage(), "RESOURCE_NOT_FOUND", request), HttpStatus.NOT_FOUND);
+        }
         return new ResponseEntity<>(createErrorResponse(HttpStatus.BAD_REQUEST, "Bad Request", ex.getMessage(), "BAD_REQUEST", request), HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Object> handleRuntimeException(RuntimeException ex, HttpServletRequest request) {
+        if (ex.getMessage() != null && ex.getMessage().toLowerCase().contains("unauthorized")) {
+            return new ResponseEntity<>(createErrorResponse(HttpStatus.UNAUTHORIZED, "Unauthorized", ex.getMessage(), "AUTHENTICATION_FAILED", request), HttpStatus.UNAUTHORIZED);
+        }
         log.error("Unhandled RuntimeException", ex);
         return new ResponseEntity<>(createErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error", "Unexpected error", "INTERNAL_ERROR", request), HttpStatus.INTERNAL_SERVER_ERROR);
     }

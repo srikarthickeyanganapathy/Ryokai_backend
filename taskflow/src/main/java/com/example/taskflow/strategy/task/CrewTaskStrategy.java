@@ -66,7 +66,7 @@ public class CrewTaskStrategy implements TaskLifecycleStrategy, TaskScopeBehavio
 
     @Override
     public boolean canDelete(User u, Task t) {
-        return canEdit(u, t);
+        return t.getCreator() != null && t.getCreator().getId().equals(u.getId());
     }
 
     @Override
