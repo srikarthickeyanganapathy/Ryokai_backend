@@ -139,16 +139,19 @@ Back to **[Master Index](README.md)**
 | `DELETE` | `/api/v1/organizations/{orgId}/roles/{roleId}` | `ROLE_MANAGE` | — → `204 No Content` |
 | `PUT` | `/api/v1/organizations/{orgId}/roles/{roleId}/permissions` | `ROLE_MANAGE` | `List<PermissionType>` → `RoleResponseDTO` |
 
-### 17. Organization Membership (`controller/organization/OrganizationMembershipController.java`)
+### 17. Organization Membership & HR Leave (`controller/organization/OrganizationMembershipController.java`)
 | Method | Path | Permission | DTO In → DTO Out |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/api/v1/organizations/{orgId}/members` | Authenticated | — → `List<MemberResponseDTO>` |
-| `PUT` | `/api/v1/organizations/{orgId}/members/{memberId}/role` | `ORG_MEMBER_REMOVE` | `UpdateRoleRequestDTO` → `200 OK` |
+| `GET` | `/api/v1/organizations/{orgId}/members` | `MEMBER` | — → `List<MembershipResponseDTO>` |
+| `POST` | `/api/v1/organizations/{orgId}/members` | Authenticated | `InviteMemberRequestDTO` → `OrganizationInviteDTO` (201) |
+| `PUT` | `/api/v1/organizations/{orgId}/members/{memberId}/role` | `ROLE_MANAGE` | `UpdateRoleRequestDTO` → `MembershipResponseDTO` (200 OK) |
 | `DELETE` | `/api/v1/organizations/{orgId}/members/{memberId}` | `ORG_MEMBER_REMOVE` | — → `204 No Content` |
-| `POST` | `/api/v1/organizations/{orgId}/leave` | Authenticated | `LeaveReasonDTO` → `LeaveRequestDTO` (201) |
-| `POST` | `/api/v1/organizations/{orgId}/leave/{requestId}/approve` | `LEAVE_REQUEST_MANAGE` | — → `LeaveRequestDTO` |
-| `POST` | `/api/v1/organizations/{orgId}/leave/{requestId}/reject` | `LEAVE_REQUEST_MANAGE` | `LeaveRejectDTO` → `LeaveRequestDTO` |
-| `POST` | `/api/v1/organizations/{orgId}/admin-leave` | Org Owner | `AdminLeaveRequestDTO` → `200 OK` |
+| `POST` | `/api/v1/organizations/{orgId}/leave` | `MEMBER` | `LeaveReasonDTO` → `LeaveRequestDTO` (201) |
+| `GET` | `/api/v1/organizations/{orgId}/leave` | `MEMBER` | — → `List<LeaveRequestDTO>` (200 OK) |
+| `GET` | `/api/v1/organizations/{orgId}/leave/status` | `MEMBER` | — → `LeaveRequestDTO` (200 OK) |
+| `POST` | `/api/v1/organizations/{orgId}/leave/{requestId}/approve` | `LEAVE_REQUEST_MANAGE` | — → `LeaveRequestDTO` (200 OK) |
+| `POST` | `/api/v1/organizations/{orgId}/leave/{requestId}/reject` | `LEAVE_REQUEST_MANAGE` | `LeaveRejectDTO` → `LeaveRequestDTO` (200 OK) |
+| `POST` | `/api/v1/organizations/{orgId}/admin-leave` | Authenticated | `AdminLeaveRequestDTO` → `204 No Content` |
 
 ### 18. Organization Invites (`controller/organization/OrganizationInviteController.java`)
 | Method | Path | Permission | DTO In → DTO Out |
@@ -165,8 +168,12 @@ Back to **[Master Index](README.md)**
 | :--- | :--- | :--- | :--- |
 | `POST` | `/api/v1/organizations/{orgId}/teams` | Authenticated | `CreateTeamRequestDTO` → `TeamResponseDTO` (201) |
 | `GET` | `/api/v1/organizations/{orgId}/teams` | Authenticated | — → `List<TeamResponseDTO>` |
+| `GET` | `/api/v1/organizations/teams/{teamId}` | Authenticated | — → `TeamResponseDTO` |
+| `PUT` | `/api/v1/organizations/teams/{teamId}` | Authenticated | `CreateTeamRequestDTO` → `TeamResponseDTO` |
+| `DELETE` | `/api/v1/organizations/teams/{teamId}` | Authenticated | — → `204 No Content` |
 | `POST` | `/api/v1/organizations/teams/{teamId}/members` | Authenticated | `TeamMemberRequestDTO` → `200 OK` |
 | `DELETE` | `/api/v1/organizations/teams/{teamId}/members/{userId}` | Authenticated | — → `204 No Content` |
+| `GET` | `/api/v1/organizations/teams/{teamId}/observers` | Authenticated | — → `List<UserSummaryDTO>` |
 | `POST` | `/api/v1/organizations/teams/{teamId}/observers` | Authenticated | `TeamMemberRequestDTO` → `200 OK` |
 | `DELETE` | `/api/v1/organizations/teams/{teamId}/observers/{userId}` | Authenticated | — → `204 No Content` |
 
