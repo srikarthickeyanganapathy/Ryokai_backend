@@ -1,5 +1,12 @@
 package com.example.taskflow.security;
 
+/**
+ * @deprecated Use {@link com.example.taskflow.security.PermissionCode} instead.
+ *             This enum will be removed in Phase 4 of the RBAC migration.
+ *             PermissionCode provides 83 granular permissions with module/category metadata,
+ *             replacing these 21 coarse-grained permissions.
+ */
+@Deprecated(forRemoval = true)
 public enum PermissionType {
     TASK_VIEW("View tasks"),
     TASK_ASSIGN("Assign tasks to users"),
@@ -19,7 +26,8 @@ public enum PermissionType {
     PROJECT_MANAGE("Manage global project metadata"),
     TASK_OVERRIDE("Override task dependencies and review constraints"),
     ANNOUNCEMENT_MANAGE("Manage organization announcements"),
-    GOAL_MANAGE("Manage organization goals");
+    GOAL_MANAGE("Manage organization goals"),
+    DASHBOARD_ORG_WIDE_VIEW("View org-wide dashboard statistics");
 
     private final String description;
 

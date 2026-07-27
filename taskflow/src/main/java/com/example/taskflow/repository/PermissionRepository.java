@@ -11,5 +11,8 @@ import com.example.taskflow.domain.Permission;
 @Repository
 public interface PermissionRepository extends JpaRepository<Permission, Long> {
     Optional<Permission> findByName(String name);
+    Optional<Permission> findByCode(String code);
     List<Permission> findAllByOrderByNameAsc();
+    List<Permission> findAllByOrderByModuleAscCodeAsc();
+    List<Permission> findByModule(String module);
 }

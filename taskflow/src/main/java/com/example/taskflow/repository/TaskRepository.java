@@ -147,4 +147,67 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
 
     @Query("SELECT t.assignee.id, t.currentStatus, COUNT(t) FROM Task t WHERE t.org.id = :orgId AND t.archived = false GROUP BY t.assignee.id, t.currentStatus")
     List<Object[]> countTasksByOrgGroupedByAssigneeAndStatus(@Param("orgId") Long orgId);
+
+    // Crew tasks with bridge traversal
+    @EntityGraph(attributePaths = {"assignee","creator","reviewer","org","team","project","crew"})
+    @Query("SELECT DISTINCT t FROM Task t WHERE t.archived = false AND (t.crew.id = :crewId OR t.project IN (SELECT p FROM Project p JOIN p.sharedCrews sc WHERE sc.id = :crewId AND p.deleted = false AND p.organization IS NULL))")
+    Page<Task> findByCrewIdWithBridge(@Param("crewId") Long crewId, Pageable pageable);
+
+    // Personal counts for Dashboard
+    @Query("SELECT COUNT(t) FROM Task t WHERE (t.assignee.id = :userId OR t.creator.id = :userId) AND t.org IS NULL AND t.crew IS NULL AND t.archived = false")
+    long countPersonalTasks(@Param("userId") Long userId);
+
+    @Query("SELECT COUNT(t) FROM Task t WHERE (t.assignee.id = :userId OR t.creator.id = :userId) AND t.org IS NULL AND t.crew IS NULL AND t.currentStatus = :status AND t.archived = false")
+    long countPersonalTasksByStatus(@Param("userId") Long userId, @Param("status") TaskStatus status);
+
+    @Query("SELECT COUNT(t) FROM Task t WHERE (t.assignee.id = :userId OR t.creator.id = :userId) AND t.org IS NULL AND t.crew IS NULL AND t.currentStatus IN :statuses AND t.archived = false")
+    long countPersonalTasksByStatusIn(@Param("userId") Long userId, @Param("statuses") java.util.Collection<TaskStatus> statuses);
+
+    @Query("SELECT COUNT(t) FROM Task t WHERE (t.assignee.id = :userId OR t.creator.id = :userId) AND t.org IS NULL AND t.crew IS NULL AND t.dueDate < :date AND t.currentStatus NOT IN :statuses AND t.archived = false")
+    long countPersonalTasksOverdue(@Param("userId") Long userId, @Param("date") java.time.LocalDate date, @Param("statuses") java.util.Collection<TaskStatus> statuses);
+
+    // Org-wide counts (additional)
+    long countByOrgIdAndCurrentStatusInAndArchivedFalse(Long orgId, java.util.Collection<TaskStatus> statuses);
+
+    // Team-scoped counts in Org (Multi-team support via teamId IN)
+    @Query("SELECT COUNT(t) FROM Task t WHERE t.org.id = :orgId AND t.team.id IN :teamIds AND t.archived = false")
+    long countByOrgIdAndTeamIdIn(@Param("orgId") Long orgId, @Param("teamIds") java.util.Collection<Long> teamIds);
+
+    @Query("SELECT COUNT(t) FROM Task t WHERE t.org.id = :orgId AND t.team.id IN :teamIds AND t.currentStatus = :status AND t.archived = false")
+    long countByOrgIdAndTeamIdInByStatus(@Param("orgId") Long orgId, @Param("teamIds") java.util.Collection<Long> teamIds, @Param("status") TaskStatus status);
+
+    @Query("SELECT COUNT(t) FROM Task t WHERE t.org.id = :orgId AND t.team.id IN :teamIds AND t.currentStatus IN :statuses AND t.archived = false")
+    long countByOrgIdAndTeamIdInByStatusIn(@Param("orgId") Long orgId, @Param("teamIds") java.util.Collection<Long> teamIds, @Param("statuses") java.util.Collection<TaskStatus> statuses);
+
+    @Query("SELECT COUNT(t) FROM Task t WHERE t.org.id = :orgId AND t.team.id IN :teamIds AND t.dueDate < :date AND t.currentStatus NOT IN :statuses AND t.archived = false")
+    long countByOrgIdAndTeamIdInOverdue(@Param("orgId") Long orgId, @Param("teamIds") java.util.Collection<Long> teamIds, @Param("date") java.time.LocalDate date, @Param("statuses") java.util.Collection<TaskStatus> statuses);
+
+    // Option B fallback counts in Org (member without a team)
+    @Query("SELECT COUNT(t) FROM Task t WHERE t.org.id = :orgId AND (t.assignee.id = :userId OR t.creator.id = :userId) AND t.archived = false")
+    long countByOrgIdAndUser(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    @Query("SELECT COUNT(t) FROM Task t WHERE t.org.id = :orgId AND (t.assignee.id = :userId OR t.creator.id = :userId) AND t.currentStatus = :status AND t.archived = false")
+    long countByOrgIdAndUserByStatus(@Param("orgId") Long orgId, @Param("userId") Long userId, @Param("status") TaskStatus status);
+
+    @Query("SELECT COUNT(t) FROM Task t WHERE t.org.id = :orgId AND (t.assignee.id = :userId OR t.creator.id = :userId) AND t.currentStatus IN :statuses AND t.archived = false")
+    long countByOrgIdAndUserByStatusIn(@Param("orgId") Long orgId, @Param("userId") Long userId, @Param("statuses") java.util.Collection<TaskStatus> statuses);
+
+    @Query("SELECT COUNT(t) FROM Task t WHERE t.org.id = :orgId AND (t.assignee.id = :userId OR t.creator.id = :userId) AND t.dueDate < :date AND t.currentStatus NOT IN :statuses AND t.archived = false")
+    long countByOrgIdAndUserOverdue(@Param("orgId") Long orgId, @Param("userId") Long userId, @Param("date") java.time.LocalDate date, @Param("statuses") java.util.Collection<TaskStatus> statuses);
+
+    // Crew counts with bridge traversal
+    @Query("SELECT COUNT(t) FROM Task t WHERE t.archived = false AND (t.crew.id = :crewId OR t.project IN (SELECT p FROM Project p JOIN p.sharedCrews sc WHERE sc.id = :crewId AND p.deleted = false AND p.organization IS NULL))")
+    long countForCrew(@Param("crewId") Long crewId);
+
+    @Query("SELECT COUNT(t) FROM Task t WHERE t.archived = false AND t.currentStatus = :status AND (t.crew.id = :crewId OR t.project IN (SELECT p FROM Project p JOIN p.sharedCrews sc WHERE sc.id = :crewId AND p.deleted = false AND p.organization IS NULL))")
+    long countForCrewByStatus(@Param("crewId") Long crewId, @Param("status") TaskStatus status);
+
+    @Query("SELECT COUNT(t) FROM Task t WHERE t.archived = false AND t.currentStatus IN :statuses AND (t.crew.id = :crewId OR t.project IN (SELECT p FROM Project p JOIN p.sharedCrews sc WHERE sc.id = :crewId AND p.deleted = false AND p.organization IS NULL))")
+    long countForCrewByStatusIn(@Param("crewId") Long crewId, @Param("statuses") java.util.Collection<TaskStatus> statuses);
+
+    @Query("SELECT COUNT(t) FROM Task t WHERE t.archived = false AND t.dueDate < :date AND t.currentStatus NOT IN :statuses AND (t.crew.id = :crewId OR t.project IN (SELECT p FROM Project p JOIN p.sharedCrews sc WHERE sc.id = :crewId AND p.deleted = false AND p.organization IS NULL))")
+    long countForCrewOverdue(@Param("crewId") Long crewId, @Param("date") java.time.LocalDate date, @Param("statuses") java.util.Collection<TaskStatus> statuses);
+
+    @Query("SELECT COUNT(t) FROM Task t WHERE t.archived = false AND t.assignee.id = :userId AND (t.crew.id = :crewId OR t.project IN (SELECT p FROM Project p JOIN p.sharedCrews sc WHERE sc.id = :crewId AND p.deleted = false AND p.organization IS NULL))")
+    long countForCrewAndAssignee(@Param("crewId") Long crewId, @Param("userId") Long userId);
 }

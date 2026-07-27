@@ -67,7 +67,7 @@ public class ProjectService {
     private boolean hasOrgPermission(User user, Organization org, String permission) {
         if (user.isSuperAdmin()) return true;
         return membershipRepository.findByUserAndOrganization(user, org)
-                .map(m -> m.getOrgRole() != null && m.getOrgRole().getPermissions().stream().anyMatch(p -> p.getName().equals(permission)))
+                .map(m -> m.getOrgRole() != null && m.getOrgRole().getRolePermissionScopes().stream().anyMatch(rps -> rps.getPermission().getName().equals(permission)))
                 .orElse(false);
     }
 
@@ -108,6 +108,69 @@ public class ProjectService {
             }
         }
         return result.stream().map(this::toResponseDTO).collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<ProjectResponseDTO> getAllProjects(User currentUser, String scope, Long orgId, Long crewId) {
+        if (scope == null && orgId == null && crewId == null) {
+            return getAllProjects(currentUser);
+        }
+        if ("PERSONAL".equalsIgnoreCase(scope)) {
+            java.util.Set<Project> result = new java.util.HashSet<>();
+            result.addAll(projectRepository.findByCreatedById(currentUser.getId()).stream()
+                    .filter(p -> p.getOrganization() == null && p.getSharedCrews().isEmpty())
+                    .collect(Collectors.toList()));
+            result.addAll(projectRepository.findByCollaboratorsId(currentUser.getId()).stream()
+                    .filter(p -> p.getOrganization() == null && p.getSharedCrews().isEmpty())
+                    .collect(Collectors.toList()));
+            return result.stream().map(this::toResponseDTO).collect(Collectors.toList());
+        } else if ("ORG".equalsIgnoreCase(scope) || "ORGANIZATION".equalsIgnoreCase(scope) || orgId != null) {
+            Long targetOrgId = orgId;
+            if (targetOrgId == null) {
+                var memberships = membershipRepository.findByUserId(currentUser.getId());
+                if (memberships.isEmpty()) return java.util.Collections.emptyList();
+                targetOrgId = memberships.get(0).getOrganization().getId();
+            }
+            if (!membershipRepository.existsByUserIdAndOrganizationId(currentUser.getId(), targetOrgId) && !currentUser.isSuperAdmin()) {
+                throw new org.springframework.security.access.AccessDeniedException("User is not a member of organization " + targetOrgId);
+            }
+            return projectRepository.findByOrganizationId(targetOrgId).stream()
+                    .filter(p -> canViewProject(currentUser, p))
+                    .map(this::toResponseDTO)
+                    .collect(Collectors.toList());
+        } else if ("CREWS".equalsIgnoreCase(scope) || "CREW".equalsIgnoreCase(scope) || crewId != null) {
+            if (crewId == null) {
+                throw new IllegalArgumentException("Crew ID is required when scope is CREWS");
+            }
+            if (!crewMemberRepository.existsByIdCrewIdAndIdUserId(crewId, currentUser.getId()) && !currentUser.isSuperAdmin()) {
+                throw new org.springframework.security.access.AccessDeniedException("User is not a member of crew " + crewId);
+            }
+            return projectRepository.findProjectsForCrew(crewId).stream()
+                    .filter(p -> canViewProject(currentUser, p))
+                    .map(this::toResponseDTO)
+                    .collect(Collectors.toList());
+        }
+        return getAllProjects(currentUser);
+    }
+
+    private boolean canViewProject(User currentUser, Project p) {
+        if (currentUser.isSuperAdmin() || permissionService.hasPermission(currentUser, "SUPER_ADMIN_OVERRIDE_CHECK")) return true;
+        if (p.getCreatedBy() != null && p.getCreatedBy().getId().equals(currentUser.getId())) return true;
+        if (p.getCollaborators() != null && p.getCollaborators().stream().anyMatch(c -> c.getId().equals(currentUser.getId()))) return true;
+        if (p.getOrganization() != null) {
+            boolean hasProjectManage = hasOrgPermission(currentUser, p.getOrganization(), "PROJECT_MANAGE");
+            if (hasProjectManage) return true;
+            if (p.getTeam() == null) {
+                return membershipRepository.existsByUserIdAndOrganizationId(currentUser.getId(), p.getOrganization().getId());
+            } else {
+                return teamMemberRepository.existsByIdTeamIdAndIdUserId(p.getTeam().getId(), currentUser.getId()) ||
+                       teamObserverRepository.existsByIdTeamIdAndIdUserId(p.getTeam().getId(), currentUser.getId());
+            }
+        }
+        if (p.getSharedCrews() != null && !p.getSharedCrews().isEmpty()) {
+            return p.getSharedCrews().stream().anyMatch(crew -> crewMemberRepository.existsByIdCrewIdAndIdUserId(crew.getId(), currentUser.getId()));
+        }
+        return false;
     }
 
     @Transactional(readOnly = true)

@@ -15,13 +15,15 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import jakarta.validation.constraints.NotEmpty;
 
+import com.example.taskflow.security.platform.PlatformAuthorize;
+import com.example.taskflow.security.platform.PlatformPermission;
+
 /**
  * Platform Control Plane user governance endpoints.
  * Migrated from UserRoleController to dedicated platform package and namespace per ADR-009.
  */
 @RestController
 @RequestMapping(value = "/api/v1/platform", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
-@PreAuthorize("hasRole('SUPER_ADMIN')")
 public class PlatformUserController {
 
     private final PlatformUserService platformUserService;
@@ -33,11 +35,13 @@ public class PlatformUserController {
     }
 
     @GetMapping("/users/{userId}/roles")
+    @PlatformAuthorize(PlatformPermission.PLATFORM_USER_VIEW)
     public ResponseEntity<Set<RoleResponseDTO>> getUserRoles(@PathVariable Long userId) {
         return ResponseEntity.ok(platformUserService.getUserRoles(userId));
     }
 
     @PutMapping("/users/{userId}/roles")
+    @PlatformAuthorize(PlatformPermission.PLATFORM_USER_ROLE_UPDATE)
     public ResponseEntity<Set<RoleResponseDTO>> assignUserRoles(
             @PathVariable Long userId,
             @RequestBody @NotEmpty List<String> roleNames,

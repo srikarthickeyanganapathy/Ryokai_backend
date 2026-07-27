@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.taskflow.domain.User;
@@ -38,9 +39,12 @@ public class ProjectController {
 
     @GetMapping
     public ResponseEntity<List<ProjectResponseDTO>> getAllProjects(
-            @AuthenticationPrincipal UserDetails userDetails) {
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam(required = false) String scope,
+            @RequestParam(required = false) Long orgId,
+            @RequestParam(required = false) Long crewId) {
         User currentUser = userService.getCurrentUser(userDetails.getUsername());
-        return ResponseEntity.ok(projectService.getAllProjects(currentUser));
+        return ResponseEntity.ok(projectService.getAllProjects(currentUser, scope, orgId, crewId));
     }
 
     @GetMapping("/{projectId}")

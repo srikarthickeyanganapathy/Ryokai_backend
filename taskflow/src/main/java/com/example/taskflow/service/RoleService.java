@@ -54,12 +54,22 @@ public class RoleService {
     }
 
     private PermissionResponseDTO mapToPermissionResponseDTO(Permission p) {
-        return new PermissionResponseDTO(p.getId(), p.getName(), p.getDescription());
+        return new PermissionResponseDTO(
+            p.getId(), 
+            p.getName(), 
+            p.getCode(), 
+            p.getModule(), 
+            p.getCategory(), 
+            p.getDescription(), 
+            p.isSystem()
+        );
     }
 
     public RoleResponseDTO mapToRoleResponseDTO(Role r) {
-        Set<PermissionResponseDTO> perms = r.getPermissions() != null 
-            ? r.getPermissions().stream().map(this::mapToPermissionResponseDTO).collect(Collectors.toSet())
+        Set<PermissionResponseDTO> perms = r.getRolePermissionScopes() != null 
+            ? r.getRolePermissionScopes().stream()
+                .map(rps -> mapToPermissionResponseDTO(rps.getPermission()))
+                .collect(Collectors.toSet())
             : new HashSet<>();
         return new RoleResponseDTO(r.getId(), r.getName(), r.getDescription(), perms,
                 r.getOrganization() != null ? r.getOrganization().getId() : null,
@@ -93,15 +103,13 @@ public class RoleService {
             throw new org.springframework.security.access.AccessDeniedException("Global role management requires SUPER_ADMIN.");
         }
 
-        Organization org = organizationRepository.findById(orgId)
-                .orElseThrow(() -> new IllegalArgumentException("Organization not found"));
-        com.example.taskflow.domain.OrganizationMembership m = membershipRepository.findByUserAndOrganization(caller, org).orElse(null);
-        
-        boolean hasPerm = m != null && m.getOrgRole() != null && m.getOrgRole().getPermissions().stream()
-                .anyMatch(p -> p.getName().equals(permissionName));
-
-        if (!hasPerm) {
-            throw new org.springframework.security.access.AccessDeniedException("You lack the '" + permissionName + "' permission in this organization.");
+        com.example.taskflow.security.PermissionCode pCode = com.example.taskflow.security.authorization.LegacyPermissionMapper.resolveForDomain("ROLE", permissionName);
+        if (pCode != null) {
+            if (!permissionService.isAuthorized(caller, pCode, orgId)) {
+                throw new org.springframework.security.access.AccessDeniedException("You lack the '" + permissionName + "' permission in this organization.");
+            }
+        } else {
+            throw new org.springframework.security.access.AccessDeniedException("Invalid permission code.");
         }
     }
 
@@ -260,8 +268,8 @@ public class RoleService {
 
     public Set<PermissionResponseDTO> getRolePermissions(Long id) {
         Role role = roleRepository.findById(id).orElseThrow(() -> new RuntimeException("Role not found"));
-        return role.getPermissions().stream()
-            .map(this::mapToPermissionResponseDTO).collect(Collectors.toSet());
+        return role.getRolePermissionScopes().stream()
+            .map(rps -> mapToPermissionResponseDTO(rps.getPermission())).collect(Collectors.toSet());
     }
 
     @Transactional
@@ -279,10 +287,10 @@ public class RoleService {
             if (!isOrgScopedRole) {
                 // For global roles: enforce "you can only grant permissions you hold"
                 Set<String> callerPerms = permissionService.getPermissionsForUser(caller);
-                for (String pName : request.permissionNames()) {
-                    if (!callerPerms.contains(pName)) {
+                for (var pAssign : request.permissions()) {
+                    if (!callerPerms.contains(pAssign.permissionName())) {
                         throw new org.springframework.security.access.AccessDeniedException(
-                            "You may only grant permissions you currently hold: " + pName);
+                            "You may only grant permissions you currently hold: " + pAssign.permissionName());
                     }
                 }
                 if (CORE_ROLES.contains(role.getName())) {
@@ -292,21 +300,36 @@ public class RoleService {
             }
         }
         
-        Set<Permission> oldPerms = new HashSet<>(role.getPermissions());
-        Set<Permission> updatedPermissions = new HashSet<>();
-        for (String pName : request.permissionNames()) {
-            Permission permission = permissionRepository.findByName(pName)
-                    .orElseThrow(() -> new RuntimeException("Permission not found: " + pName));
-            updatedPermissions.add(permission);
+        Set<Permission> oldPerms = role.getRolePermissionScopes().stream()
+                .map(com.example.taskflow.domain.RolePermissionScope::getPermission)
+                .collect(Collectors.toSet());
+                
+        role.getRolePermissionScopes().clear();
+        
+        com.example.taskflow.repository.ScopeRepository scopeRepository = org.springframework.web.context.support.WebApplicationContextUtils
+                .getRequiredWebApplicationContext(org.springframework.web.context.request.RequestContextHolder.getRequestAttributes() != null ? 
+                    ((org.springframework.web.context.request.ServletRequestAttributes) org.springframework.web.context.request.RequestContextHolder.getRequestAttributes()).getRequest().getServletContext() : null)
+                .getBean(com.example.taskflow.repository.ScopeRepository.class);
+
+        for (var pAssign : request.permissions()) {
+            Permission permission = permissionRepository.findByName(pAssign.permissionName())
+                    .orElseThrow(() -> new RuntimeException("Permission not found: " + pAssign.permissionName()));
+            com.example.taskflow.domain.Scope scope = scopeRepository.findByCode(pAssign.scopeCode())
+                    .orElseThrow(() -> new RuntimeException("Scope not found: " + pAssign.scopeCode()));
+                    
+            com.example.taskflow.domain.RolePermissionScope rps = new com.example.taskflow.domain.RolePermissionScope();
+            rps.setRole(role);
+            rps.setPermission(permission);
+            rps.setScope(scope);
+            role.getRolePermissionScopes().add(rps);
         }
         
-        role.setPermissions(updatedPermissions);
         roleRepository.save(role);
 
         permissionService.invalidateAll();
         
-        Set<PermissionResponseDTO> newPermsDTO = role.getPermissions().stream()
-            .map(this::mapToPermissionResponseDTO).collect(Collectors.toSet());
+        Set<PermissionResponseDTO> newPermsDTO = role.getRolePermissionScopes().stream()
+            .map(rps -> mapToPermissionResponseDTO(rps.getPermission())).collect(Collectors.toSet());
             
         auditService.recordSync("ROLE_PERMISSIONS_CHANGED", caller, "ROLE", id,
                 oldPerms.stream().map(Permission::getName).collect(Collectors.toList()),

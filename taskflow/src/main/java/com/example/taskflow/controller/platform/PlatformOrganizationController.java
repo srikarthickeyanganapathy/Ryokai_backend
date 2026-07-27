@@ -8,14 +8,16 @@ import com.example.taskflow.dto.OrganizationResponseDTO;
 
 import java.util.List;
 
+import com.example.taskflow.security.platform.PlatformAuthorize;
+import com.example.taskflow.security.platform.PlatformPermission;
+
 /**
  * Super Admin / Platform Control Plane organization management endpoints.
- * All endpoints require SUPER_ADMIN role (Platform authorization).
+ * All endpoints require Platform authorization.
  * Migrated from AdminController to dedicated platform package and namespace per ADR-009.
  */
 @RestController
 @RequestMapping(value = "/api/v1/platform", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
-@PreAuthorize("hasRole('SUPER_ADMIN')")
 public class PlatformOrganizationController {
 
     private final PlatformOrganizationService platformOrganizationService;
@@ -28,6 +30,7 @@ public class PlatformOrganizationController {
      * List all organizations on the platform.
      */
     @GetMapping("/organizations")
+    @PlatformAuthorize(PlatformPermission.ORG_VIEW_ALL)
     public ResponseEntity<List<OrganizationResponseDTO>> listAllOrganizations() {
         return ResponseEntity.ok(platformOrganizationService.listAllOrganizations());
     }
@@ -36,6 +39,7 @@ public class PlatformOrganizationController {
      * Get details of any organization.
      */
     @GetMapping("/organizations/{id}")
+    @PlatformAuthorize(PlatformPermission.ORG_VIEW_DETAILS)
     public ResponseEntity<OrganizationResponseDTO> getOrganization(@PathVariable Long id) {
         return ResponseEntity.ok(platformOrganizationService.getOrganizationAsAdmin(id));
     }
@@ -44,6 +48,7 @@ public class PlatformOrganizationController {
      * Suspend an organization - prevents all members from performing org operations.
      */
     @PostMapping("/organizations/{id}/suspend")
+    @PlatformAuthorize(PlatformPermission.ORG_SUSPEND)
     public ResponseEntity<OrganizationResponseDTO> suspendOrganization(@PathVariable Long id) {
         return ResponseEntity.ok(platformOrganizationService.suspendOrganization(id));
     }
@@ -52,6 +57,7 @@ public class PlatformOrganizationController {
      * Reactivate a suspended organization.
      */
     @PostMapping("/organizations/{id}/activate")
+    @PlatformAuthorize(PlatformPermission.ORG_UNSUSPEND)
     public ResponseEntity<OrganizationResponseDTO> activateOrganization(@PathVariable Long id) {
         return ResponseEntity.ok(platformOrganizationService.activateOrganization(id));
     }
@@ -60,6 +66,7 @@ public class PlatformOrganizationController {
      * Soft-delete an organization.
      */
     @DeleteMapping("/organizations/{id}")
+    @PlatformAuthorize(PlatformPermission.ORG_DELETE)
     public ResponseEntity<Void> deleteOrganization(@PathVariable Long id) {
         platformOrganizationService.deleteOrganization(id);
         return ResponseEntity.noContent().build();

@@ -26,17 +26,20 @@ public class OrganizationServiceImpl implements OrganizationService {
     private final AuditService auditService;
     private final RoleRepository roleRepository;
     private final PermissionRepository permissionRepository;
+    private final com.example.taskflow.repository.ScopeRepository scopeRepository;
 
     public OrganizationServiceImpl(OrganizationRepository organizationRepository,
                                OrganizationMembershipRepository membershipRepository,
                                AuditService auditService,
                                RoleRepository roleRepository,
-                               PermissionRepository permissionRepository) {
+                               PermissionRepository permissionRepository,
+                               com.example.taskflow.repository.ScopeRepository scopeRepository) {
         this.organizationRepository = organizationRepository;
         this.membershipRepository = membershipRepository;
         this.auditService = auditService;
         this.roleRepository = roleRepository;
         this.permissionRepository = permissionRepository;
+        this.scopeRepository = scopeRepository;
     }
 
     @Override
@@ -53,21 +56,25 @@ public class OrganizationServiceImpl implements OrganizationService {
         org.setCreatedBy(adminUser);
         Organization saved = organizationRepository.save(org);
 
-        java.util.Set<com.example.taskflow.domain.Permission> adminPerms = loadPermissionsByName(
-            "TASK_VIEW", "TASK_ASSIGN", "TASK_EDIT", "TASK_DELETE",
-            "TASK_REVIEW", "TASK_DEPENDENCY_EDIT",
-            "TASK_REASSIGN", "TASK_ARCHIVE", "ROLE_MANAGE",
-            "ORG_MEMBER_INVITE", "ORG_MEMBER_REMOVE", "LEAVE_REQUEST_MANAGE",
-            "TEAM_CREATE", "TEAM_MANAGE", "PROJECT_CREATE", "PROJECT_MANAGE",
-            "TASK_OVERRIDE", "ANNOUNCEMENT_MANAGE", "GOAL_MANAGE");
+        java.util.Set<com.example.taskflow.domain.Permission> adminPerms = new java.util.HashSet<>(permissionRepository.findAll());
 
         Role adminRole = new Role();
         adminRole.setName("ADMIN");
         adminRole.setDescription("Organization Administrator");
         adminRole.setBuiltin(true);
         adminRole.setOrganization(saved);
-        adminRole.setPermissions(adminPerms);
         adminRole.setPriority(0);
+        
+        com.example.taskflow.domain.Scope orgScope = scopeRepository.findByCode("ORGANIZATION").orElseThrow();
+        adminRole.setMaxScope(orgScope);
+        for (com.example.taskflow.domain.Permission p : adminPerms) {
+            com.example.taskflow.domain.RolePermissionScope rps = new com.example.taskflow.domain.RolePermissionScope();
+            rps.setRole(adminRole);
+            rps.setPermission(p);
+            rps.setScope(orgScope);
+            adminRole.getRolePermissionScopes().add(rps);
+        }
+        
         roleRepository.save(adminRole);
 
         OrganizationMembership membership = new OrganizationMembership();

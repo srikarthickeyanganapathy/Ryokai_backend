@@ -11,7 +11,7 @@ Accepted (10/10 Gold Standard)
 - Ensuring that structural refactoring preserves 100% of existing functional runtime behavior and relational database compatibility.
 
 ## Context
-During the backend architecture audit, we analyzed whether Ryokai's backend correctly separates the **Platform Control Plane** from the **Tenant Data Plane**. While the collaborative tenant domain was scored highly (8.5–9 / 10) due to robust mode-specific strategies (`RoleStrategy`, `SuperAdminStrategy`) and workspace isolation, we discovered several areas of structural ambiguity:
+During the backend architecture audit, we analyzed whether Ryokai's backend correctly separates the **Platform Control Plane** from the **Tenant Data Plane**. While the collaborative tenant domain was scored highly (8.5–9 / 10) due to robust mode-specific evaluation pipelines (`AuthorizationPipeline`, `PermissionService`) and workspace isolation, we discovered several areas of structural ambiguity:
 1. **Contaminated Namespaces:** Endpoints like `/api/v1/admin/roles` accepted both global roles (`orgId == null`) and tenant workspace roles (`orgId != null`), blurring plane boundaries.
 2. **Coupling to Navigation State:** Early proposals suggested gating Control Plane APIs behind an explicit `applicationType == PLATFORM` token claim or header, which improperly tied backend authorization to frontend shell routing.
 3. **Unclear Entity Ownership:** The boundary between global account administration and workspace membership needed explicit definition to prevent cross-plane service dependencies.

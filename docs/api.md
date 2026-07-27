@@ -137,7 +137,7 @@ Back to **[Master Index](README.md)**
 | `GET` | `/api/v1/organizations/{orgId}/roles` | Authenticated | — → `List<RoleResponseDTO>` |
 | `PUT` | `/api/v1/organizations/{orgId}/roles/{roleId}` | `ROLE_MANAGE` | `RoleUpdateRequestDTO` → `RoleResponseDTO` |
 | `DELETE` | `/api/v1/organizations/{orgId}/roles/{roleId}` | `ROLE_MANAGE` | — → `204 No Content` |
-| `PUT` | `/api/v1/organizations/{orgId}/roles/{roleId}/permissions` | `ROLE_MANAGE` | `List<PermissionType>` → `RoleResponseDTO` |
+| `PUT` | `/api/v1/organizations/{orgId}/roles/{roleId}/permissions` | `ROLE_MANAGE` | `AssignPermissionsRequestDTO` → `RoleResponseDTO` |
 
 ### 17. Organization Membership & HR Leave (`controller/organization/OrganizationMembershipController.java`)
 | Method | Path | Permission | DTO In → DTO Out |

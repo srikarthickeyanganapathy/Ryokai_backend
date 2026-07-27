@@ -55,5 +55,5 @@ Establish three isolated modes (`PERSONAL`, `CREW`, `ORG`) with structural const
 | `service/TaskDependencyService.java` | Cross-mode dependency prohibition |
 | `service/ProjectService.java` | Bridge connection: `shareProjectToCrew()`, enterprise project blocking |
 | `security/TaskPermissionHandler.java` | Mode-aware permission evaluation |
-| `security/EmployeeStrategy.java` | Org-scoped access validation |
-| `security/SuperAdminStrategy.java` | Personal-only access boundary for platform admins |
+| `service/PermissionService.java` | Aggregates role-permission-scopes for org-scoped access |
+| `security/AuthorizationPipeline.java` | Personal-only access boundary for platform admins |

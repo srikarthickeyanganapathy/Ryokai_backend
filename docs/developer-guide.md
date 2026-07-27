@@ -22,7 +22,7 @@ Back to **[Master Index](README.md)**
 1. **Enum**: Add the permission name to `PermissionType` enum.
 2. **DataSeeder**: `DataSeeder.run()` automatically seeds new enum values on startup — no manual SQL needed.
 3. **Handler**: Add the permission check logic to the appropriate handler (`TaskPermissionHandler`, `OrganizationPermissionHandler`, etc.).
-4. **EmployeeStrategy**: Wire the new permission into `EmployeeStrategy` so that role-based checks resolve correctly.
+4. **PermissionService**: Wire the new permission into `PermissionService` policies or `RolePermissionScope` mapping so that role-based checks resolve correctly.
 5. **Controller**: Use in `@PreAuthorize("hasPermission(#id, 'EntityType', 'PERMISSION_NAME')")`.
 
 ---

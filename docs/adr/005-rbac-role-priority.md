@@ -61,7 +61,7 @@ Member    (priority: 90) — lowest authority
 | `security/PermissionType.java` | Enum: 19 permission types |
 | `service/TaskHierarchyValidator.java` | Priority comparison during assignment/reassignment |
 | `service/RoleService.java` | Role CRUD, priority validation, permission assignment |
-| `security/EmployeeStrategy.java` | Role-priority-aware permission evaluation |
+| `service/PermissionService.java` | Role-priority-aware permission evaluation pipeline |
 | `security/CustomPermissionEvaluator.java` | SpEL evaluator delegating to handlers |
 | `security/OrganizationPermissionHandler.java` | Org-scoped permission checks |
 | `config/DataSeeder.java` | Bootstrap `PermissionType` values on startup |

@@ -10,8 +10,7 @@ import com.example.taskflow.repository.OrganizationMembershipRepository;
 import com.example.taskflow.repository.ProjectRepository;
 import com.example.taskflow.repository.TaskRepository;
 import com.example.taskflow.repository.TeamMemberRepository;
-import com.example.taskflow.security.RoleStrategy;
-import com.example.taskflow.security.RoleStrategyFactory;
+import com.example.taskflow.security.TaskPermissionHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -32,7 +31,7 @@ public class TaskQueryService {
     private final OrganizationMembershipRepository membershipRepository;
     private final TeamMemberRepository teamMemberRepository;
     private final CrewMemberRepository crewMemberRepository;
-    private final RoleStrategyFactory roleStrategyFactory;
+    private final TaskPermissionHandler taskPermissionHandler;
     private final TaskResponseMapper taskResponseMapper;
 
     public Page<TaskResponseDTO> getTasksForUser(User user, Pageable pageable) {
@@ -50,10 +49,10 @@ public class TaskQueryService {
     public Page<TaskResponseDTO> getTasksForUser(User user, Pageable pageable, String scope, Long projectId, Long crewId) {
         if (crewId != null) {
             boolean isMember = crewMemberRepository.existsByIdCrewIdAndIdUserId(crewId, user.getId());
-            if (!isMember && !roleStrategyFactory.getStrategy(user).canOverride(user)) {
+            if (!isMember) {
                 throw new com.example.taskflow.exception.UnauthorizedActionException("You are not authorized to view tasks for this crew.");
             }
-            Page<Task> page = taskRepository.findByCrewId(crewId, pageable);
+            Page<Task> page = taskRepository.findByCrewIdWithBridge(crewId, pageable);
             return batchMapTasks(page);
         }
 
@@ -75,24 +74,26 @@ public class TaskQueryService {
             return batchMapTasks(page);
         }
 
-        RoleStrategy strategy = roleStrategyFactory.getStrategy(user);
+        if (user.isSuperAdmin()) {
+            Page<Task> page = taskRepository.findVisibleForEmployee(user, user.getId(), pageable);
+            List<Task> personalOnly = page.stream()
+                    .filter(task -> (task.isPersonal() && task.getCreator() != null
+                            && task.getCreator().getId().equals(user.getId()))
+                            || (task.getCrew() != null))
+                    .collect(Collectors.toList());
+            return batchMapList(personalOnly, pageable, personalOnly.size());
+        }
 
-        if (strategy.canOverride(user) || strategy.canViewAllTasks(user)) {
-            boolean isSuperAdmin = user.isSuperAdmin();
+        var memberships = membershipRepository.findByUserId(user.getId());
+        if (!memberships.isEmpty()) {
+            var membership = memberships.get(0);
+            boolean isDirectorOrAdmin = membership.getOrgRole() != null && membership.getOrgRole().getRolePermissionScopes().stream()
+                    .anyMatch(rps -> rps.getPermission().getName().equals("TASK_OVERRIDE") || rps.getPermission().getName().equals("TASK_VIEW"));
+            boolean isManager = membership.getOrgRole() != null && membership.getOrgRole().getRolePermissionScopes().stream()
+                    .anyMatch(rps -> rps.getPermission().getName().equals("TASK_ASSIGN"));
 
-            if (isSuperAdmin) {
-                Page<Task> page = taskRepository.findVisibleForEmployee(user, user.getId(), pageable);
-                List<Task> personalOnly = page.stream()
-                        .filter(task -> (task.isPersonal() && task.getCreator() != null
-                                && task.getCreator().getId().equals(user.getId()))
-                                || (task.getCrew() != null))
-                        .collect(Collectors.toList());
-                return batchMapList(personalOnly, pageable, personalOnly.size());
-            }
-
-            var memberships = membershipRepository.findByUserId(user.getId());
-            if (!memberships.isEmpty()) {
-                Long orgId = memberships.get(0).getOrganization().getId();
+            if (isDirectorOrAdmin) {
+                Long orgId = membership.getOrganization().getId();
                 Page<Task> page = taskRepository.findByOrganizationIdOrCreatedBy(orgId, user, user.getId(), pageable);
                 Page<TaskResponseDTO> result = batchMapTasks(page);
                 if (scope != null) {
@@ -103,23 +104,14 @@ public class TaskQueryService {
                 }
                 return result;
             }
-            Page<Task> page = taskRepository.findByAssigneeOrCreator(user, pageable);
-            Page<TaskResponseDTO> fallbackResult = batchMapTasks(page);
-            if (scope != null) {
-                List<TaskResponseDTO> filtered = fallbackResult.getContent().stream()
-                        .filter(dto -> scopeFilter(dto, user, scope))
-                        .collect(Collectors.toList());
-                return new PageImpl<>(filtered, pageable, filtered.size());
-            }
-            return fallbackResult;
-        }
 
-        if (strategy.canAssign(user)) {
-            Page<Task> page = taskRepository.findVisibleForManager(user, user.getId(), pageable);
-            List<Task> filteredTasks = page.stream()
-                    .filter(task -> entityScopeFilter(task, user, scope))
-                    .collect(Collectors.toList());
-            return batchMapList(filteredTasks, pageable, scope != null ? filteredTasks.size() : page.getTotalElements());
+            if (isManager) {
+                Page<Task> page = taskRepository.findVisibleForManager(user, user.getId(), pageable);
+                List<Task> filteredTasks = page.stream()
+                        .filter(task -> entityScopeFilter(task, user, scope))
+                        .collect(Collectors.toList());
+                return batchMapList(filteredTasks, pageable, scope != null ? filteredTasks.size() : page.getTotalElements());
+            }
         }
 
         Page<Task> page = taskRepository.findVisibleForEmployee(user, user.getId(), pageable);
@@ -133,31 +125,8 @@ public class TaskQueryService {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new IllegalArgumentException("Task not found with id: " + taskId));
         
-        RoleStrategy strategy = roleStrategyFactory.getStrategy(user);
-        if (strategy.canOverride(user)) {
-            return taskResponseMapper.mapToTaskResponseDTO(task);
-        }
-
-        if (task.getCrew() != null) {
-            boolean isMember = crewMemberRepository.existsByIdCrewIdAndIdUserId(task.getCrew().getId(), user.getId());
-            if (isMember) {
-                return taskResponseMapper.mapToTaskResponseDTO(task);
-            }
-        }
-
-        boolean isPersonalAndMine = task.isPersonal() && task.getCreator() != null && task.getCreator().getId().equals(user.getId());
-        boolean isAssignee = task.getAssignee() != null && task.getAssignee().getId().equals(user.getId());
-        boolean isCreator = task.getCreator() != null && task.getCreator().getId().equals(user.getId());
-        
-        if (!isPersonalAndMine && !isAssignee && !isCreator && !strategy.canViewAllTasks(user)) {
-            if (task.getOrg() != null && strategy.canAssign(user)) {
-                 boolean inOrg = membershipRepository.existsByUserAndOrganization(user, task.getOrg());
-                 if (!inOrg) {
-                     throw new com.example.taskflow.exception.UnauthorizedActionException("You are not authorized to view this task.");
-                 }
-            } else {
-                 throw new com.example.taskflow.exception.UnauthorizedActionException("You are not authorized to view this task.");
-            }
+        if (!taskPermissionHandler.hasPermission(null, user, task, "VIEW")) {
+            throw new com.example.taskflow.exception.UnauthorizedActionException("You are not authorized to view this task.");
         }
 
         return taskResponseMapper.mapToTaskResponseDTO(task);
@@ -184,6 +153,12 @@ public class TaskQueryService {
             return dto.getAssignee() != null && dto.getAssignee().equals(user.getUsername());
         } else if ("created_by_me".equalsIgnoreCase(scope)) {
             return dto.getCreator() != null && dto.getCreator().equals(user.getUsername());
+        } else if ("PERSONAL".equalsIgnoreCase(scope)) {
+            return dto.getOrgId() == null && dto.getCrewId() == null && dto.getTeamId() == null;
+        } else if ("ORG".equalsIgnoreCase(scope) || "ORGANIZATION".equalsIgnoreCase(scope)) {
+            return dto.getOrgId() != null;
+        } else if ("CREWS".equalsIgnoreCase(scope) || "CREW".equalsIgnoreCase(scope)) {
+            return dto.getCrewId() != null || (dto.getProjectId() != null && dto.getOrgId() == null);
         }
         return true;
     }
@@ -193,6 +168,12 @@ public class TaskQueryService {
             return task.getAssignee() != null && task.getAssignee().getId().equals(user.getId());
         } else if ("created_by_me".equalsIgnoreCase(scope)) {
             return task.getCreator() != null && task.getCreator().getId().equals(user.getId());
+        } else if ("PERSONAL".equalsIgnoreCase(scope)) {
+            return task.getOrg() == null && task.getCrew() == null && task.getTeam() == null;
+        } else if ("ORG".equalsIgnoreCase(scope) || "ORGANIZATION".equalsIgnoreCase(scope)) {
+            return task.getOrg() != null;
+        } else if ("CREWS".equalsIgnoreCase(scope) || "CREW".equalsIgnoreCase(scope)) {
+            return task.getCrew() != null || (task.getProject() != null && !task.getProject().getSharedCrews().isEmpty() && task.getProject().getOrganization() == null);
         }
         return true;
     }

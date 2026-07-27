@@ -5,8 +5,8 @@ import com.example.taskflow.domain.TaskMode;
 import com.example.taskflow.domain.TaskStatus;
 import com.example.taskflow.domain.User;
 import com.example.taskflow.dto.TaskRequestDTO;
-import com.example.taskflow.security.RoleStrategy;
-import com.example.taskflow.security.RoleStrategyFactory;
+import com.example.taskflow.service.PermissionService;
+import com.example.taskflow.security.PermissionCode;
 import org.springframework.stereotype.Component;
 
 import java.util.EnumSet;
@@ -15,10 +15,10 @@ import java.util.Set;
 @Component
 public class OrgTaskStrategy implements TaskLifecycleStrategy, TaskScopeBehavior, Approvable {
 
-    private final RoleStrategyFactory roleStrategyFactory;
+    private final PermissionService permissionService;
 
-    public OrgTaskStrategy(RoleStrategyFactory roleStrategyFactory) {
-        this.roleStrategyFactory = roleStrategyFactory;
+    public OrgTaskStrategy(PermissionService permissionService) {
+        this.permissionService = permissionService;
     }
 
     @Override
@@ -28,44 +28,43 @@ public class OrgTaskStrategy implements TaskLifecycleStrategy, TaskScopeBehavior
 
     @Override
     public boolean canCreate(User u, TaskRequestDTO request) {
-        RoleStrategy strategy = roleStrategyFactory.getStrategy(u);
-        return strategy.canAssign(u);
+        if (request.getOrgId() == null) return false;
+        return permissionService.isAuthorized(u, PermissionCode.TASK_CREATE, request.getOrgId());
+    }
+
+    private boolean check(User u, Task t, PermissionCode code) {
+        if (t.getOrg() == null) return false;
+        return permissionService.isAuthorized(u, code, t.getOrg().getId(), "TASK", t.getId());
     }
 
     @Override
     public boolean canView(User u, Task t) {
-        RoleStrategy strategy = roleStrategyFactory.getStrategy(u);
-        return strategy.canViewTask(u, t);
+        return check(u, t, PermissionCode.TASK_VIEW);
     }
 
     @Override
     public boolean canReassign(User u, Task t) {
-        RoleStrategy strategy = roleStrategyFactory.getStrategy(u);
-        return strategy.canReassign(u, t);
+        return check(u, t, PermissionCode.TASK_REASSIGN);
     }
 
     @Override
     public boolean canArchive(User u, Task t) {
-        RoleStrategy strategy = roleStrategyFactory.getStrategy(u);
-        return strategy.canArchive(u, t);
+        return check(u, t, PermissionCode.TASK_ARCHIVE);
     }
 
     @Override
     public boolean canEditDependency(User u, Task t) {
-        RoleStrategy strategy = roleStrategyFactory.getStrategy(u);
-        return strategy.canEditDependency(u, t);
+        return check(u, t, PermissionCode.TASK_DEPENDENCY_UPDATE);
     }
 
     @Override
     public boolean canEdit(User u, Task t) {
-        RoleStrategy strategy = roleStrategyFactory.getStrategy(u);
-        return strategy.canEdit(u, t); // Relies on existing rank math
+        return check(u, t, PermissionCode.TASK_UPDATE);
     }
 
     @Override
     public boolean canDelete(User u, Task t) {
-        RoleStrategy strategy = roleStrategyFactory.getStrategy(u);
-        return strategy.canDelete(u, t);
+        return check(u, t, PermissionCode.TASK_DELETE);
     }
 
     @Override
@@ -89,8 +88,7 @@ public class OrgTaskStrategy implements TaskLifecycleStrategy, TaskScopeBehavior
 
     @Override
     public boolean canApprove(User u, Task t) {
-        RoleStrategy strategy = roleStrategyFactory.getStrategy(u);
-        return strategy.canReview(u, t); // delegates to existing rank math
+        return check(u, t, PermissionCode.TASK_APPROVE);
     }
 
     @Override

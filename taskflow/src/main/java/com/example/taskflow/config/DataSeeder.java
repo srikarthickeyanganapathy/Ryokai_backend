@@ -19,7 +19,7 @@ import com.example.taskflow.domain.User;
 import com.example.taskflow.repository.PermissionRepository;
 import com.example.taskflow.repository.RoleRepository;
 import com.example.taskflow.repository.UserRepository;
-import com.example.taskflow.security.PermissionType;
+import com.example.taskflow.security.PermissionCode;
 
 import jakarta.transaction.Transactional;
 
@@ -42,20 +42,35 @@ public class DataSeeder {
                                       RoleRepository roleRepository,
                                       UserRepository userRepository,
                                       PasswordEncoder passwordEncoder,
-                                      Environment env) {
+                                      Environment env,
+                                      com.example.taskflow.repository.ScopeRepository scopeRepository) {
         return args -> {
             // ====================================================================
             // Always bootstrap: Permissions
             // ====================================================================
 
+            // Seed Scopes
+            String[] scopeCodes = {"OWN", "PROJECT", "TEAM", "ORGANIZATION", "GLOBAL"};
+            int[] priorities = {0, 10, 20, 30, 40};
+            for (int i = 0; i < scopeCodes.length; i++) {
+                String code = scopeCodes[i];
+                int priority = priorities[i];
+                scopeRepository.findByCode(code).orElseGet(() -> {
+                    com.example.taskflow.domain.Scope scope = new com.example.taskflow.domain.Scope();
+                    scope.setCode(code);
+                    scope.setPriority(priority);
+                    return scopeRepository.save(scope);
+                });
+            }
+
             // Seed Permissions
-            for (PermissionType type : PermissionType.values()) {
-                createPermissionIfNotFound(type.name(), type.getDescription(), permissionRepository);
+            for (PermissionCode code : PermissionCode.values()) {
+                createPermissionIfNotFound(code, permissionRepository);
             }
 
             // Seed Super Admin Role
             Set<Permission> allPermissions = new HashSet<>(permissionRepository.findAll());
-            createRoleIfNotFound("SUPER_ADMIN", "System Super Administrator", allPermissions, roleRepository);
+            createRoleIfNotFound("SUPER_ADMIN", "System Super Administrator", allPermissions, roleRepository, scopeRepository);
 
             // Seed Super Admin User
             String adminUser = env.getProperty("app.admin.username", "superadmin");
@@ -92,22 +107,38 @@ public class DataSeeder {
         return userRepository.findByUsername(username).orElse(null);
     }
 
-    private void createRoleIfNotFound(String roleName, String description, Set<Permission> permissions, RoleRepository roleRepository) {
-        Role role = roleRepository.findByName(roleName).orElse(new Role());
+    private void createRoleIfNotFound(String roleName, String description, Set<Permission> permissions, RoleRepository roleRepository, com.example.taskflow.repository.ScopeRepository scopeRepository) {
+        Role role = roleRepository.findByNameWithPermissions(roleName).orElse(new Role());
         role.setName(roleName);
         role.setDescription(description);
-        role.setPermissions(permissions);
+        
+        com.example.taskflow.domain.Scope globalScope = scopeRepository.findByCode("GLOBAL").orElse(null);
+        if (globalScope != null) {
+            role.getRolePermissionScopes().clear();
+            for (Permission p : permissions) {
+                com.example.taskflow.domain.RolePermissionScope rps = new com.example.taskflow.domain.RolePermissionScope();
+                rps.setRole(role);
+                rps.setPermission(p);
+                rps.setScope(globalScope);
+                role.getRolePermissionScopes().add(rps);
+            }
+        }
+        
         roleRepository.save(role);
         logger.info("Created/Updated role: {}", roleName);
     }
 
-    private void createPermissionIfNotFound(String name, String description, PermissionRepository permissionRepository) {
-        if (permissionRepository.findByName(name).isEmpty()) {
+    private void createPermissionIfNotFound(PermissionCode code, PermissionRepository permissionRepository) {
+        if (permissionRepository.findByName(code.name()).isEmpty()) {
             Permission permission = new Permission();
-            permission.setName(name);
-            permission.setDescription(description);
+            permission.setName(code.name());
+            permission.setCode(code.name());
+            permission.setModule(code.getModule().name());
+            permission.setCategory(code.getCategory().name());
+            permission.setDescription(code.getDescription());
+            permission.setSystem(true); // All seeded permissions are system defaults
             permissionRepository.save(permission);
-            logger.info("Created permission: {}", name);
+            logger.info("Created permission: {}", code.name());
         }
     }
 

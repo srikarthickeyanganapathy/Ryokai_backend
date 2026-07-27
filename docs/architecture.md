@@ -98,15 +98,22 @@ src/main/java/com/example/taskflow/
 │   ├── platform/        # Control Plane services (PlatformUserService, PlatformRoleService, etc.)
 │   ├── organization/    # Organization vault services (OrganizationService, OrganizationRoleService, etc.)
 │   └── impl/            # Service implementations & TaskActivityEventListener (@TransactionalEventListener)
-├── strategy/task/       # Task Scope Lifecycle Strategies (Strategy Pattern)
-│   ├── TaskLifecycleStrategy    # Base interface (10 methods)
-│   ├── TaskScopeBehavior        # Mixin: initialStatus, canBeReviewed, onComplete
-│   ├── Approvable               # Mixin: canSubmit, canApprove, canReject (Org only)
-│   ├── Claimable                # Mixin: canClaim (Crew only)
-│   ├── PersonalTaskStrategy     # PERSONAL mode implementation
-│   ├── CrewTaskStrategy         # CREW mode implementation
-│   ├── OrgTaskStrategy          # ORG mode implementation
-│   └── TaskStrategyFactory      # Mode → Strategy resolver
+├── strategy/
+│   ├── task/            # Task Scope Lifecycle Strategies (Strategy Pattern)
+│   │   ├── TaskLifecycleStrategy    # Base interface (10 methods)
+│   │   ├── TaskScopeBehavior        # Mixin: initialStatus, canBeReviewed, onComplete
+│   │   ├── Approvable               # Mixin: canSubmit, canApprove, canReject (Org only)
+│   │   ├── Claimable                # Mixin: canClaim (Crew only)
+│   │   ├── PersonalTaskStrategy     # PERSONAL mode implementation
+│   │   ├── CrewTaskStrategy         # CREW mode implementation
+│   │   ├── OrgTaskStrategy          # ORG mode implementation
+│   │   └── TaskStrategyFactory      # Mode → Strategy resolver
+│   └── dashboard/       # Tri-Modal Dashboard Analytics Strategies (Strategy Pattern)
+│       ├── DashboardStatsStrategy    # Base interface for dashboard metric resolution
+│       ├── PersonalDashboardStrategy # PERSONAL mode stats (user assignee/creator)
+│       ├── OrgDashboardStrategy      # ORG mode stats (3-way team visibility resolution)
+│       ├── CrewDashboardStrategy     # CREWS mode stats (bridged crew tasks & projects)
+│       └── DashboardStrategyFactory  # Mode → Dashboard Strategy resolver
 └── util/                # JWT utilities, authentication filter, TaskMetrics
 ```
 
@@ -124,10 +131,11 @@ These are the rules that govern the codebase structure and must be maintained as
 | AC-4 | **DTOs never reach Repository layer.** Services map DTOs to entities before persistence. | Prevents API contract changes from breaking queries. |
 | AC-5 | **Permission checks always occur before state transitions.** Controller layer enforces baseline Authentication / Coarse Auth; Service layer enforces Business Auth. | Defense-in-depth: multi-layer authorization ([ADR-008](adr/008-hybrid-authorization-model.md)). |
 | AC-6 | **Cross-mode dependencies are forbidden.** Personal tasks depend only on personal tasks (same creator); Org on Org (same org); Crew on Crew (same crew). | Enforces tri-modal workspace isolation ([ADR-003](adr/003-tri-modal-workspaces.md)). |
-| AC-7 | **Super Admin cannot access organization task data.** `SuperAdminStrategy` restricts to personal tasks only. | Privacy boundary — platform operators vs. tenant data. |
+| AC-7 | **Super Admin cannot access organization task data.** Platform roles restrict access to platform boundaries only. | Privacy boundary — platform operators vs. tenant data. |
 | AC-8 | **Reviewers must have strictly higher role priority than assignees.** Assignees cannot self-review. | Prevents vertical privilege escalation ([ADR-005](adr/005-rbac-role-priority.md)). |
 | AC-9 | **Enterprise projects (project.organization ≠ null) cannot be shared with Crews.** | Sealed corporate vault boundary. |
 | AC-10 | **All async tasks propagate MDC context.** `MdcTaskDecorator` wraps every thread pool executor. | Correlation IDs survive async boundaries for end-to-end tracing. |
+| AC-11 | **Dashboard analytics must resolve via Tri-Modal Dashboard Strategy Pattern.** `DashboardStrategyFactory` dynamically delegates `/api/v1/stats` calculation to `PersonalDashboardStrategy`, `OrgDashboardStrategy` (via 3-way team scope resolution evaluated by `PermissionService`), or `CrewDashboardStrategy` (traversing bridged crew projects). | Enforces strict environmental isolation without data leakage or unparameterized union breakage. |
 
 ---
 

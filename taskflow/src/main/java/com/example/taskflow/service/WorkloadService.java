@@ -11,8 +11,8 @@ import com.example.taskflow.exception.UnauthorizedActionException;
 import com.example.taskflow.repository.OrganizationMembershipRepository;
 import com.example.taskflow.repository.OrganizationRepository;
 import com.example.taskflow.repository.TaskRepository;
-import com.example.taskflow.security.RoleStrategy;
-import com.example.taskflow.security.RoleStrategyFactory;
+import com.example.taskflow.service.PermissionService;
+import com.example.taskflow.security.PermissionCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,7 +27,7 @@ public class WorkloadService {
     private final OrganizationRepository organizationRepository;
     private final OrganizationMembershipRepository membershipRepository;
     private final TaskRepository taskRepository;
-    private final RoleStrategyFactory roleStrategyFactory;
+    private final PermissionService permissionService;
 
     public List<UserWorkloadDTO> getWorkloadMatrix(User requester, Long orgId) {
         var org = organizationRepository.findById(orgId)
@@ -37,9 +37,10 @@ public class WorkloadService {
             throw new OrganizationSuspendedException("Organization is not active.");
         }
 
-        boolean isMember = membershipRepository.existsByUserAndOrganization(requester, org);
-        RoleStrategy strategy = roleStrategyFactory.getStrategy(requester);
-        if (!isMember && !strategy.canOverride(requester) && !strategy.canViewAllTasks(requester)) {
+        boolean isAuthorized = permissionService.isAuthorized(requester, PermissionCode.DASHBOARD_VIEW, orgId) ||
+                               permissionService.isAuthorized(requester, PermissionCode.TASK_VIEW, orgId);
+        
+        if (!isAuthorized) {
             throw new UnauthorizedActionException(
                     "You are not authorized to view the workload matrix.");
         }

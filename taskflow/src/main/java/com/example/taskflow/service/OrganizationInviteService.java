@@ -318,8 +318,8 @@ public class OrganizationInviteService {
         OrganizationMembership membership = membershipRepository.findByUserAndOrganization(caller, org)
                 .orElseThrow(() -> new UnauthorizedActionException("You are not a member of this organization"));
         
-        boolean hasPerm = membership.getOrgRole().getPermissions().stream()
-                .anyMatch(p -> p.getName().equals(permission));
+        boolean hasPerm = membership.getOrgRole().getRolePermissionScopes().stream()
+                .anyMatch(rps -> rps.getPermission().getName().equals(permission));
                 
         if (!hasPerm && !membership.getOrgRole().isBuiltinAdmin()) {
             throw new UnauthorizedActionException("Requires permission: " + permission);

@@ -3,28 +3,44 @@ package com.example.taskflow.security;
 import java.io.Serializable;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.access.PermissionEvaluator;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import com.example.taskflow.domain.User;
+import com.example.taskflow.domain.OrganizationMembership;
 import com.example.taskflow.repository.UserRepository;
+import com.example.taskflow.repository.OrganizationMembershipRepository;
 import com.example.taskflow.service.PermissionService;
+import com.example.taskflow.security.authorization.AuthorizationDecision;
+import com.example.taskflow.security.authorization.AuthorizationPipeline;
+import com.example.taskflow.security.authorization.AuthorizationRequest;
+import com.example.taskflow.security.authorization.LegacyPermissionMapper;
 
 @Component
 public class CustomPermissionEvaluator implements PermissionEvaluator {
 
+    private static final Logger log = LoggerFactory.getLogger(CustomPermissionEvaluator.class);
+
     private final UserRepository userRepository;
     private final PermissionService permissionService;
     private final List<DomainPermissionHandler> handlers;
+    private final AuthorizationPipeline authorizationPipeline;
+    private final OrganizationMembershipRepository membershipRepository;
 
-    public CustomPermissionEvaluator(UserRepository userRepository, 
+    public CustomPermissionEvaluator(UserRepository userRepository,
                                      PermissionService permissionService,
-                                     List<DomainPermissionHandler> handlers) {
+                                     List<DomainPermissionHandler> handlers,
+                                     AuthorizationPipeline authorizationPipeline,
+                                     OrganizationMembershipRepository membershipRepository) {
         this.userRepository = userRepository;
         this.permissionService = permissionService;
         this.handlers = handlers;
+        this.authorizationPipeline = authorizationPipeline;
+        this.membershipRepository = membershipRepository;
     }
 
     private User getUser(Authentication auth) {
@@ -63,9 +79,11 @@ public class CustomPermissionEvaluator implements PermissionEvaluator {
         String perm = (String) permission;
 
         if (targetDomainObject == null) {
-            return permissionService.hasPermission(user, perm);
+            return evaluateNullTarget(user, perm);
         }
 
+        // Domain object checks delegate to existing handlers
+        // These handlers will be migrated individually in Phase 4
         for (DomainPermissionHandler handler : handlers) {
             String typeName = targetDomainObject.getClass().getSimpleName();
             String handlerType = handler.getTargetType();
@@ -91,9 +109,10 @@ public class CustomPermissionEvaluator implements PermissionEvaluator {
         String perm = (String) permission;
         
         if (targetId == null && !"Project".equals(targetType) && !"Task".equals(targetType)) {
-             return permissionService.hasPermission(user, perm);
+             return evaluateNullTarget(user, perm);
         }
 
+        // Domain-specific handlers (legacy — handles by-ID lookups with task/project caching)
         for (DomainPermissionHandler handler : handlers) {
             if (targetType.equals(handler.getTargetType())) {
                 return handler.hasPermission(auth, user, targetId, perm);
@@ -101,5 +120,50 @@ public class CustomPermissionEvaluator implements PermissionEvaluator {
         }
 
         return false;
+    }
+
+    /**
+     * Evaluates permission checks where no target domain object is provided.
+     *
+     * <p>Tries the new pipeline first (via LegacyPermissionMapper), then falls
+     * back to the legacy PermissionService.hasPermission if the permission
+     * string is not mapped to a PermissionCode.
+     */
+    @SuppressWarnings("deprecation")
+    private boolean evaluateNullTarget(User user, String perm) {
+        // Try to resolve through the new pipeline
+        PermissionCode code = LegacyPermissionMapper.resolve(perm);
+        if (code != null) {
+            // Attempt pipeline evaluation — requires org context
+            Long orgId = resolveOrgIdForUser(user);
+            if (orgId != null) {
+                AuthorizationRequest request = AuthorizationRequest.builder(user, code)
+                        .organizationId(orgId)
+                        .build();
+                AuthorizationDecision decision = authorizationPipeline.evaluate(request);
+                return decision.isGranted();
+            }
+        }
+
+        // Fall back to legacy flat permission check
+        return permissionService.hasPermission(user, perm);
+    }
+
+    /**
+     * Resolves the organization ID for a user.
+     * Since Ryokai enforces one-user-one-org, this returns the single org membership's org ID.
+     */
+    private Long resolveOrgIdForUser(User user) {
+        if (user == null || user.getId() == null) return null;
+        try {
+            List<OrganizationMembership> memberships = membershipRepository.findByUserId(user.getId());
+            if (!memberships.isEmpty()) {
+                // One-user-one-org constraint: return the first (and only) org ID
+                return memberships.get(0).getOrganization().getId();
+            }
+        } catch (Exception e) {
+            log.debug("Could not resolve org ID for user {}: {}", user.getId(), e.getMessage());
+        }
+        return null;
     }
 }

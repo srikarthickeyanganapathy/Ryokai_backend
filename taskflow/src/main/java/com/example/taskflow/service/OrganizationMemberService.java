@@ -156,8 +156,8 @@ public class OrganizationMemberService {
     }
 
     private MembershipResponseDTO mapToMembershipDTO(OrganizationMembership membership) {
-        java.util.List<String> permissions = membership.getOrgRole() != null && membership.getOrgRole().getPermissions() != null
-                ? membership.getOrgRole().getPermissions().stream().map(com.example.taskflow.domain.Permission::getName).collect(Collectors.toList())
+        java.util.List<String> permissions = membership.getOrgRole() != null && membership.getOrgRole().getRolePermissionScopes() != null
+                ? membership.getOrgRole().getRolePermissionScopes().stream().map(rps -> rps.getPermission().getName()).collect(Collectors.toList())
                 : java.util.Collections.emptyList();
         return new MembershipResponseDTO(
                 membership.getId(),

@@ -31,7 +31,7 @@ import lombok.Setter;
 
 @Entity
 @Table(name = "tasks", indexes = {
-    @Index(name = "idx_task_org_status", columnList = "org_id, current_status"),
+    @Index(name = "idx_task_org_status", columnList = "organization_id, current_status"),
     @Index(name = "idx_task_assignee_status", columnList = "assigned_to, current_status"),
     @Index(name = "idx_task_team", columnList = "team_id"),
     @Index(name = "idx_task_crew", columnList = "crew_id"),

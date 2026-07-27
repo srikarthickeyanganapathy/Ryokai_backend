@@ -44,9 +44,16 @@ public class DashboardController {
     public ResponseEntity<DashboardStatsDTO> getStats(
             @AuthenticationPrincipal UserDetails userDetails,
             @RequestParam(required = false, defaultValue = "PERSONAL") String scope,
-            @RequestParam(required = false) Long orgId) {
+            @RequestParam(required = false) Long orgId,
+            @RequestParam(required = false) Long crewId) {
+        if (("ORG".equalsIgnoreCase(scope) || "ORGANIZATION".equalsIgnoreCase(scope)) && orgId == null) {
+            throw new IllegalArgumentException("Organization ID is required when scope is ORG");
+        }
+        if (("CREWS".equalsIgnoreCase(scope) || "CREW".equalsIgnoreCase(scope)) && crewId == null) {
+            throw new IllegalArgumentException("Crew ID is required when scope is CREWS");
+        }
         User user = userService.getCurrentUser(userDetails.getUsername());
-        return ResponseEntity.ok(dashboardService.getStats(user, scope, orgId));
+        return ResponseEntity.ok(dashboardService.getStats(user, scope, orgId, crewId));
     }
 
     @GetMapping("/activity")

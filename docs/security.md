@@ -51,9 +51,8 @@ Method security annotations (`@PreAuthorize("hasPermission(#taskId, 'Task', 'EDI
 | `TaskPermissionHandler` | `security/TaskPermissionHandler.java` | Evaluates task permissions based on mode, ownership, team membership, and role priority |
 | `ProjectPermissionHandler` | `security/ProjectPermissionHandler.java` | Validates project creator vs collaborator rights, enforces enterprise project isolation |
 | `OrganizationPermissionHandler` | `security/OrganizationPermissionHandler.java` | Evaluates corporate RBAC roles (`ROLE_MANAGE`, `ORG_MEMBER_REMOVE`, `LEAVE_REQUEST_MANAGE`) |
-| `RoleStrategyFactory` | `security/RoleStrategyFactory.java` | Resolves `User` → `RoleStrategy` (SuperAdmin vs Employee) |
-| `SuperAdminStrategy` | `security/SuperAdminStrategy.java` | **Privacy boundary**: can ONLY manage personal tasks. Cannot view/edit/delete any org task data |
-| `EmployeeStrategy` | `security/EmployeeStrategy.java` | Resolves access via org membership role + permissions + team membership + role priority math |
+| `AuthorizationPipeline` | `security/AuthorizationPipeline.java` | Core authorization engine resolving permissions across all contexts |
+| `PermissionService` | `service/PermissionService.java` | Aggregates role-permission-scopes for rapid authorization checks (`isAuthorized`) |
 
 ---
 
@@ -78,6 +77,7 @@ Method security annotations (`@PreAuthorize("hasPermission(#taskId, 'Task', 'EDI
 | `GOAL_MANAGE` | No | **Yes** | Perm Check | No | No | No | No |
 | `PROJECT_CREATE` | **Yes** | **Yes** | Perm Check | No | **Yes** | No | **Yes** |
 | `PROJECT_MANAGE` | No | **Yes** | Perm Check | No | No | No | No |
+| `DASHBOARD_ORG_WIDE_VIEW` | No | **Yes** | Perm Check | No | No | No | No |
 
 **Key constraints:**
 - **Reviewer Priority Rule**: Reviewer must have strictly lower `role.priority` value (= higher authority) than the assignee. Same priority is NOT sufficient.

@@ -29,7 +29,7 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
     private final CustomUserDetailsService userDetailsService;
     private final UserRepository userRepository;
     private final TaskRepository taskRepository;
-    private final RoleStrategyFactory roleStrategyFactory;
+    private final TaskPermissionHandler taskPermissionHandler;
     private final WhiteboardRepository whiteboardRepository;
     private final CrewMemberRepository crewMemberRepository;
 
@@ -61,7 +61,7 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
             String destination = accessor.getDestination();
             if (destination != null && destination.startsWith("/topic/tasks/")) {
                 try {
-                    Long taskId = Long.parseLong(destination.substring("/topic/tasks/".length()));
+                    String taskIdStr = destination.substring("/topic/tasks/".length());
                     
                     if (accessor.getUser() == null) {
                         throw new org.springframework.security.access.AccessDeniedException("Unauthenticated websocket connection");
@@ -70,11 +70,11 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
                     String username = accessor.getUser().getName();
                     User user = userRepository.findByUsername(username)
                             .orElseThrow(() -> new org.springframework.security.access.AccessDeniedException("User not found"));
-                    Task task = taskRepository.findById(taskId)
-                            .orElseThrow(() -> new org.springframework.security.access.AccessDeniedException("Task not found"));
                     
-                    if (!roleStrategyFactory.getStrategy(user).canViewTask(user, task)) {
-                        throw new org.springframework.security.access.AccessDeniedException("Not authorized to subscribe to this task updates");
+                    Long taskId = Long.parseLong(taskIdStr);
+                    Task task = taskRepository.findById(taskId).orElse(null);
+                    if (task == null || !taskPermissionHandler.hasPermission(null, user, task, "VIEW")) {
+                        throw new org.springframework.security.access.AccessDeniedException("Access denied for task " + taskId);
                     }
                 } catch (NumberFormatException e) {
                     throw new org.springframework.security.access.AccessDeniedException("Invalid task ID format in destination");

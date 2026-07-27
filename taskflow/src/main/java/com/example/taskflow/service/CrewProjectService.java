@@ -40,9 +40,7 @@ public class CrewProjectService {
             throw new IllegalArgumentException("Only crew members can view crew projects");
         }
 
-        List<Project> sharedProjects = projectRepository.findAll().stream()
-                .filter(p -> p.getSharedCrews().contains(crew))
-                .collect(Collectors.toList());
+        List<Project> sharedProjects = projectRepository.findProjectsForCrew(crewId);
 
         return sharedProjects.stream()
                 .map(projectService::toResponseDTO)

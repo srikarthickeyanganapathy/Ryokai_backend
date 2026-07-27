@@ -19,7 +19,7 @@ import com.example.taskflow.repository.TaskEvidenceRepository;
 import com.example.taskflow.repository.TaskRepository;
 import com.example.taskflow.domain.events.task.EvidenceUploadedEvent;
 import com.example.taskflow.event.DomainEventPublisher;
-import com.example.taskflow.security.RoleStrategyFactory;
+import com.example.taskflow.security.TaskPermissionHandler;
 
 @Service
 public class TaskEvidenceService {
@@ -27,20 +27,20 @@ public class TaskEvidenceService {
     private final TaskEvidenceRepository evidenceRepository;
     private final TaskRepository taskRepository;
     private final TaskAuditService taskAuditService;
-    private final RoleStrategyFactory roleStrategyFactory;
+    private final TaskPermissionHandler taskPermissionHandler;
     private final DomainEventPublisher domainEventPublisher;
     private final com.example.taskflow.util.TaskMetrics taskMetrics;
 
     public TaskEvidenceService(TaskEvidenceRepository evidenceRepository,
                                TaskRepository taskRepository,
                                TaskAuditService taskAuditService,
-                               RoleStrategyFactory roleStrategyFactory,
+                               TaskPermissionHandler taskPermissionHandler,
                                DomainEventPublisher domainEventPublisher,
                                com.example.taskflow.util.TaskMetrics taskMetrics) {
         this.evidenceRepository = evidenceRepository;
         this.taskRepository = taskRepository;
         this.taskAuditService = taskAuditService;
-        this.roleStrategyFactory = roleStrategyFactory;
+        this.taskPermissionHandler = taskPermissionHandler;
         this.domainEventPublisher = domainEventPublisher;
         this.taskMetrics = taskMetrics;
     }
@@ -118,7 +118,7 @@ public class TaskEvidenceService {
         }
 
         boolean isAdder = evidence.getAddedBy() != null && evidence.getAddedBy().getId().equals(user.getId());
-        boolean canEdit = roleStrategyFactory.getStrategy(user).canEdit(user, task);
+        boolean canEdit = taskPermissionHandler.hasPermission(null, user, task, "EDIT");
         if (!isAdder && !canEdit) {
             throw new UnauthorizedActionException("Only the adder or a task editor can delete evidence.");
         }
@@ -173,7 +173,7 @@ public class TaskEvidenceService {
     }
 
     private void assertCanView(User user, Task task) {
-        if (!roleStrategyFactory.getStrategy(user).canViewTask(user, task)) {
+        if (!taskPermissionHandler.hasPermission(null, user, task, "VIEW")) {
             throw new UnauthorizedActionException("You are not authorized to view this task.");
         }
     }

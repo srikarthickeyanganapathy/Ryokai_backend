@@ -1,7 +1,7 @@
 -- V48: Add performance indexes for high-frequency Task, TaskActivityLog, OrganizationMembership, and Notification query paths.
 
 -- 1. Tasks Table composite and targeted indexes
-CREATE INDEX IF NOT EXISTS idx_task_org_status ON tasks(org_id, current_status);
+CREATE INDEX IF NOT EXISTS idx_task_org_status ON tasks(organization_id, current_status);
 CREATE INDEX IF NOT EXISTS idx_task_assignee_status ON tasks(assigned_to, current_status);
 CREATE INDEX IF NOT EXISTS idx_task_team ON tasks(team_id);
 CREATE INDEX IF NOT EXISTS idx_task_crew ON tasks(crew_id);

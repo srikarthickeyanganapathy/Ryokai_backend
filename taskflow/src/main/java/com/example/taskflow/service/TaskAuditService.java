@@ -11,8 +11,6 @@ import com.example.taskflow.domain.User;
 import com.example.taskflow.dto.ActivityEventDTO;
 import com.example.taskflow.dto.UserSummaryDTO;
 import com.example.taskflow.repository.TaskStatusHistoryRepository;
-import com.example.taskflow.security.RoleStrategy;
-import com.example.taskflow.security.RoleStrategyFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import com.example.taskflow.util.RelativeTimeFormatter;
@@ -21,14 +19,12 @@ import com.example.taskflow.util.RelativeTimeFormatter;
 public class TaskAuditService {
 
     private final TaskStatusHistoryRepository historyRepository;
-    private final RoleStrategyFactory roleStrategyFactory;
     private final com.example.taskflow.repository.OrganizationMembershipRepository membershipRepository;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
 
-    public TaskAuditService(TaskStatusHistoryRepository historyRepository, RoleStrategyFactory roleStrategyFactory,
+    public TaskAuditService(TaskStatusHistoryRepository historyRepository,
                             com.example.taskflow.repository.OrganizationMembershipRepository membershipRepository) {
         this.historyRepository = historyRepository;
-        this.roleStrategyFactory = roleStrategyFactory;
         this.membershipRepository = membershipRepository;
     }
 
@@ -86,34 +82,33 @@ public class TaskAuditService {
 
     @Transactional(readOnly = true)
     public Page<ActivityEventDTO> getGlobalActivityFeed(User user, Pageable pageable, boolean includeAllTypes) {
-        RoleStrategy strategy = roleStrategyFactory.getStrategy(user);
+        if (user.isSuperAdmin()) {
+            return includeAllTypes
+                ? historyRepository.findGlobalFeedForUserAllTypes(user.getId(), pageable).map(this::mapToActivityEventDTO)
+                : historyRepository.findGlobalFeedForUser(user.getId(), pageable).map(this::mapToActivityEventDTO);
+        }
 
-        if (strategy.canOverride(user)) {
-            // Check if SUPER_ADMIN vs org ADMIN/DIRECTOR
-            boolean isSuperAdmin = user.isSuperAdmin();
+        var memberships = membershipRepository.findByUserId(user.getId());
+        if (!memberships.isEmpty()) {
+            var membership = memberships.get(0);
+            boolean isDirectorOrAdmin = membership.getOrgRole() != null && membership.getOrgRole().getRolePermissionScopes().stream()
+                    .anyMatch(rps -> rps.getPermission().getName().equals("TASK_OVERRIDE") || rps.getPermission().getName().equals("DASHBOARD_ORG_WIDE_VIEW"));
+            
+            boolean isManager = membership.getOrgRole() != null && membership.getOrgRole().getRolePermissionScopes().stream()
+                    .anyMatch(rps -> rps.getPermission().getName().equals("TASK_ASSIGN") || rps.getPermission().getName().equals("TEAM_MANAGE"));
 
-            if (isSuperAdmin) {
-                // Super Admin: privacy boundary  -  only own personal task activity
-                return includeAllTypes
-                    ? historyRepository.findGlobalFeedForUserAllTypes(user.getId(), pageable).map(this::mapToActivityEventDTO)
-                    : historyRepository.findGlobalFeedForUser(user.getId(), pageable).map(this::mapToActivityEventDTO);
-            }
-
-            // Director/Admin: scope to their org
-            var memberships = membershipRepository.findByUserId(user.getId());
-            if (!memberships.isEmpty()) {
-                Long orgId = memberships.get(0).getOrganization().getId();
+            if (isDirectorOrAdmin) {
+                Long orgId = membership.getOrganization().getId();
                 return includeAllTypes
                     ? historyRepository.findOrgFeedAllTypes(orgId, pageable).map(this::mapToActivityEventDTO)
                     : historyRepository.findOrgFeed(orgId, pageable).map(this::mapToActivityEventDTO);
             }
-        }
 
-        if (strategy.canAssign(user)) {
-            // Manager sees team's + own
-            return includeAllTypes
-                ? historyRepository.findManagerFeedAllTypes(user.getId(), pageable).map(this::mapToActivityEventDTO)
-                : historyRepository.findManagerFeed(user.getId(), pageable).map(this::mapToActivityEventDTO);
+            if (isManager) {
+                return includeAllTypes
+                    ? historyRepository.findManagerFeedAllTypes(user.getId(), pageable).map(this::mapToActivityEventDTO)
+                    : historyRepository.findManagerFeed(user.getId(), pageable).map(this::mapToActivityEventDTO);
+            }
         }
 
         // Employee sees only own

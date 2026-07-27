@@ -16,8 +16,11 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
 
     List<Project> findByTeamId(Long teamId);
 
-    @Query("SELECT p FROM Project p WHERE p.scope = com.example.taskflow.domain.ProjectScope.PERSONAL AND (p.createdBy.id = :userId OR p.ownerUser.id = :userId) AND p.deleted = false")
+    @Query("SELECT p FROM Project p WHERE p.scope = com.example.taskflow.domain.ProjectScope.PERSONAL AND (p.createdBy.id = :userId OR p.ownerUser.id = :userId) AND p.deleted = false AND p.organization IS NULL AND p.crew IS NULL")
     List<Project> findPersonalProjects(@Param("userId") Long userId);
+
+    @Query("SELECT DISTINCT p FROM Project p JOIN p.sharedCrews sc WHERE sc.id = :crewId AND p.deleted = false AND p.organization IS NULL")
+    List<Project> findProjectsForCrew(@Param("crewId") Long crewId);
 
     @Query("SELECT p FROM Project p WHERE p.scope = com.example.taskflow.domain.ProjectScope.CREW AND p.crew.id = :crewId AND p.deleted = false")
     List<Project> findCrewProjects(@Param("crewId") Long crewId);

@@ -18,6 +18,9 @@ import com.example.taskflow.dto.RoleUpdateRequestDTO;
 import com.example.taskflow.service.RoleService;
 import com.example.taskflow.service.UserService;
 
+import com.example.taskflow.security.platform.PlatformAuthorize;
+import com.example.taskflow.security.platform.PlatformPermission;
+
 import jakarta.validation.Valid;
 
 /**
@@ -26,7 +29,6 @@ import jakarta.validation.Valid;
  */
 @RestController
 @RequestMapping(value = "/api/v1/platform", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
-@PreAuthorize("hasRole('SUPER_ADMIN')")
 public class PlatformRoleController {
 
     private final RoleService roleService;
@@ -38,11 +40,13 @@ public class PlatformRoleController {
     }
 
     @GetMapping("/roles")
+    @PlatformAuthorize(PlatformPermission.PLATFORM_SETTINGS_VIEW)
     public ResponseEntity<List<RoleResponseDTO>> getAllRoles() {
         return ResponseEntity.ok(roleService.getAllRoles());
     }
 
     @PostMapping("/roles")
+    @PlatformAuthorize(PlatformPermission.PLATFORM_SETTINGS_UPDATE)
     public ResponseEntity<RoleResponseDTO> createRole(
             @Valid @RequestBody RoleCreateRequestDTO request,
             @AuthenticationPrincipal UserDetails principal) {
@@ -52,6 +56,7 @@ public class PlatformRoleController {
     }
 
     @PutMapping("/roles/{id}")
+    @PlatformAuthorize(PlatformPermission.PLATFORM_SETTINGS_UPDATE)
     public ResponseEntity<RoleResponseDTO> updateRole(
             @PathVariable Long id,
             @Valid @RequestBody RoleUpdateRequestDTO request,
@@ -61,6 +66,7 @@ public class PlatformRoleController {
     }
 
     @DeleteMapping("/roles/{id}")
+    @PlatformAuthorize(PlatformPermission.PLATFORM_SETTINGS_UPDATE)
     public ResponseEntity<Void> deleteRole(
             @PathVariable Long id,
             @AuthenticationPrincipal UserDetails principal) {
@@ -70,16 +76,19 @@ public class PlatformRoleController {
     }
 
     @GetMapping("/permissions")
+    @PlatformAuthorize(PlatformPermission.PLATFORM_SETTINGS_VIEW)
     public ResponseEntity<List<PermissionResponseDTO>> getAllPermissions() {
         return ResponseEntity.ok(roleService.getAllPermissions());
     }
 
     @GetMapping("/roles/{id}/permissions")
+    @PlatformAuthorize(PlatformPermission.PLATFORM_SETTINGS_VIEW)
     public ResponseEntity<Set<PermissionResponseDTO>> getRolePermissions(@PathVariable Long id) {
         return ResponseEntity.ok(roleService.getRolePermissions(id));
     }
 
     @PutMapping("/roles/{id}/permissions")
+    @PlatformAuthorize(PlatformPermission.PLATFORM_SETTINGS_UPDATE)
     public ResponseEntity<Set<PermissionResponseDTO>> assignRolePermissions(
             @PathVariable Long id,
             @Valid @RequestBody AssignPermissionsRequestDTO request,

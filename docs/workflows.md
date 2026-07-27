@@ -442,5 +442,5 @@ flowchart TD
 - **Execution**: User creates markdown note -> Starts focus session tied to optional task (`FocusSession.startedAt = NOW`) -> Stops session (`FocusSession.durationMinutes` computed) -> Schedules private calendar events.
 
 ### Workflow 6.2: Entity Bookmarking & Dashboard Analytics
-- **APIs**: `POST /api/saved-items` & `GET /api/dashboard/stats` ([SavedItemController.java](../taskflow/src/main/java/com/example/taskflow/controller/SavedItemController.java), [DashboardController.java](../taskflow/src/main/java/com/example/taskflow/controller/DashboardController.java))
-- **Execution**: User bookmarks task, note, or project -> Saved item displayed in quick access bar -> `DashboardService` aggregates counts evaluating `isTerminal()` status logic (`status == APPROVED` or `status == COMPLETED`).
+- **APIs**: `POST /api/v1/saved-items` & `GET /api/v1/dashboard/stats` ([SavedItemController.java](../taskflow/src/main/java/com/example/taskflow/controller/SavedItemController.java), [DashboardController.java](../taskflow/src/main/java/com/example/taskflow/controller/DashboardController.java))
+- **Execution**: User bookmarks task, note, or project -> Saved item displayed in quick access bar -> `DashboardService` delegates to `DashboardStrategyFactory` (`PersonalDashboardStrategy`, `OrgDashboardStrategy`, or `CrewDashboardStrategy`) to aggregate scoped task and project counts, evaluating terminal status logic (`status == APPROVED` or `status == COMPLETED`) and enforcing strict environmental isolation.

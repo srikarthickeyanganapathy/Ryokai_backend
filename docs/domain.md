@@ -77,7 +77,9 @@ erDiagram
     
     goals ||--o{ key_results : "measures"
     
-    roles }o--o{ permissions : "grants (M:N)"
+    roles ||--o{ role_permission_scopes : "grants"
+    permissions ||--o{ role_permission_scopes : "defines"
+    scopes ||--o{ role_permission_scopes : "bounds"
 ```
 
 ---
@@ -96,7 +98,7 @@ erDiagram
 - **Purpose**: Custom RBAC role with integer priority rank, scoped to organization or global.
 - **Fields**: `id`, `name`, `description`, `priority` (int, lower = higher authority), `builtin` (boolean), `organization` (FK, nullable for global roles), `createdAt`.
 - **Helper Methods**: `isBuiltinAdmin()`, `isBuiltinDirectorOrAbove()`, `isBuiltinManagerOrAbove()`.
-- **Relationships**: ManyToMany → `Permission`, ManyToOne → `Organization`.
+- **Relationships**: OneToMany → `RolePermissionScope`, ManyToOne → `Organization`.
 
 #### `Permission` (`domain/Permission.java`)
 - **Purpose**: Granular permission tokens (19 types defined in `PermissionType` enum).

@@ -24,6 +24,7 @@ public class TaskRequestDTO {
     private Long teamId;
     private Long projectId;
     private Long crewId;
+    private Long orgId;
     public TaskRequestDTO() {}
 
     // Standard Getters and Setters
@@ -59,4 +60,7 @@ public class TaskRequestDTO {
 
     public Long getCrewId() { return crewId; }
     public void setCrewId(Long crewId) { this.crewId = crewId; }
+
+    public Long getOrgId() { return orgId; }
+    public void setOrgId(Long orgId) { this.orgId = orgId; }
 }

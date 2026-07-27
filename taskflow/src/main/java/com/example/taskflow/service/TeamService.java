@@ -65,7 +65,7 @@ public class TeamService {
 
     private void requirePermission(User caller, Organization org, String permission) {
         OrganizationMembership membership = requireOrgMembership(caller, org);
-        if (membership.getOrgRole() == null || membership.getOrgRole().getPermissions().stream().noneMatch(p -> p.getName().equals(permission))) {
+        if (membership.getOrgRole() == null || membership.getOrgRole().getRolePermissionScopes().stream().noneMatch(rps -> rps.getPermission().getName().equals(permission))) {
             throw new UnauthorizedActionException("This action requires the " + permission + " permission.");
         }
     }

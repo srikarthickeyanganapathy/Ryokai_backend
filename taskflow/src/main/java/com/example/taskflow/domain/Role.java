@@ -6,10 +6,12 @@ import java.util.HashSet;
 import java.util.Set;
 
 import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 @Entity
 @Table(name = "roles", uniqueConstraints = {
@@ -23,6 +25,7 @@ import org.hibernate.annotations.CreationTimestamp;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@EqualsAndHashCode(of = "id")
 public class Role {
 
     @Id
@@ -35,13 +38,8 @@ public class Role {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    @ManyToMany(fetch = FetchType.EAGER)
-    @JoinTable(
-        name = "role_permissions",
-        joinColumns = @JoinColumn(name = "role_id"),
-        inverseJoinColumns = @JoinColumn(name = "permission_id")
-    )
-    private Set<Permission> permissions = new HashSet<>();
+    @OneToMany(mappedBy = "role", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<RolePermissionScope> rolePermissionScopes = new HashSet<>();
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "organization_id")
@@ -53,31 +51,48 @@ public class Role {
     @Column(name = "priority", nullable = false)
     private Integer priority = 100;
 
+    /** System roles cannot be deleted or have their permissions modified. */
+    @Column(name = "is_system", nullable = false)
+    private boolean system = false;
+
+    /** Highest scope this role can grant. Prevents privilege escalation. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "max_scope_id")
+    private Scope maxScope;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
     // ====================================================================
-    // Name-based role hierarchy helpers (replaces RoleCategory enum)
+    // DEPRECATED: Name-based role hierarchy helpers
+    // These will be removed in Phase 4. Use PermissionCode checks instead.
     // ====================================================================
 
     /**
-     * Returns true if this role is the builtin ADMIN role.
+     * @deprecated Use explicit permission checks via the authorization pipeline.
      */
+    @Deprecated(forRemoval = true)
     public boolean isBuiltinAdmin() {
         return "ADMIN".equals(name);
     }
 
     /**
-     * Returns true if this role is ADMIN or DIRECTOR (i.e., director-level or above).
+     * @deprecated Use explicit permission checks via the authorization pipeline.
      */
+    @Deprecated(forRemoval = true)
     public boolean isBuiltinDirectorOrAbove() {
         return "ADMIN".equals(name) || "DIRECTOR".equals(name);
     }
 
     /**
-     * Returns true if this role is ADMIN, DIRECTOR, or MANAGER (i.e., manager-level or above).
+     * @deprecated Use explicit permission checks via the authorization pipeline.
      */
+    @Deprecated(forRemoval = true)
     public boolean isBuiltinManagerOrAbove() {
         return "ADMIN".equals(name) || "DIRECTOR".equals(name) || "MANAGER".equals(name);
     }

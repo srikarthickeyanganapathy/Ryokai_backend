@@ -12,6 +12,8 @@ import com.example.taskflow.repository.ProjectRepository;
 import com.example.taskflow.repository.OrganizationMembershipRepository;
 import com.example.taskflow.repository.TeamMemberRepository;
 import com.example.taskflow.service.PermissionService;
+import com.example.taskflow.security.authorization.LegacyPermissionMapper;
+import com.example.taskflow.security.PermissionCode;
 
 @Component
 public class ProjectPermissionHandler implements DomainPermissionHandler {
@@ -71,23 +73,30 @@ public class ProjectPermissionHandler implements DomainPermissionHandler {
         if (!isOrganizationActive(project.getOrganization(), user)) {
             return false;
         }
+
+        PermissionCode code = LegacyPermissionMapper.resolveForDomain("PROJECT", permission);
         
         return switch (permission) {
-            case "CREATE" -> true;
-            case "READ" -> 
+            case "CREATE" -> {
+                if (code != null && project.getOrganization() != null) {
+                    yield permissionService.isAuthorized(user, code, project.getOrganization().getId());
+                }
+                yield true; // Fallback for backwards compatibility if no org context
+            }
+            case "READ", "PROJECT_READ", "VIEW", "PROJECT_VIEW" -> 
                 (project.getCreatedBy() != null && project.getCreatedBy().getId().equals(user.getId()))
                 || (project.getOrganization() != null
                     && membershipRepository.existsByUserAndOrganization(user, project.getOrganization()))
                 || (project.getTeam() != null
                     && teamMemberRepository.existsByIdTeamIdAndIdUserId(project.getTeam().getId(), user.getId()))
                 || projectRepository.isProjectSharedWithUser(project.getId(), user.getId())
-                || permissionService.hasPermission(user, "SUPER_ADMIN_OVERRIDE_CHECK");
-            case "EDIT", "DELETE" -> 
+                || (code != null && project.getOrganization() != null 
+                    && permissionService.isAuthorized(user, code, project.getOrganization().getId(), "PROJECT", project.getId()));
+            case "EDIT", "DELETE", "PROJECT_EDIT", "PROJECT_DELETE", "PROJECT_MANAGE" -> 
                 (project.getCreatedBy() != null && project.getCreatedBy().getId().equals(user.getId()))
                 || (project.getCollaborators() != null && project.getCollaborators().stream().anyMatch(c -> c.getId().equals(user.getId())))
-                || (project.getOrganization() != null 
-                    && membershipRepository.existsByUserAndOrganization(user, project.getOrganization())
-                    && permissionService.hasPermission(user, "PROJECT_MANAGE"));
+                || (code != null && project.getOrganization() != null 
+                    && permissionService.isAuthorized(user, code, project.getOrganization().getId(), "PROJECT", project.getId()));
             default -> false;
         };
     }

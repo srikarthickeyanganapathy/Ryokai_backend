@@ -5,5 +5,13 @@ import java.util.List;
 
 public record AssignPermissionsRequestDTO(
     @NotNull(message = "Permissions list cannot be null")
-    List<String> permissionNames
-) {}
+    List<PermissionScopeAssignmentDTO> permissions
+) {
+    public record PermissionScopeAssignmentDTO(
+        @NotNull(message = "Permission code/name cannot be null")
+        String permissionName,
+        
+        @NotNull(message = "Scope code cannot be null")
+        String scopeCode
+    ) {}
+}
