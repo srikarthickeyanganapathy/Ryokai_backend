@@ -12,7 +12,13 @@ import java.util.Optional;
 public interface OrganizationMembershipRepository extends JpaRepository<OrganizationMembership, Long> {
     List<OrganizationMembership> findByUserId(Long userId);
 
-    @Query("SELECT om FROM OrganizationMembership om JOIN FETCH om.user WHERE om.organization.id = :orgId")
+    @Query("SELECT DISTINCT om FROM OrganizationMembership om " +
+           "JOIN FETCH om.user " +
+           "LEFT JOIN FETCH om.orgRole r " +
+           "LEFT JOIN FETCH r.rolePermissionScopes rps " +
+           "LEFT JOIN FETCH rps.permission " +
+           "LEFT JOIN FETCH rps.scope " +
+           "WHERE om.organization.id = :orgId")
     List<OrganizationMembership> findByOrganizationId(@Param("orgId") Long orgId);
 
     Optional<OrganizationMembership> findByUserAndOrganization(User user, Organization org);

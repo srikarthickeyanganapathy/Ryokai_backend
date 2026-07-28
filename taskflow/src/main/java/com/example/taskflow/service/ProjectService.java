@@ -351,9 +351,8 @@ public class ProjectService {
 
 
     public ProjectResponseDTO toResponseDTO(Project p) {
-        long total = taskRepository.countByProjectId(p.getId());
-        long completed = taskRepository.countByProjectIdAndCurrentStatusIn(
-                p.getId(), java.util.List.of(TaskStatus.APPROVED, TaskStatus.COMPLETED));
+        long total = p.getTasksTotal() != null ? p.getTasksTotal() : 0L;
+        long completed = p.getTasksCompleted() != null ? p.getTasksCompleted() : 0L;
         int progress = total > 0 ? (int) Math.round((completed * 100.0) / total) : 0;
 
         ProjectResponseDTO dto = new ProjectResponseDTO();

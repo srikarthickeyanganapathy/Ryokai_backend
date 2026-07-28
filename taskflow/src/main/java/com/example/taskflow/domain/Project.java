@@ -9,6 +9,7 @@ import java.util.Set;
 
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.annotations.Formula;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -115,4 +116,10 @@ public class Project {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @Formula("(SELECT COUNT(*) FROM tasks t WHERE t.project_id = id)")
+    private Long tasksTotal;
+
+    @Formula("(SELECT COUNT(*) FROM tasks t WHERE t.project_id = id AND t.current_status IN ('APPROVED', 'COMPLETED'))")
+    private Long tasksCompleted;
 }

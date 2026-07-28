@@ -16,7 +16,6 @@ import lombok.*;
             columnNames = {"role_id", "permission_id", "scope_id"})
 })
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor
-@EqualsAndHashCode(of = "id")
 public class RolePermissionScope {
 
     @Id
@@ -34,4 +33,17 @@ public class RolePermissionScope {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "scope_id", nullable = false)
     private Scope scope;
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof RolePermissionScope)) return false;
+        RolePermissionScope that = (RolePermissionScope) o;
+        return id != null && id.equals(that.getId());
+    }
+
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
+    }
 }

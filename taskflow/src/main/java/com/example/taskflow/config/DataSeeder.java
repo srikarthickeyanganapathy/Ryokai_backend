@@ -37,14 +37,15 @@ public class DataSeeder {
     private boolean seedDemoData;
 
     @Bean
-    @Transactional
     public CommandLineRunner initData(PermissionRepository permissionRepository,
                                       RoleRepository roleRepository,
                                       UserRepository userRepository,
                                       PasswordEncoder passwordEncoder,
                                       Environment env,
-                                      com.example.taskflow.repository.ScopeRepository scopeRepository) {
+                                      com.example.taskflow.repository.ScopeRepository scopeRepository,
+                                      org.springframework.transaction.support.TransactionTemplate transactionTemplate) {
         return args -> {
+            transactionTemplate.execute(status -> {
             // ====================================================================
             // Always bootstrap: Permissions
             // ====================================================================
@@ -77,6 +78,9 @@ public class DataSeeder {
             String adminPass = env.getProperty("app.admin.password", "SuperAdmin123!");
             
             createUserIfNotFound(adminUser, adminPass, "SUPER_ADMIN", roleRepository, userRepository, passwordEncoder);
+            
+            return null;
+        });
         };
     }
 
@@ -114,13 +118,28 @@ public class DataSeeder {
         
         com.example.taskflow.domain.Scope globalScope = scopeRepository.findByCode("GLOBAL").orElse(null);
         if (globalScope != null) {
-            role.getRolePermissionScopes().clear();
+            java.util.Set<Long> existingPermissionIds = role.getRolePermissionScopes().stream()
+                    .filter(rps -> rps.getScope().getId().equals(globalScope.getId()))
+                    .map(rps -> rps.getPermission().getId())
+                    .collect(java.util.stream.Collectors.toSet());
+
+            java.util.Set<Long> targetPermissionIds = permissions.stream()
+                    .map(Permission::getId)
+                    .collect(java.util.stream.Collectors.toSet());
+
+            role.getRolePermissionScopes().removeIf(rps ->
+                    rps.getScope().getId().equals(globalScope.getId()) &&
+                    !targetPermissionIds.contains(rps.getPermission().getId())
+            );
+
             for (Permission p : permissions) {
-                com.example.taskflow.domain.RolePermissionScope rps = new com.example.taskflow.domain.RolePermissionScope();
-                rps.setRole(role);
-                rps.setPermission(p);
-                rps.setScope(globalScope);
-                role.getRolePermissionScopes().add(rps);
+                if (!existingPermissionIds.contains(p.getId())) {
+                    com.example.taskflow.domain.RolePermissionScope rps = new com.example.taskflow.domain.RolePermissionScope();
+                    rps.setRole(role);
+                    rps.setPermission(p);
+                    rps.setScope(globalScope);
+                    role.getRolePermissionScopes().add(rps);
+                }
             }
         }
         
@@ -140,13 +159,5 @@ public class DataSeeder {
             permissionRepository.save(permission);
             logger.info("Created permission: {}", code.name());
         }
-    }
-
-    private Set<Permission> getPermissions(PermissionRepository permissionRepository, String... permissionNames) {
-        Set<Permission> permissions = new HashSet<>();
-        for (String name : permissionNames) {
-            permissionRepository.findByName(name).ifPresent(permissions::add);
-        }
-        return permissions;
     }
 }
