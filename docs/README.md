@@ -4,7 +4,7 @@
 ===================================================================================
  SYSTEM SPECIFICATION & DOCUMENT METADATA
 ===================================================================================
- Document Version   : 1.5.0-PROD-SPEC (Locked Baseline)
+ Document Version   : 2.0.0-MODULAR-MONOLITH
  Target Framework   : Spring Boot 3.2.x / Spring Security 6.x
  JDK Version        : Java 17 LTS
  Persistence Layer  : Spring Data JPA / Hibernate 6 (PostgreSQL 15+)
@@ -75,7 +75,8 @@ Welcome to the Ryokai Backend Engineering Manual. The technical specification is
 | **v1.2.0** | 2026-07-21 | `a918f4e` | Organization Multi-Tenancy, Role Priority Governance, HR Leave pipeline |
 | **v1.3.0** | 2026-07-22 | `7d21a0f` | Catalogued all system workflows across Auth, Org, Crew, Task, and Bridge |
 | **v1.4.0** | 2026-07-23 | `b1c4e9f` | Full architecture audit across controllers, async pipeline, domain events, and security filters |
-| **v1.5.0** | 2026-07-23 | `HEAD` | **Locked Baseline**: Synced all entity models (`TaskEvidence`, `User`, `Project`, `Crew`, `Organization`, `SavedItem`), added `ImpersonationSession` and `TaskMetrics`, added missing exception handlers (`CrewNotFoundException`, etc.), completed API simplification review |
+| **v1.5.0** | 2026-07-23 | `b4f2a1c` | **Locked Baseline**: Synced all entity models (`TaskEvidence`, `User`, `Project`, `Crew`, `Organization`, `SavedItem`), added `ImpersonationSession` and `TaskMetrics`, added missing exception handlers (`CrewNotFoundException`, etc.), completed API simplification review |
+| **v2.0.0** | 2026-07-28 | `HEAD` | **Modular Monolith**: Refactored from flat technical-layer architecture to 21 bounded-context modules. Variable tier system (Tier 1/2/3). Identity separated from Security. Organization split into 4 sub-domains. Domain events in shared kernel. 377 files migrated, zero business logic changes. Added [ADR-010](adr/010-modular-monolith-refactoring.md). |
 
 
 ---

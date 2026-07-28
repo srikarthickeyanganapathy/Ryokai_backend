@@ -25,10 +25,10 @@ This document tracks the technical evolution of the Ryokai Taskflow backend acro
 **Status**: ✅ Completed (v1.5.0) | **Impact**: High
 
 - **Implemented In**:
-  - [`event/DomainEventPublisher.java`](file:///c:/Users/SEC/OneDrive/Desktop/Project/Ryokai/Ryokai_backend/taskflow/src/main/java/com/example/taskflow/event/DomainEventPublisher.java)
-  - [`event/SpringDomainEventPublisher.java`](file:///c:/Users/SEC/OneDrive/Desktop/Project/Ryokai/Ryokai_backend/taskflow/src/main/java/com/example/taskflow/event/SpringDomainEventPublisher.java)
+  - `shared/events/DomainEventPublisher.java`
+  - `shared/events/SpringDomainEventPublisher.java`
 - **Services Updated**: `NotificationService`, `TaskStateTransitionServiceImpl`, `TaskEvidenceService`.
-- **Notes**: Originally identified in v1.4.0 audit to decouple domain services from Spring's `ApplicationEventPublisher`. Serves as the foundation for event broker migrations (Kafka, RabbitMQ, Outbox).
+- **Notes**: Originally identified in v1.4.0 audit to decouple domain services from Spring's `ApplicationEventPublisher`. Now lives in the `shared` kernel module. Serves as the foundation for event broker migrations (Kafka, RabbitMQ, Outbox).
 
 ---
 
@@ -38,10 +38,8 @@ This document tracks the technical evolution of the Ryokai Taskflow backend acro
 
 - **Implemented In**:
   - `db/migration/V47__create_outbox_events_table.sql`
-  - [`domain/OutboxEvent.java`](file:///c:/Users/SEC/OneDrive/Desktop/Project/Ryokai/Ryokai_backend/taskflow/src/main/java/com/example/taskflow/domain/OutboxEvent.java)
-  - [`repository/OutboxEventRepository.java`](file:///c:/Users/SEC/OneDrive/Desktop/Project/Ryokai/Ryokai_backend/taskflow/src/main/java/com/example/taskflow/repository/OutboxEventRepository.java)
-  - [`event/OutboxDomainEventPublisher.java`](file:///c:/Users/SEC/OneDrive/Desktop/Project/Ryokai/Ryokai_backend/taskflow/src/main/java/com/example/taskflow/event/OutboxDomainEventPublisher.java)
-  - [`event/OutboxPoller.java`](file:///c:/Users/SEC/OneDrive/Desktop/Project/Ryokai/Ryokai_backend/taskflow/src/main/java/com/example/taskflow/event/OutboxPoller.java)
+  - `shared/events/OutboxDomainEventPublisher.java`
+  - `shared/events/OutboxPoller.java`
 - **Notes**: Guarantees zero event loss by storing events atomically in `outbox_events` within the caller's DB transaction. Toggleable via `app.events.publisher=outbox`.
 
 ---
@@ -72,7 +70,7 @@ This document tracks the technical evolution of the Ryokai Taskflow backend acro
 
 **Status**: ✅ Completed (v1.5.0) | **Impact**: High
 
-- **Implemented In**: [`security/ClientIpResolver.java`](file:///c:/Users/SEC/OneDrive/Desktop/Project/Ryokai/Ryokai_backend/taskflow/src/main/java/com/example/taskflow/security/ClientIpResolver.java). Integrated into `RateLimitFilter`, `AuthController`, and `SessionController`.
+- **Implemented In**: `security/ClientIpResolver.java`. Integrated into `security/filters/RateLimitFilter`, `identity/api/AuthController`, and `identity/api/SessionController`.
 - **Notes**: Resolves `SEC-11` open audit item by enforcing configurable trusted proxy IP whitelist (`app.security.trusted-proxies`) when parsing `X-Forwarded-For`.
 
 ---
@@ -81,14 +79,43 @@ This document tracks the technical evolution of the Ryokai Taskflow backend acro
 
 **Status**: ✅ Completed (v1.5.0) | **Impact**: Medium
 
-- **Implemented In**: `application.yml` (`app.security.cors.allowed-origins`), `SecurityConfig.java`, `WebSocketConfig.java`.
+- **Implemented In**: `application.yml` (`app.security.cors.allowed-origins`), `security/config/SecurityConfig.java`, `integration/websocket/WebSocketConfig.java`.
 - **Notes**: Resolves `SEC-12` open audit item by externalizing allowed origin URLs for easy environment deployment.
+
+---
+
+### 1.7 Modular Monolith Architecture
+
+**Status**: ✅ Completed (v2.0.0) | **Impact**: Critical
+
+- **Implemented In**: All 377 Java source files restructured into 21 bounded-context modules.
+- **ADR**: [ADR-010: Modular Monolith Refactoring](adr/010-modular-monolith-refactoring.md)
+- **Key Changes**:
+  - Replaced flat technical-layer (`controller/`, `service/`, `repository/`, `domain/`, `dto/`) with feature-module organization.
+  - Variable complexity tiers: Tier 1 (hexagonal), Tier 2 (layered), Tier 3 (flat).
+  - Identity separated from Security as distinct modules.
+  - Organization split into 4 sub-domains (core, membership, rbac, announcement).
+  - Domain events moved to shared kernel (`shared/events/`).
+  - `TaskStrategyFactory` placed in `task/application/strategy/` (orchestration, not infrastructure).
+  - `package-info.java` documentation added to all 22 modules.
+- **Notes**: Pure structural refactoring — zero business logic changes. All existing tests pass.
 
 ---
 
 ## 2. 🚧 In Progress
 
-*No active in-progress items at this timestamp. All v1.5.0 roadmap items are fully implemented and verified.*
+### 2.1 Module Boundary Enforcement (ArchUnit + Spring Modulith)
+
+**Status**: 🚧 In Progress | **Priority**: High | **Effort**: Medium
+
+- **Target State**: Add automated architecture tests using ArchUnit to enforce module boundary rules (AC-12, AC-13, AC-14 from architecture.md). Evaluate Spring Modulith `@ApplicationModule` for automated boundary detection.
+- **Depends On**: v2.0.0 modular monolith structure.
+
+### 2.2 Cross-Module Facade Pattern
+
+**Status**: 🚧 In Progress | **Priority**: Medium | **Effort**: Medium
+
+- **Target State**: Replace remaining cross-module repository imports with module-level facades or public application services.
 
 ---
 
@@ -170,7 +197,13 @@ This document tracks the technical evolution of the Ryokai Taskflow backend acro
 
 ## 5. ❌ Dropped / Superseded
 
-*No items dropped or superseded in v1.5.0.*
+### 5.1 Flat Technical-Layer Architecture
+
+**Status**: ❌ Superseded by [ADR-010](adr/010-modular-monolith-refactoring.md) (v2.0.0)
+
+- **Previous Structure**: `controller/`, `service/`, `repository/`, `domain/`, `dto/` as top-level packages.
+- **Replaced By**: 21 bounded-context modules with variable complexity tiers.
+- **Rationale**: Flat technical layers don't scale past ~100 files. Feature modules enforce ownership, reduce cognitive load, and enable future microservice extraction.
 
 ---
 
@@ -199,11 +232,14 @@ quadrantChart
     Unified Activity: [0.45, 0.55]
     Full-Text Search: [0.65, 0.55]
     CQRS Read Model: [0.85, 0.6]
+    Modular Monolith (Done): [0.7, 0.95]
+    ArchUnit Tests: [0.3, 0.65]
+    Cross-Module Facades: [0.5, 0.7]
 ```
 
 | Lifecycle Phase | Count | Key Milestones |
 | :--- | :--- | :--- |
-| **✅ Completed (v1.5.0)** | 6 | Event Bus Abstraction, Outbox Pattern, Universal API Versioning (`/api/v1`), 3D Observability Stack, Client IP Whitelist, CORS Externalization |
-| **🚧 In Progress** | 0 | All v1.5.0 targets delivered |
+| **✅ Completed (v2.0.0)** | 7 | Event Bus Abstraction, Outbox Pattern, Universal API Versioning, 3D Observability Stack, Client IP Whitelist, CORS Externalization, **Modular Monolith (21 modules)** |
+| **🚧 In Progress** | 2 | ArchUnit Module Boundary Tests, Cross-Module Facade Pattern |
 | **📅 Planned (Near-Term)** | 5 | Redis Cache, ShedLock Jobs, S3 Direct Storage, Aggregate Boundaries, Unified Activity Log |
 | **💡 Strategic / Future** | 3 | Full-Text Search, CQRS Read Models, Feature Flags |

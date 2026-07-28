@@ -47,6 +47,7 @@ All ADRs follow this structure:
 - **[ADR-005: Custom RBAC & Role Priority Hierarchy](005-rbac-role-priority.md)** — Preventing vertical privilege escalation using integer role priority ranks.
 - **[ADR-008: Hybrid Authorization Model](008-hybrid-authorization-model.md)** — Multi-layer defense-in-depth across controllers, services, and strategies.
 - **[ADR-009: Platform Administration & Tenant Workspace Architecture](009-platform-tenant-separation.md)** — Clean separation of the Control Plane (platform governance) and Data Plane (tenant workspaces) while preserving runtime behavior.
+- **[ADR-010: Modular Monolith Refactoring](010-modular-monolith-refactoring.md)** — Restructuring from flat technical layers to 21 bounded-context modules with variable complexity tiers.
 
 ### Proposed
 

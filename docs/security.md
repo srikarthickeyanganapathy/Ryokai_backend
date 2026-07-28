@@ -45,15 +45,15 @@ graph TD
 
 Method security annotations (e.g., `@PreAuthorize("hasPermission(#request, 'TASK_CREATE')")` or `@PreAuthorize("hasPermission(#teamId, 'Team', 'VIEW')")`) delegate through:
 
-| Component | File | Responsibility |
+| Component | Module / Path | Responsibility |
 | :--- | :--- | :--- |
-| `CustomPermissionEvaluator` | `security/CustomPermissionEvaluator.java` | Main `PermissionEvaluator` — resolves `User` (request-scoped cache), routes DTOs and IDs to domain handlers |
-| `TaskPermissionHandler` | `security/TaskPermissionHandler.java` | Evaluates task permissions based on mode (`PERSONAL`, `CREW`, `ORG`), auto-resolves OrgId context, and routes Org tasks to `AuthorizationPipeline` |
-| `ProjectPermissionHandler` | `security/ProjectPermissionHandler.java` | Validates project creator vs collaborator rights; enforces strict RBAC ONLY for Organization projects |
-| `TeamPermissionHandler` | `security/TeamPermissionHandler.java` | Evaluates team management and member operations in Organization Workspaces via `AuthorizationPipeline` |
-| `OrganizationPermissionHandler` | `security/OrganizationPermissionHandler.java` | Evaluates corporate RBAC roles (`ROLE_MANAGE`, `ORG_MEMBER_REMOVE`, `LEAVE_REQUEST_MANAGE`) |
-| `AuthorizationPipeline` | `security/AuthorizationPipeline.java` | 7-stage enterprise authorization pipeline (Org Status → SuperAdmin Bypass → Context → Roles → Overrides → Permissions/Implications → Scope) |
-| `PermissionService` | `service/PermissionService.java` | High-level authorization service (`isAuthorized`, `requireAuthorization`) invoking the `AuthorizationPipeline` |
+| `CustomPermissionEvaluator` | `security/authorization/` | Main `PermissionEvaluator` — resolves `User` (request-scoped cache), routes DTOs and IDs to domain handlers |
+| `TaskPermissionHandler` | `task/security/` | Evaluates task permissions based on mode (`PERSONAL`, `CREW`, `ORG`), auto-resolves OrgId context, and routes Org tasks to `AuthorizationPipeline` |
+| `ProjectPermissionHandler` | `project/security/` | Validates project creator vs collaborator rights; enforces strict RBAC ONLY for Organization projects |
+| `TeamPermissionHandler` | `team/security/` | Evaluates team management and member operations in Organization Workspaces via `AuthorizationPipeline` |
+| `OrganizationPermissionHandler` | `organization/rbac/security/` | Evaluates corporate RBAC roles (`ROLE_MANAGE`, `ORG_MEMBER_REMOVE`, `LEAVE_REQUEST_MANAGE`) |
+| `AuthorizationPipeline` | `security/authorization/` | 7-stage enterprise authorization pipeline (Org Status → SuperAdmin Bypass → Context → Roles → Overrides → Permissions/Implications → Scope) |
+| `PermissionService` | `organization/rbac/application/` | High-level authorization service (`isAuthorized`, `requireAuthorization`) invoking the `AuthorizationPipeline` |
 
 ### Tri-Modal Workspace Authorization Principles
 - **Personal Workspace**: Single-owner access logic (`createdBy.id == user.id`). Completely bypasses RBAC roles and `AuthorizationPipeline`.

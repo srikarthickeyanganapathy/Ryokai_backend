@@ -45,7 +45,7 @@ graph TD
     Services --> AsyncPools
     
     subgraph DataStorage["Persistence & External Services"]
-        RDBMS[("PostgreSQL 15+<br/>Flyway: 46 migrations<br/>JSONB audit columns")]
+        RDBMS[("PostgreSQL 15+<br/>Flyway: 48 migrations<br/>JSONB audit columns")]
         SMTP["Gmail SMTP<br/>(Async via emailExecutor)"]
     end
     
@@ -67,54 +67,138 @@ graph TD
 
 ---
 
-## 2. Package Layer Dependencies & Boundaries
+## 2. Modular Monolith Architecture
+
+The codebase is organized as a **modular monolith** with 21 bounded-context modules. Each module encapsulates its own API, application logic, domain model, and persistence — enforcing clear ownership and reducing cross-cutting coupling.
+
+See **[ADR-010](adr/010-modular-monolith-refactoring.md)** for the full decision record.
+
+### 2.1 Module Overview
 
 ```
 src/main/java/com/example/taskflow/
-├── config/              # Global Configuration & Security Chain
-│   ├── SecurityConfig           # Filter chain, CORS, HTTP headers, BCrypt(12)
-│   ├── WebSocketConfig          # STOMP broker, heartbeats, transport limits
-│   ├── AsyncConfig              # 3 thread pools + MDC decorator
-│   ├── CorrelationIdFilter      # MDC trace ID (X-Correlation-Id)
-│   ├── GlobalExceptionHandler   # @RestControllerAdvice (custom & framework exception handlers)
-│   ├── DataSeeder               # Permission bootstrap on startup
-│   ├── MethodSecurityConfig     # @EnableMethodSecurity + CustomPermissionEvaluator
-│   ├── OpenApiConfig            # Springdoc OpenAPI 3.0 configuration
-│   ├── JacksonConfig            # Jackson ObjectMapper customization
-│   └── WebSocketHandshakeInterceptor  # Origin validation on WS upgrade
-├── controller/          # REST Controllers
-│   ├── platform/        # Control Plane / Super Admin governance (PlatformUserController, etc.)
-│   └── organization/    # Organization vault & team governance (OrganizationController, etc.)
-├── domain/              # JPA Entities & Enums (Task, User, Organization, OutboxEvent, etc.)
-│   └── events/task/     # Spring ApplicationEvents (TaskStatusChangedEvent, EvidenceUploadedEvent)
-├── dto/                 # Request & Response DTO Data Contracts
-├── event/               # Transactional Outbox Pattern (OutboxPoller, OutboxDomainEventPublisher)
-├── exception/           # Custom Domain Runtime Exceptions
-├── mapper/              # DTO ↔ Entity mappers (TaskResponseMapper, etc.)
-├── notification/        # Notification event types, email renderers, WebSocket listener
-├── repository/          # Spring Data JPA Repositories
-├── security/            # SpEL Evaluators, Permission Handlers, Role Strategies, Rate Limiting
-├── service/             # Domain Services & Business Logic
-│   ├── platform/        # Control Plane services (PlatformUserService, PlatformRoleService, etc.)
-│   ├── organization/    # Organization vault services (OrganizationService, OrganizationRoleService, etc.)
-│   └── impl/            # Service implementations & TaskActivityEventListener (@TransactionalEventListener)
-├── strategy/
-│   ├── task/            # Task Scope Lifecycle Strategies (Strategy Pattern)
-│   │   ├── TaskLifecycleStrategy    # Base interface (10 methods)
-│   │   ├── TaskScopeBehavior        # Mixin: initialStatus, canBeReviewed, onComplete
-│   │   ├── Approvable               # Mixin: canSubmit, canApprove, canReject (Org only)
-│   │   ├── Claimable                # Mixin: canClaim (Crew only)
-│   │   ├── PersonalTaskStrategy     # PERSONAL mode implementation
-│   │   ├── CrewTaskStrategy         # CREW mode implementation
-│   │   ├── OrgTaskStrategy          # ORG mode implementation
-│   │   └── TaskStrategyFactory      # Mode → Strategy resolver
-│   └── dashboard/       # Tri-Modal Dashboard Analytics Strategies (Strategy Pattern)
-│       ├── DashboardStatsStrategy    # Base interface for dashboard metric resolution
-│       ├── PersonalDashboardStrategy # PERSONAL mode stats (user assignee/creator)
-│       ├── OrgDashboardStrategy      # ORG mode stats (3-way team visibility resolution)
-│       ├── CrewDashboardStrategy     # CREWS mode stats (bridged crew tasks & projects)
-│       └── DashboardStrategyFactory  # Mode → Dashboard Strategy resolver
-└── util/                # JWT utilities, authentication filter, TaskMetrics
+│
+├── TaskflowApplication.java       # Spring Boot entry point
+│
+├── app/                            # Bootstrap: GlobalExceptionHandler, configs
+├── audit/                          # Audit events, security audit trail
+├── bootstrap/                      # DataSeeder (startup reference data)
+├── calendar/                       # Calendar events (Tier 3)
+├── crew/                           # Crew management (Tier 2)
+├── dashboard/                      # Dashboard orchestration — queries only (Tier 2)
+├── focus/                          # Focus/deep-work sessions (Tier 3)
+├── goal/                           # Goals & OKRs (Tier 2)
+├── identity/                       # Auth, registration, tokens (Tier 1)
+├── integration/                    # External adapters: email, websocket
+├── note/                           # Notes (Tier 3)
+├── notification/                   # Notification dispatch & rendering (Tier 2)
+├── organization/                   # Multi-tenant org management (Tier 1)
+│   ├── core/                       #   Org entity, lifecycle
+│   ├── membership/                 #   Invites, leaves, members
+│   ├── rbac/                       #   Roles, permissions, scopes
+│   └── announcement/               #   Org-wide announcements
+├── platform/                       # Super-admin platform operations
+├── project/                        # Project management (Tier 2)
+├── saveditem/                      # Bookmarks (Tier 3)
+├── security/                       # JWT, authorization pipeline, filters (Tier 1)
+│   ├── authorization/              #   Permission evaluation engine
+│   ├── config/                     #   SecurityConfig, MethodSecurityConfig
+│   ├── filters/                    #   JwtAuthenticationFilter, RateLimitFilter
+│   ├── jwt/                        #   JwtUtil
+│   └── platform/                   #   Platform-level authorization
+├── shared/                         # Shared kernel (minimal)
+│   ├── events/                     #   DomainEventPublisher, Outbox
+│   ├── exception/                  #   Shared exceptions
+│   └── util/                       #   Cross-cutting utilities
+├── task/                           # Task management (Tier 1, 82 files)
+│   ├── api/                        #   Controllers, request/response DTOs
+│   ├── application/                #   command/, query/, orchestration/, strategy/
+│   ├── domain/                     #   model/, strategy/, validation/
+│   ├── event/                      #   Domain events & listeners
+│   ├── infrastructure/             #   persistence/, monitoring/
+│   ├── mapper/                     #   Response mapping
+│   ├── security/                   #   TaskPermissionHandler
+│   └── exception/                  #   TaskNotFoundException
+├── team/                           # Team management (Tier 2)
+├── user/                           # User profiles & management (Tier 2)
+└── whiteboard/                     # Collaborative whiteboards (Tier 3)
+```
+
+### 2.2 Module Tier System
+
+Modules are organized by **complexity tier** — simpler modules use fewer sub-packages:
+
+| Tier | Internal Structure | Modules |
+| :--- | :--- | :--- |
+| **Tier 1** (Complex) | `api/` → `application/` → `domain/` → `infrastructure/` | `task` (82 files), `organization` (67), `security` (37), `identity` (24) |
+| **Tier 2** (Medium) | `api/` + `application/` + `domain/` + `dto/` | `crew` (28), `team` (21), `project` (13), `notification` (13), `user` (11), `dashboard` (9), `goal` (7), `audit` (5), `platform` (7) |
+| **Tier 3** (Simple) | Flat — all files in one package | `note` (5), `focus` (5), `calendar` (5), `whiteboard` (6), `saveditem` (6) |
+
+**Key distinction**: Identity (business capability) is separated from Security (infrastructure). Authentication workflows live in `identity/`; JWT, filters, and the authorization pipeline live in `security/`.
+
+### 2.3 Module Dependency Graph
+
+```mermaid
+graph TB
+    subgraph "Shared Infrastructure"
+        shared["shared"]
+        security["security"]
+        integration["integration"]
+        app["app"]
+        bootstrap["bootstrap"]
+    end
+
+    subgraph "Core Domain"
+        user["user"]
+        organization["organization"]
+        identity["identity"]
+    end
+
+    subgraph "Feature Modules"
+        task["task"]
+        project["project"]
+        crew["crew"]
+        team["team"]
+        goal["goal"]
+        notification["notification"]
+    end
+
+    subgraph "Leaf Modules"
+        dashboard["dashboard"]
+        platform["platform"]
+        calendar["calendar"]
+        focus["focus"]
+        note["note"]
+        whiteboard["whiteboard"]
+        saveditem["saveditem"]
+        audit["audit"]
+    end
+
+    identity --> user
+    identity --> security
+    identity --> integration
+    organization --> user
+    organization --> security
+    task --> user
+    task --> organization
+    task --> project
+    task --> crew
+    task --> team
+    project --> user
+    project --> organization
+    crew --> user
+    crew --> organization
+    team --> user
+    team --> organization
+    goal --> user
+    goal --> organization
+    dashboard --> task
+    dashboard --> project
+    dashboard --> crew
+    platform --> user
+    platform --> organization
+    notification --> user
+    notification --> integration
 ```
 
 ---
@@ -125,9 +209,9 @@ These are the rules that govern the codebase structure and must be maintained as
 
 | # | Constraint | Rationale |
 | :--- | :--- | :--- |
-| AC-1 | **Controllers never inject Repositories directly.** All database access goes through Service layer. | Ensures business logic is centralized and testable. |
+| AC-1 | **Controllers never inject Repositories directly.** All database access goes through Application/Service layer. | Ensures business logic is centralized and testable. |
 | AC-2 | **Domain Entities are pure JPA POJOs.** No `@Autowired`, no business methods beyond `transitionTo()`. | Prevents hidden coupling and keeps entities portable. |
-| AC-3 | **Strategies never reference Controller classes.** They operate on domain objects and return booleans. | Maintains clean layered separation. |
+| AC-3 | **Strategies never reference Controller classes.** They operate on domain objects and return booleans. Task strategies are pure Java (no Spring annotations). | Maintains clean layered separation. |
 | AC-4 | **DTOs never reach Repository layer.** Services map DTOs to entities before persistence. | Prevents API contract changes from breaking queries. |
 | AC-5 | **Permission checks always occur before state transitions.** Controller layer enforces baseline Authentication / Coarse Auth; Service layer enforces Business Auth. | Defense-in-depth: multi-layer authorization ([ADR-008](adr/008-hybrid-authorization-model.md)). |
 | AC-6 | **Cross-mode dependencies are forbidden.** Personal tasks depend only on personal tasks (same creator); Org on Org (same org); Crew on Crew (same crew). | Enforces tri-modal workspace isolation ([ADR-003](adr/003-tri-modal-workspaces.md)). |
@@ -135,37 +219,40 @@ These are the rules that govern the codebase structure and must be maintained as
 | AC-8 | **Reviewers must have strictly higher role priority than assignees.** Assignees cannot self-review. | Prevents vertical privilege escalation ([ADR-005](adr/005-rbac-role-priority.md)). |
 | AC-9 | **Enterprise projects (project.organization ≠ null) cannot be shared with Crews.** | Sealed corporate vault boundary. |
 | AC-10 | **All async tasks propagate MDC context.** `MdcTaskDecorator` wraps every thread pool executor. | Correlation IDs survive async boundaries for end-to-end tracing. |
-| AC-11 | **Dashboard analytics must resolve via Tri-Modal Dashboard Strategy Pattern.** `DashboardStrategyFactory` dynamically delegates `/api/v1/stats` calculation to `PersonalDashboardStrategy`, `OrgDashboardStrategy` (via 3-way team scope resolution evaluated by `PermissionService`), or `CrewDashboardStrategy` (traversing bridged crew projects). | Enforces strict environmental isolation without data leakage or unparameterized union breakage. |
+| AC-11 | **Dashboard analytics must resolve via Tri-Modal Dashboard Strategy Pattern.** `DashboardStrategyFactory` dynamically delegates `/api/v1/stats` calculation to `PersonalDashboardStrategy`, `OrgDashboardStrategy`, or `CrewDashboardStrategy`. | Enforces strict environmental isolation without data leakage. |
+| AC-12 | **Modules communicate through application services, not by importing each other's repositories.** Cross-module access must go through the owning module's public service layer. | Enforces bounded context boundaries ([ADR-010](adr/010-modular-monolith-refactoring.md)). |
+| AC-13 | **Domain packages must NOT reference `org.springframework.*`.** Strategy implementations and domain validation are pure Java. | Keeps domain logic framework-agnostic and portable. |
+| AC-14 | **Infrastructure packages must NOT be imported by other modules directly.** Only the owning module's application layer may access its infrastructure. | Prevents leaky abstractions across module boundaries. |
 
 ---
 
 ## 4. Configuration Classes Reference
 
-| Class | Responsibility |
-| :--- | :--- |
-| `SecurityConfig` | Filter chain ordering, CORS, HTTP security headers (HSTS, X-Frame-Options, X-XSS-Protection), CSRF disabled, BCrypt(12), session STATELESS |
-| `WebSocketConfig` | STOMP endpoints (`/ws`), simple broker (`/topic`, `/queue`), heartbeat 10s/10s, 64KB message limit, `StompAuthChannelInterceptor` |
-| `AsyncConfig` | Three `ThreadPoolTaskExecutor` beans: `emailExecutor`, `realtimeExecutor`, `auditExecutor` — all with `CallerRunsPolicy` backpressure and `MdcTaskDecorator` |
-| `CorrelationIdFilter` | `@Order(HIGHEST_PRECEDENCE)` — reads `X-Correlation-Id` header (validated regex `^[A-Za-z0-9-]{1,64}$`), generates UUID if missing, sets MDC and response header |
-| `GlobalExceptionHandler` | `@RestControllerAdvice` — maps application-specific and framework exceptions to structured JSON `{ timestamp, status, error, message, code, path, correlationId }` |
-| `DataSeeder` | `CommandLineRunner` — seeds all `PermissionType` enum values into `permissions` table (idempotent) |
-| `MethodSecurityConfig` | `@EnableMethodSecurity` — registers `CustomPermissionEvaluator` as the global `PermissionEvaluator` |
-| `OpenApiConfig` | Springdoc configuration for Swagger UI at `/swagger-ui/index.html` |
-| `JacksonConfig` | Custom `ObjectMapper` configuration |
-| `WebSocketHandshakeInterceptor` | Validates origin header during WebSocket upgrade handshake |
+| Class | Module | Responsibility |
+| :--- | :--- | :--- |
+| `SecurityConfig` | `security.config` | Filter chain ordering, CORS, HTTP security headers, CSRF disabled, BCrypt(12), session STATELESS |
+| `WebSocketConfig` | `integration.websocket` | STOMP endpoints (`/ws`), simple broker, heartbeat 10s/10s, 64KB message limit |
+| `AsyncConfig` | `app.config` | Three `ThreadPoolTaskExecutor` beans with `CallerRunsPolicy` and `MdcTaskDecorator` |
+| `CorrelationIdFilter` | `app.config` | `@Order(HIGHEST_PRECEDENCE)` — reads/generates `X-Correlation-Id`, sets MDC |
+| `GlobalExceptionHandler` | `app.config` | `@RestControllerAdvice` — maps exceptions to structured JSON |
+| `DataSeeder` | `bootstrap` | `CommandLineRunner` — seeds permissions on startup (idempotent) |
+| `MethodSecurityConfig` | `security.config` | `@EnableMethodSecurity` — registers `CustomPermissionEvaluator` |
+| `OpenApiConfig` | `app.config` | Springdoc configuration for Swagger UI |
+| `JacksonConfig` | `app.config` | Custom `ObjectMapper` configuration |
+| `WebSocketHandshakeInterceptor` | `integration.websocket` | Validates origin header during WebSocket upgrade |
 
 ---
 
 ## 5. Domain Aggregate Boundaries
 
-Five aggregate roots are defined, each with explicit transactional boundaries. See **[ADR-006](adr/006-aggregate-boundaries.md)** for the full decision record and **[Future Architecture](future-architecture.md#6-domain-aggregate-boundaries)** for the complete aggregate diagrams.
+Five aggregate roots are defined, each with explicit transactional boundaries. See **[ADR-006](adr/006-aggregate-boundaries.md)** for the full decision record.
 
-| Aggregate Root | Child Entities | Cross-Aggregate References |
-| :--- | :--- | :--- |
-| **Task** | ChecklistItem, TaskEvidence, TaskComment, TaskDependency, TaskStatusHistory | `task.project_id`, `task.org_id`, `task.crew_id` |
-| **Project** | Collaborators (M:N), SharedCrews (M:N) | `project.owner_id` |
-| **Organization** | Role, Permission, Team, TeamMember, TeamObserver, Membership, Announcement, Goal, KeyResult, LeaveRequest | — |
-| **Crew** | CrewMember, CrewChannel, CrewMessage, CrewInvite, Whiteboard | `crew.creator_id` |
-| **User** | RefreshToken, Note, FocusSession, CalendarEvent, SavedItem, Notification | — |
+| Aggregate Root | Module | Child Entities | Cross-Aggregate References |
+| :--- | :--- | :--- | :--- |
+| **Task** | `task.domain.model` | ChecklistItem, TaskEvidence, TaskComment, TaskDependency, TaskStatusHistory | `task.project_id`, `task.org_id`, `task.crew_id` |
+| **Project** | `project.domain` | Collaborators (M:N), SharedCrews (M:N) | `project.owner_id` |
+| **Organization** | `organization.core.domain` | Role, Permission, Team, Membership, Announcement, Goal, KeyResult, LeaveRequest | — |
+| **Crew** | `crew.domain` | CrewMember, CrewChannel, CrewMessage, CrewInvite, Whiteboard | `crew.creator_id` |
+| **User** | `user.domain` | RefreshToken, Note, FocusSession, CalendarEvent, SavedItem, Notification | — |
 
 **Key rule**: Cross-aggregate references are by FK ID only. Deleting a Project soft-detaches tasks (`task.project_id = null`), never cascade-deletes them.
