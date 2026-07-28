@@ -60,9 +60,7 @@ public class AnnouncementService {
         Organization org = getActiveOrganization(orgId);
 
         // Check permission
-        if (!permissionService.hasPermission(user, "ANNOUNCEMENT_MANAGE")) {
-            throw new UnauthorizedActionException("You do not have permission to manage announcements.");
-        }
+        permissionService.requireAuthorization(user, com.example.taskflow.security.PermissionCode.ANNOUNCEMENT_CREATE, orgId);
 
         Announcement announcement = new Announcement(request.getTitle(), request.getContent(), user, org);
         Announcement saved = announcementRepository.save(announcement);
@@ -101,7 +99,7 @@ public class AnnouncementService {
         }
 
         boolean isAuthor = announcement.getAuthor().getId().equals(user.getId());
-        boolean hasPermission = permissionService.hasPermission(user, "ANNOUNCEMENT_MANAGE");
+        boolean hasPermission = permissionService.isAuthorized(user, com.example.taskflow.security.PermissionCode.ANNOUNCEMENT_CREATE, orgId);
 
         if (!isAuthor && !hasPermission) {
             throw new UnauthorizedActionException("You do not have permission to delete this announcement.");

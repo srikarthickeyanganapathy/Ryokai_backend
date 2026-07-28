@@ -10,6 +10,9 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.example.taskflow.domain.Organization;
 import com.example.taskflow.domain.OrganizationMembership;
@@ -70,6 +73,7 @@ public class AuthorizationPipeline {
     private final PolicyEvaluator policyEvaluator;
     private final FieldRestrictionEvaluator fieldRestrictionEvaluator;
     private final PermissionAuditLogRepository auditLogRepository;
+    private final TransactionTemplate transactionTemplate;
 
     public AuthorizationPipeline(
             OrganizationRepository organizationRepository,
@@ -79,7 +83,8 @@ public class AuthorizationPipeline {
             ResourceAssignmentRepository resourceAssignmentRepository,
             PolicyEvaluator policyEvaluator,
             FieldRestrictionEvaluator fieldRestrictionEvaluator,
-            PermissionAuditLogRepository auditLogRepository) {
+            PermissionAuditLogRepository auditLogRepository,
+            PlatformTransactionManager transactionManager) {
         this.organizationRepository = organizationRepository;
         this.membershipRepository = membershipRepository;
         this.overrideRepository = overrideRepository;
@@ -88,6 +93,8 @@ public class AuthorizationPipeline {
         this.policyEvaluator = policyEvaluator;
         this.fieldRestrictionEvaluator = fieldRestrictionEvaluator;
         this.auditLogRepository = auditLogRepository;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
+        this.transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
     /**
@@ -165,7 +172,7 @@ public class AuthorizationPipeline {
                 .collect(Collectors.toSet());
 
         List<RolePermissionScope> grants = rpsRepository.findByRoleIdIn(roleIds).stream()
-                .filter(rps -> satisfyingCodes.contains(rps.getPermission().getCode()))
+                .filter(rps -> rps.getPermission() != null && satisfyingCodes.contains(rps.getPermission().getCode()))
                 .collect(Collectors.toList());
 
         if (grants.isEmpty()) {
@@ -278,14 +285,16 @@ public class AuthorizationPipeline {
      */
     private AuthorizationDecision audit(AuthorizationRequest request, AuthorizationDecision decision) {
         try {
-            PermissionAuditLog entry = new PermissionAuditLog();
-            entry.setUserId(request.getUser().getId());
-            entry.setPermissionCode(request.getPermission().code());
-            entry.setResourceType(request.getResourceType());
-            entry.setResourceId(request.getResourceId());
-            entry.setDecision(decision.decision().name());
-            entry.setDenyReason(decision.reason());
-            auditLogRepository.save(entry);
+            transactionTemplate.executeWithoutResult(status -> {
+                PermissionAuditLog entry = new PermissionAuditLog();
+                entry.setUserId(request.getUser().getId());
+                entry.setPermissionCode(request.getPermission().code());
+                entry.setResourceType(request.getResourceType());
+                entry.setResourceId(request.getResourceId());
+                entry.setDecision(decision.decision().name());
+                entry.setDenyReason(decision.reason());
+                auditLogRepository.save(entry);
+            });
         } catch (Exception e) {
             // Audit logging must never block authorization decisions
             log.warn("Failed to write permission audit log: {}", e.getMessage());

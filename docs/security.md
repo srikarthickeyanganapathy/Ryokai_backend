@@ -43,16 +43,22 @@ graph TD
 
 ## 3. SpEL Permission Evaluators & Handlers
 
-Method security annotations (`@PreAuthorize("hasPermission(#taskId, 'Task', 'EDIT')")`) delegate through:
+Method security annotations (e.g., `@PreAuthorize("hasPermission(#request, 'TASK_CREATE')")` or `@PreAuthorize("hasPermission(#teamId, 'Team', 'VIEW')")`) delegate through:
 
 | Component | File | Responsibility |
 | :--- | :--- | :--- |
-| `CustomPermissionEvaluator` | `security/CustomPermissionEvaluator.java` | Main `PermissionEvaluator` — resolves `User` (request-scoped cache), routes to domain handlers |
-| `TaskPermissionHandler` | `security/TaskPermissionHandler.java` | Evaluates task permissions based on mode, ownership, team membership, and role priority |
-| `ProjectPermissionHandler` | `security/ProjectPermissionHandler.java` | Validates project creator vs collaborator rights, enforces enterprise project isolation |
+| `CustomPermissionEvaluator` | `security/CustomPermissionEvaluator.java` | Main `PermissionEvaluator` — resolves `User` (request-scoped cache), routes DTOs and IDs to domain handlers |
+| `TaskPermissionHandler` | `security/TaskPermissionHandler.java` | Evaluates task permissions based on mode (`PERSONAL`, `CREW`, `ORG`), auto-resolves OrgId context, and routes Org tasks to `AuthorizationPipeline` |
+| `ProjectPermissionHandler` | `security/ProjectPermissionHandler.java` | Validates project creator vs collaborator rights; enforces strict RBAC ONLY for Organization projects |
+| `TeamPermissionHandler` | `security/TeamPermissionHandler.java` | Evaluates team management and member operations in Organization Workspaces via `AuthorizationPipeline` |
 | `OrganizationPermissionHandler` | `security/OrganizationPermissionHandler.java` | Evaluates corporate RBAC roles (`ROLE_MANAGE`, `ORG_MEMBER_REMOVE`, `LEAVE_REQUEST_MANAGE`) |
-| `AuthorizationPipeline` | `security/AuthorizationPipeline.java` | Core authorization engine resolving permissions across all contexts |
-| `PermissionService` | `service/PermissionService.java` | Aggregates role-permission-scopes for rapid authorization checks (`isAuthorized`) |
+| `AuthorizationPipeline` | `security/AuthorizationPipeline.java` | 7-stage enterprise authorization pipeline (Org Status → SuperAdmin Bypass → Context → Roles → Overrides → Permissions/Implications → Scope) |
+| `PermissionService` | `service/PermissionService.java` | High-level authorization service (`isAuthorized`, `requireAuthorization`) invoking the `AuthorizationPipeline` |
+
+### Tri-Modal Workspace Authorization Principles
+- **Personal Workspace**: Single-owner access logic (`createdBy.id == user.id`). Completely bypasses RBAC roles and `AuthorizationPipeline`.
+- **Crew Workspace**: Shared crew member access logic (`isCrewMember(user, crewId)`). Completely bypasses RBAC roles and `AuthorizationPipeline`.
+- **Organization Workspace**: Enterprise RBAC. Evaluates permissions, role assignments, role priority, scope hierarchy (`ORGANIZATION`, `TEAM`, `PROJECT`, `OWN`), user-specific overrides, and audit history via `AuthorizationPipeline`.
 
 ---
 

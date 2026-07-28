@@ -19,14 +19,23 @@ public class GoalService {
     private final OrganizationRepository organizationRepository;
     private final PermissionService permissionService;
 
-    public List<GoalResponseDTO> getGoals(Long orgId) {
+    @Transactional(readOnly = true)
+    public List<GoalResponseDTO> getGoals(Long orgId, User user) {
+        Organization org = organizationRepository.findById(orgId)
+                .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + orgId));
+        if (org.getStatus() != Organization.OrgStatus.ACTIVE) {
+            throw new OrganizationSuspendedException("Organization is not active.");
+        }
+        if (user != null && !user.isSuperAdmin() && !user.isMemberOf(org)) {
+            throw new com.example.taskflow.exception.UnauthorizedActionException("You are not a member of this organization.");
+        }
         return goalRepository.findByOrganizationIdOrderByEndDateAsc(orgId)
                 .stream().map(this::toDto).toList();
     }
 
     @Transactional
     public GoalResponseDTO create(User user, Long orgId, GoalRequestDTO req) {
-        requireManagePermission(user);
+        permissionService.requireAuthorization(user, com.example.taskflow.security.PermissionCode.GOAL_CREATE, orgId);
         Organization org = organizationRepository.findById(orgId)
                 .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + orgId));
         if (org.getStatus() != Organization.OrgStatus.ACTIVE) {
@@ -41,27 +50,22 @@ public class GoalService {
 
     @Transactional
     public GoalResponseDTO update(User user, Long goalId, GoalRequestDTO req) {
-        requireManagePermission(user);
         Goal goal = goalRepository.findById(goalId)
                 .orElseThrow(() -> new IllegalArgumentException("Goal not found: " + goalId));
+        permissionService.requireAuthorization(user, com.example.taskflow.security.PermissionCode.GOAL_UPDATE, goal.getOrganization().getId());
         applyRequest(goal, req);
         return toDto(goalRepository.save(goal));
     }
 
     @Transactional
     public void delete(User user, Long goalId) {
-        requireManagePermission(user);
         Goal goal = goalRepository.findById(goalId)
                 .orElseThrow(() -> new IllegalArgumentException("Goal not found: " + goalId));
+        permissionService.requireAuthorization(user, com.example.taskflow.security.PermissionCode.GOAL_DELETE, goal.getOrganization().getId());
         goalRepository.delete(goal);
     }
 
-    private void requireManagePermission(User user) {
-        if (!permissionService.getPermissionsForUser(user).contains("GOAL_MANAGE")) {
-            throw new com.example.taskflow.exception.UnauthorizedActionException(
-                    "You are not authorized to manage goals.");
-        }
-    }
+
 
     private void applyRequest(Goal goal, GoalRequestDTO req) {
         goal.setTitle(req.getTitle());

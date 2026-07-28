@@ -36,6 +36,7 @@ public class OrganizationInviteService {
     private final NotificationService notificationService;
     private final AuditService auditService;
     private final RoleRepository roleRepository;
+    private final PermissionService permissionService;
 
     public OrganizationInviteService(OrganizationInviteRepository inviteRepository,
                                       OrganizationRepository organizationRepository,
@@ -43,7 +44,8 @@ public class OrganizationInviteService {
                                       UserRepository userRepository,
                                       NotificationService notificationService,
                                       AuditService auditService,
-                                      RoleRepository roleRepository) {
+                                      RoleRepository roleRepository,
+                                      PermissionService permissionService) {
         this.inviteRepository = inviteRepository;
         this.organizationRepository = organizationRepository;
         this.membershipRepository = membershipRepository;
@@ -51,6 +53,7 @@ public class OrganizationInviteService {
         this.notificationService = notificationService;
         this.auditService = auditService;
         this.roleRepository = roleRepository;
+        this.permissionService = permissionService;
     }
 
     @Transactional
@@ -318,11 +321,13 @@ public class OrganizationInviteService {
         OrganizationMembership membership = membershipRepository.findByUserAndOrganization(caller, org)
                 .orElseThrow(() -> new UnauthorizedActionException("You are not a member of this organization"));
         
-        boolean hasPerm = membership.getOrgRole().getRolePermissionScopes().stream()
-                .anyMatch(rps -> rps.getPermission().getName().equals(permission));
-                
-        if (!hasPerm && !membership.getOrgRole().isBuiltinAdmin()) {
-            throw new UnauthorizedActionException("Requires permission: " + permission);
+        if (caller.isSuperAdmin() || (membership.getOrgRole() != null && membership.getOrgRole().isBuiltinAdmin())) {
+            return;
+        }
+
+        com.example.taskflow.security.PermissionCode code = com.example.taskflow.security.authorization.LegacyPermissionMapper.resolve(permission);
+        if (code != null) {
+            permissionService.requireAuthorization(caller, code, org.getId());
         }
     }
 }

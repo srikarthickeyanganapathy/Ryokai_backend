@@ -50,7 +50,7 @@ public class OrganizationTeamController {
     }
 
     @PostMapping("/{id}/teams")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasPermission(#id, 'Organization', 'TEAM_CREATE') or hasRole('SUPER_ADMIN')")
     public ResponseEntity<TeamResponseDTO> createTeam(
             @PathVariable @Min(1) Long id,
             @Valid @RequestBody CreateTeamRequestDTO request,
@@ -62,7 +62,7 @@ public class OrganizationTeamController {
     }
 
     @GetMapping("/{id}/teams")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasPermission(#id, 'Organization', 'MEMBER') or hasRole('SUPER_ADMIN')")
     public ResponseEntity<List<TeamResponseDTO>> listTeams(
             @PathVariable @Min(1) Long id,
             @AuthenticationPrincipal UserDetails userDetails) {
@@ -71,7 +71,7 @@ public class OrganizationTeamController {
     }
 
     @PostMapping("/teams/{teamId}/members")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasPermission(#teamId, 'Team', 'TEAM_MEMBER_ADD') or hasRole('SUPER_ADMIN')")
     public ResponseEntity<TeamResponseDTO> addTeamMember(
             @PathVariable @Min(1) Long teamId,
             @Valid @RequestBody TeamMemberRequestDTO body,
@@ -82,7 +82,7 @@ public class OrganizationTeamController {
     }
 
     @DeleteMapping("/teams/{teamId}/members/{userId}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasPermission(#teamId, 'Team', 'TEAM_MEMBER_REMOVE') or hasRole('SUPER_ADMIN')")
     public ResponseEntity<TeamResponseDTO> removeTeamMember(
             @PathVariable @Min(1) Long teamId,
             @PathVariable @Min(1) Long userId,
@@ -93,7 +93,7 @@ public class OrganizationTeamController {
     }
 
     @GetMapping("/teams/{teamId}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasPermission(#teamId, 'Team', 'VIEW') or hasRole('SUPER_ADMIN')")
     public ResponseEntity<TeamResponseDTO> getTeam(
             @PathVariable @Min(1) Long teamId,
             @AuthenticationPrincipal UserDetails userDetails) {
@@ -102,7 +102,7 @@ public class OrganizationTeamController {
     }
 
     @PutMapping("/teams/{teamId}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasPermission(#teamId, 'Team', 'EDIT') or hasRole('SUPER_ADMIN')")
     public ResponseEntity<TeamResponseDTO> updateTeam(
             @PathVariable @Min(1) Long teamId,
             @Valid @RequestBody CreateTeamRequestDTO request,
@@ -114,7 +114,7 @@ public class OrganizationTeamController {
     }
 
     @DeleteMapping("/teams/{teamId}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasPermission(#teamId, 'Team', 'DELETE') or hasRole('SUPER_ADMIN')")
     public ResponseEntity<Void> deleteTeam(
             @PathVariable @Min(1) Long teamId,
             @AuthenticationPrincipal UserDetails userDetails) {
@@ -124,7 +124,7 @@ public class OrganizationTeamController {
     }
 
     @GetMapping("/teams/{teamId}/observers")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasPermission(#teamId, 'Team', 'VIEW') or hasRole('SUPER_ADMIN')")
     public ResponseEntity<List<UserSummaryDTO>> getTeamObservers(
             @PathVariable @Min(1) Long teamId,
             @AuthenticationPrincipal UserDetails userDetails) {
@@ -137,7 +137,7 @@ public class OrganizationTeamController {
     }
 
     @PostMapping("/teams/{teamId}/observers")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasPermission(#teamId, 'Team', 'TEAM_MEMBER_ADD') or hasRole('SUPER_ADMIN')")
     public ResponseEntity<Void> addTeamObserver(
             @PathVariable @Min(1) Long teamId,
             @RequestBody TeamMemberRequestDTO body,
@@ -148,7 +148,7 @@ public class OrganizationTeamController {
     }
 
     @DeleteMapping("/teams/{teamId}/observers/{userId}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasPermission(#teamId, 'Team', 'TEAM_MEMBER_REMOVE') or hasRole('SUPER_ADMIN')")
     public ResponseEntity<Void> removeTeamObserver(
             @PathVariable @Min(1) Long teamId,
             @PathVariable @Min(1) Long userId,

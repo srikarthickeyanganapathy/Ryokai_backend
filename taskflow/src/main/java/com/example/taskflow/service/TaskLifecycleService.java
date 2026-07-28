@@ -50,6 +50,13 @@ public class TaskLifecycleService {
             throw new UnauthorizedActionException("You are not authorized to edit this task.");
         }
 
+        if (task.getCurrentStatus() == TaskStatus.APPROVED || task.getCurrentStatus() == TaskStatus.COMPLETED) {
+            throw new IllegalStateException("Approved or completed tasks are final and cannot be modified.");
+        }
+        if (task.getCurrentStatus() == TaskStatus.REJECTED) {
+            throw new IllegalStateException("Rejected tasks can only be reassigned before performing other operations.");
+        }
+
         if (request.getTitle() != null) task.setTitle(request.getTitle());
         if (request.getDescription() != null) task.setDescription(request.getDescription());
         if (request.getPriority() != null) task.setPriority(request.getPriority());
@@ -127,7 +134,10 @@ public class TaskLifecycleService {
                 int rPriority = reassignerPriority != null ? reassignerPriority : 100;
                 int aPriority = assigneePriority != null ? assigneePriority : 100;
                 
-                if (rPriority > aPriority && !user.isSuperAdmin()) {
+                boolean isAssigningToSelf = user.getId().equals(newAssignee.getId());
+                boolean isAssignor = task.getCreator() != null && task.getCreator().getId().equals(user.getId());
+                
+                if (rPriority > aPriority && !user.isSuperAdmin() && !isAssigningToSelf && !isAssignor) {
                     throw new UnauthorizedActionException("Cannot assign to someone with higher role priority.");
                 }
             }

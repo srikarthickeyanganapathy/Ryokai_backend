@@ -1,5 +1,6 @@
 package com.example.taskflow.service;
 
+import com.example.taskflow.domain.TaskStatus;
 import com.example.taskflow.domain.User;
 import com.example.taskflow.dto.TaskResponseDTO;
 
@@ -12,3 +13,4 @@ public interface TaskStateTransitionService {
     TaskResponseDTO completeCrewTask(Long taskId, User user);
     TaskResponseDTO claimTask(Long taskId, User user);
 }
+

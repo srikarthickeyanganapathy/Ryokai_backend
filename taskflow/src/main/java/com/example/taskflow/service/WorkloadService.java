@@ -62,6 +62,8 @@ public class WorkloadService {
                         try {
                             status = TaskStatus.valueOf(str);
                         } catch (Exception ignored) {}
+                    } else if (row[1] instanceof Number num) {
+                        status = TaskStatus.values()[num.intValue()];
                     }
 
                     long count = row[2] != null ? ((Number) row[2]).longValue() : 0;

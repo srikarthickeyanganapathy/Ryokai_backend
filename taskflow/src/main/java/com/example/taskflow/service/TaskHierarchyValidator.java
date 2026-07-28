@@ -99,10 +99,6 @@ public class TaskHierarchyValidator {
             if (!isAssigneeInTeam) {
                 throw new IllegalArgumentException("Assignee is not a member of the team");
             }
-        } else {
-            if (creator.getId().equals(assignee.getId()) && !isSuperAdmin) {
-                throw new IllegalArgumentException("You cannot assign org tasks to yourself (unless via a crew or team)");
-            }
         }
     }
 

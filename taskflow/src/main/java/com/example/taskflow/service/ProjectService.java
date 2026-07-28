@@ -24,6 +24,7 @@ import com.example.taskflow.repository.CrewMemberRepository;
 import com.example.taskflow.repository.TeamRepository;
 import com.example.taskflow.repository.TeamMemberRepository;
 import com.example.taskflow.repository.OrganizationMembershipRepository;
+import com.example.taskflow.security.PermissionCode;
 
 @Service
 public class ProjectService {
@@ -64,11 +65,10 @@ public class ProjectService {
         this.userRepository = userRepository;
     }
 
-    private boolean hasOrgPermission(User user, Organization org, String permission) {
+    private boolean hasOrgPermission(User user, Organization org, PermissionCode permissionCode) {
+        if (user == null || org == null || org.getId() == null) return false;
         if (user.isSuperAdmin()) return true;
-        return membershipRepository.findByUserAndOrganization(user, org)
-                .map(m -> m.getOrgRole() != null && m.getOrgRole().getRolePermissionScopes().stream().anyMatch(rps -> rps.getPermission().getName().equals(permission)))
-                .orElse(false);
+        return permissionService.isAuthorized(user, permissionCode, org.getId());
     }
 
     @Transactional(readOnly = true)
@@ -87,7 +87,7 @@ public class ProjectService {
         var memberships = membershipRepository.findByUserId(currentUser.getId());
         if (!memberships.isEmpty()) {
             Organization org = memberships.get(0).getOrganization();
-            boolean hasProjectManage = hasOrgPermission(currentUser, org, "PROJECT_MANAGE");
+            boolean hasProjectManage = hasOrgPermission(currentUser, org, PermissionCode.PROJECT_UPDATE);
             boolean hasSuperAdminOverride = permissionService.hasPermission(currentUser, "SUPER_ADMIN_OVERRIDE_CHECK");
 
             List<Project> orgProjects = projectRepository.findByOrganizationId(org.getId());
@@ -158,7 +158,7 @@ public class ProjectService {
         if (p.getCreatedBy() != null && p.getCreatedBy().getId().equals(currentUser.getId())) return true;
         if (p.getCollaborators() != null && p.getCollaborators().stream().anyMatch(c -> c.getId().equals(currentUser.getId()))) return true;
         if (p.getOrganization() != null) {
-            boolean hasProjectManage = hasOrgPermission(currentUser, p.getOrganization(), "PROJECT_MANAGE");
+            boolean hasProjectManage = hasOrgPermission(currentUser, p.getOrganization(), PermissionCode.PROJECT_UPDATE);
             if (hasProjectManage) return true;
             if (p.getTeam() == null) {
                 return membershipRepository.existsByUserIdAndOrganizationId(currentUser.getId(), p.getOrganization().getId());
@@ -192,7 +192,7 @@ public class ProjectService {
         if (dto.getTeamId() != null) {
             Team team = teamRepository.findById(dto.getTeamId())
                     .orElseThrow(() -> new RuntimeException("Team not found"));
-            if (!hasOrgPermission(currentUser, team.getOrganization(), "PROJECT_CREATE")) {
+            if (!hasOrgPermission(currentUser, team.getOrganization(), PermissionCode.PROJECT_CREATE)) {
                 throw new org.springframework.security.access.AccessDeniedException("You do not have permission to create organizational projects.");
             }
             project.setTeam(team);
@@ -201,7 +201,7 @@ public class ProjectService {
         } else if (dto.getOrganizationId() != null) {
             Organization org = organizationRepository.findById(dto.getOrganizationId())
                     .orElseThrow(() -> new RuntimeException("Organization not found"));
-            if (!hasOrgPermission(currentUser, org, "PROJECT_CREATE")) {
+            if (!hasOrgPermission(currentUser, org, PermissionCode.PROJECT_CREATE)) {
                 throw new org.springframework.security.access.AccessDeniedException("You do not have permission to create organizational projects.");
             }
             project.setOrganization(org);
@@ -235,7 +235,7 @@ public class ProjectService {
         
         boolean changingOrgOrTeam = dto.getTeamId() != null || dto.getOrganizationId() != null;
         if (changingOrgOrTeam && project.getOrganization() != null) {
-            if (!hasOrgPermission(currentUser, project.getOrganization(), "PROJECT_MANAGE")) {
+            if (!hasOrgPermission(currentUser, project.getOrganization(), PermissionCode.PROJECT_UPDATE)) {
                 throw new org.springframework.security.access.AccessDeniedException("You do not have permission to move this project from its current organization.");
             }
         }
@@ -243,7 +243,7 @@ public class ProjectService {
         if (dto.getTeamId() != null) {
             Team team = teamRepository.findById(dto.getTeamId())
                     .orElseThrow(() -> new RuntimeException("Team not found"));
-            if (!hasOrgPermission(currentUser, team.getOrganization(), "PROJECT_CREATE")) {
+            if (!hasOrgPermission(currentUser, team.getOrganization(), PermissionCode.PROJECT_CREATE)) {
                 throw new org.springframework.security.access.AccessDeniedException("You do not have permission to create or move projects to this team.");
             }
             project.setTeam(team);
@@ -251,7 +251,7 @@ public class ProjectService {
         } else if (dto.getOrganizationId() != null) {
             Organization org = organizationRepository.findById(dto.getOrganizationId())
                     .orElseThrow(() -> new RuntimeException("Organization not found"));
-            if (!hasOrgPermission(currentUser, org, "PROJECT_CREATE")) {
+            if (!hasOrgPermission(currentUser, org, PermissionCode.PROJECT_CREATE)) {
                 throw new org.springframework.security.access.AccessDeniedException("You do not have permission to create or move projects to this organization.");
             }
             project.setOrganization(org);

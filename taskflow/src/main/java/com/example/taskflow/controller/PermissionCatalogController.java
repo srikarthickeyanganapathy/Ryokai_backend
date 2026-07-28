@@ -72,7 +72,8 @@ public class PermissionCatalogController {
         // Sort modules using metadata order
         catalog.sort(Comparator.comparingInt(PermissionModuleDTO::getOrder));
 
-        com.example.taskflow.dto.PermissionCatalogResponseDTO response = new com.example.taskflow.dto.PermissionCatalogResponseDTO(1, catalog);
+        String now = java.time.Instant.now().toString();
+        com.example.taskflow.dto.PermissionCatalogResponseDTO response = new com.example.taskflow.dto.PermissionCatalogResponseDTO(1, now, catalog);
 
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.maxAge(1, TimeUnit.HOURS).cachePublic())

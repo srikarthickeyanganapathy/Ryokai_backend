@@ -69,8 +69,8 @@ public class TaskStateTransitionServiceImpl implements TaskStateTransitionServic
         if (!approvable.canSubmit(user, task)) {
             throw new UnauthorizedActionException("You are not authorized to submit this task.");
         }
-        if (task.getCurrentStatus() != TaskStatus.IN_PROGRESS && task.getCurrentStatus() != TaskStatus.REJECTED && task.getCurrentStatus() != TaskStatus.TODO) {
-            throw new IllegalStateException("Only TODO, IN_PROGRESS or REJECTED tasks can be submitted.");
+        if (task.getCurrentStatus() != TaskStatus.IN_PROGRESS && task.getCurrentStatus() != TaskStatus.TODO) {
+            throw new IllegalStateException("Only TODO, IN_PROGRESS or ASSIGNED tasks can be submitted.");
         }
 
         validateDependenciesResolved(taskId);
@@ -143,14 +143,13 @@ public class TaskStateTransitionServiceImpl implements TaskStateTransitionServic
         task.setCurrentStatus(TaskStatus.REJECTED);
         task.setReviewer(reviewer);
         task.setRejectionReason(reason);
-        User formerAssignee = task.getAssignee();
-        task.setAssignee(null);
+        User assignee = task.getAssignee();
         
         Task updated = taskRepository.save(task);
         taskAuditService.recordStatus(updated, fromStatus.name(), "REJECTED", "REJECTED", reviewer, reason);
         
-        if (formerAssignee != null) {
-            notificationService.createAndSend(formerAssignee, reviewer, NotificationEvent.TASK_REJECTED,
+        if (assignee != null) {
+            notificationService.createAndSend(assignee, reviewer, NotificationEvent.TASK_REJECTED,
                 "Task Rejected", "Your task " + task.getTitle() + " was rejected. Reason: " + reason, updated, "task-rejected:" + task.getId(), reviewer);
         }
             
@@ -186,6 +185,7 @@ public class TaskStateTransitionServiceImpl implements TaskStateTransitionServic
         realtimeBroadcaster.broadcastTaskUpdate(dto, updated.getId());
         return dto;
     }
+
 
     @Override
     @Transactional

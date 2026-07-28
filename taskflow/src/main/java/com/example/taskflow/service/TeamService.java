@@ -35,6 +35,7 @@ public class TeamService {
     private final NotificationService notificationService;
     private final TeamMemberRepository teamMemberRepository;
     private final TeamObserverRepository teamObserverRepository;
+    private final PermissionService permissionService;
 
     public TeamService(TeamRepository teamRepository,
                        OrganizationRepository organizationRepository,
@@ -43,7 +44,8 @@ public class TeamService {
                        TaskRepository taskRepository,
                        NotificationService notificationService,
                        TeamMemberRepository teamMemberRepository,
-                       TeamObserverRepository teamObserverRepository) {
+                       TeamObserverRepository teamObserverRepository,
+                       PermissionService permissionService) {
         this.teamRepository = teamRepository;
         this.organizationRepository = organizationRepository;
         this.userRepository = userRepository;
@@ -52,6 +54,7 @@ public class TeamService {
         this.notificationService = notificationService;
         this.teamMemberRepository = teamMemberRepository;
         this.teamObserverRepository = teamObserverRepository;
+        this.permissionService = permissionService;
     }
 
     // ========================================================================
@@ -63,11 +66,10 @@ public class TeamService {
                 .orElseThrow(() -> new UnauthorizedActionException("You are not a member of this organization"));
     }
 
-    private void requirePermission(User caller, Organization org, String permission) {
-        OrganizationMembership membership = requireOrgMembership(caller, org);
-        if (membership.getOrgRole() == null || membership.getOrgRole().getRolePermissionScopes().stream().noneMatch(rps -> rps.getPermission().getName().equals(permission))) {
-            throw new UnauthorizedActionException("This action requires the " + permission + " permission.");
-        }
+    private void requirePermission(User caller, Organization org, com.example.taskflow.security.PermissionCode permissionCode) {
+        requireOrgMembership(caller, org);
+        if (caller.isSuperAdmin()) return;
+        permissionService.requireAuthorization(caller, permissionCode, org.getId());
     }
 
     // ========================================================================
@@ -90,7 +92,7 @@ public class TeamService {
                 .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + orgId));
 
         // Auth: caller must be a member of the org with MANAGER+ role
-        requirePermission(createdBy, org, "TEAM_CREATE");
+        requirePermission(createdBy, org, com.example.taskflow.security.PermissionCode.TEAM_CREATE);
 
         Team team = new Team();
         team.setName(name);
@@ -110,7 +112,7 @@ public class TeamService {
         Organization org = team.getOrganization();
 
         // Auth: caller must be MANAGER+ in the same org
-        requirePermission(caller, org, "TEAM_MANAGE");
+        requirePermission(caller, org, com.example.taskflow.security.PermissionCode.TEAM_MEMBER_ADD);
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException("User not found: " + userId));
@@ -154,7 +156,7 @@ public class TeamService {
         Organization org = team.getOrganization();
 
         // Auth: caller must be MANAGER+ in the same org
-        requirePermission(caller, org, "TEAM_MANAGE");
+        requirePermission(caller, org, com.example.taskflow.security.PermissionCode.TEAM_MEMBER_REMOVE);
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException("User not found: " + userId));
@@ -200,7 +202,7 @@ public class TeamService {
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new IllegalArgumentException("Team not found: " + teamId));
         // Auth: caller must be MANAGER+ in the same org
-        requirePermission(caller, team.getOrganization(), "TEAM_MANAGE");
+        requirePermission(caller, team.getOrganization(), com.example.taskflow.security.PermissionCode.TEAM_UPDATE);
 
         if (name != null && !name.isBlank()) team.setName(name);
         if (description != null) team.setDescription(description);
@@ -213,7 +215,7 @@ public class TeamService {
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new IllegalArgumentException("Team not found: " + teamId));
         // Auth: caller must be MANAGER+ in the same org
-        requirePermission(caller, team.getOrganization(), "TEAM_MANAGE");
+        requirePermission(caller, team.getOrganization(), com.example.taskflow.security.PermissionCode.TEAM_DELETE);
         
         long taskCount = taskRepository.countByTeamId(teamId);
         if (taskCount > 0) {
@@ -264,7 +266,7 @@ public class TeamService {
     public void addObserver(Long teamId, Long userId, User caller) {
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new IllegalArgumentException("Team not found: " + teamId));
-        requirePermission(caller, team.getOrganization(), "TEAM_MANAGE");
+        requirePermission(caller, team.getOrganization(), com.example.taskflow.security.PermissionCode.TEAM_MEMBER_ADD);
         
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException("User not found: " + userId));
@@ -289,7 +291,7 @@ public class TeamService {
     public void removeObserver(Long teamId, Long userId, User caller) {
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new IllegalArgumentException("Team not found: " + teamId));
-        requirePermission(caller, team.getOrganization(), "TEAM_MANAGE");
+        requirePermission(caller, team.getOrganization(), com.example.taskflow.security.PermissionCode.TEAM_MEMBER_REMOVE);
         
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException("User not found: " + userId));

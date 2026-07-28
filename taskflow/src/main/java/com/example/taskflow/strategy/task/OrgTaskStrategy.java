@@ -16,9 +16,12 @@ import java.util.Set;
 public class OrgTaskStrategy implements TaskLifecycleStrategy, TaskScopeBehavior, Approvable {
 
     private final PermissionService permissionService;
+    private final com.example.taskflow.repository.OrganizationMembershipRepository membershipRepository;
 
-    public OrgTaskStrategy(PermissionService permissionService) {
+    public OrgTaskStrategy(PermissionService permissionService,
+                           com.example.taskflow.repository.OrganizationMembershipRepository membershipRepository) {
         this.permissionService = permissionService;
+        this.membershipRepository = membershipRepository;
     }
 
     @Override
@@ -28,8 +31,16 @@ public class OrgTaskStrategy implements TaskLifecycleStrategy, TaskScopeBehavior
 
     @Override
     public boolean canCreate(User u, TaskRequestDTO request) {
-        if (request.getOrgId() == null) return false;
-        return permissionService.isAuthorized(u, PermissionCode.TASK_CREATE, request.getOrgId());
+        if (u == null) return false;
+        Long orgId = request != null ? request.getOrgId() : null;
+        if (orgId == null && u != null) {
+            var memberships = membershipRepository.findByUserId(u.getId());
+            if (!memberships.isEmpty()) {
+                orgId = memberships.get(0).getOrganization().getId();
+            }
+        }
+        if (orgId == null) return false;
+        return permissionService.isAuthorized(u, PermissionCode.TASK_CREATE, orgId);
     }
 
     private boolean check(User u, Task t, PermissionCode code) {

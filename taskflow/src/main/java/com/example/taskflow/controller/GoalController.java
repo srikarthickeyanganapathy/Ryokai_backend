@@ -24,8 +24,10 @@ public class GoalController {
 
     @GetMapping
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<List<GoalResponseDTO>> list(@PathVariable Long orgId) {
-        return ResponseEntity.ok(goalService.getGoals(orgId));
+    public ResponseEntity<List<GoalResponseDTO>> list(@PathVariable Long orgId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User user = userService.getCurrentUser(userDetails.getUsername());
+        return ResponseEntity.ok(goalService.getGoals(orgId, user));
     }
 
     @PostMapping

@@ -89,7 +89,9 @@ public class CustomPermissionEvaluator implements PermissionEvaluator {
             String handlerType = handler.getTargetType();
             
             if (typeName.equals(handlerType) || 
-               (handlerType.equals("Task") && (typeName.equals("TaskRequestDTO") || typeName.equals("BulkAssignRequestDTO")))) {
+               (handlerType.equals("Task") && (typeName.equals("TaskRequestDTO") || typeName.equals("BulkAssignRequestDTO"))) ||
+               (handlerType.equals("Project") && typeName.equals("ProjectRequestDTO")) ||
+               (handlerType.equals("Team") && (typeName.equals("CreateTeamRequestDTO") || typeName.equals("TeamMemberRequestDTO")))) {
                 return handler.hasPermission(auth, user, targetDomainObject, perm);
             }
         }

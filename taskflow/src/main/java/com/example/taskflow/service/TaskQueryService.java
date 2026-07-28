@@ -33,6 +33,7 @@ public class TaskQueryService {
     private final CrewMemberRepository crewMemberRepository;
     private final TaskPermissionHandler taskPermissionHandler;
     private final TaskResponseMapper taskResponseMapper;
+    private final PermissionService permissionService;
 
     public Page<TaskResponseDTO> getTasksForUser(User user, Pageable pageable) {
         return getTasksForUser(user, pageable, null, null, null);
@@ -87,13 +88,12 @@ public class TaskQueryService {
         var memberships = membershipRepository.findByUserId(user.getId());
         if (!memberships.isEmpty()) {
             var membership = memberships.get(0);
-            boolean isDirectorOrAdmin = membership.getOrgRole() != null && membership.getOrgRole().getRolePermissionScopes().stream()
-                    .anyMatch(rps -> rps.getPermission().getName().equals("TASK_OVERRIDE") || rps.getPermission().getName().equals("TASK_VIEW"));
-            boolean isManager = membership.getOrgRole() != null && membership.getOrgRole().getRolePermissionScopes().stream()
-                    .anyMatch(rps -> rps.getPermission().getName().equals("TASK_ASSIGN"));
+            Long orgId = membership.getOrganization().getId();
+            boolean isDirectorOrAdmin = permissionService.isAuthorized(user, com.example.taskflow.security.PermissionCode.TASK_OVERRIDE, orgId) ||
+                                        permissionService.isAuthorized(user, com.example.taskflow.security.PermissionCode.TASK_VIEW, orgId);
+            boolean isManager = permissionService.isAuthorized(user, com.example.taskflow.security.PermissionCode.TASK_ASSIGN, orgId);
 
             if (isDirectorOrAdmin) {
-                Long orgId = membership.getOrganization().getId();
                 Page<Task> page = taskRepository.findByOrganizationIdOrCreatedBy(orgId, user, user.getId(), pageable);
                 Page<TaskResponseDTO> result = batchMapTasks(page);
                 if (scope != null) {

@@ -78,6 +78,8 @@ public class OrganizationLeaveService {
         Organization org = organizationRepository.findById(orgId)
                 .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + orgId));
 
+        permissionService.requireAuthorization(adminUser, com.example.taskflow.security.PermissionCode.LEAVE_APPROVE, orgId);
+
         LeaveRequest request = leaveRequestRepository.findById(requestId)
                 .orElseThrow(() -> new IllegalArgumentException("Leave request not found: " + requestId));
 
@@ -128,6 +130,8 @@ public class OrganizationLeaveService {
         Organization org = organizationRepository.findById(orgId)
                 .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + orgId));
 
+        permissionService.requireAuthorization(adminUser, com.example.taskflow.security.PermissionCode.LEAVE_APPROVE, orgId);
+
         LeaveRequest request = leaveRequestRepository.findById(requestId)
                 .orElseThrow(() -> new IllegalArgumentException("Leave request not found: " + requestId));
 
@@ -163,7 +167,7 @@ public class OrganizationLeaveService {
             throw new UnauthorizedActionException("You are not a member of this organization");
         }
 
-        if (permissionService.hasPermission(user, "LEAVE_REQUEST_MANAGE")) {
+        if (permissionService.isAuthorized(user, com.example.taskflow.security.PermissionCode.LEAVE_APPROVE, orgId)) {
             return leaveRequestRepository.findByOrganizationId(orgId).stream()
                     .map(this::mapToLeaveRequestDTO)
                     .collect(Collectors.toList());

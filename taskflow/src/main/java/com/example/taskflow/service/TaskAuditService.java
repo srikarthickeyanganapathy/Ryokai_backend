@@ -20,12 +20,15 @@ public class TaskAuditService {
 
     private final TaskStatusHistoryRepository historyRepository;
     private final com.example.taskflow.repository.OrganizationMembershipRepository membershipRepository;
+    private final PermissionService permissionService;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
 
     public TaskAuditService(TaskStatusHistoryRepository historyRepository,
-                            com.example.taskflow.repository.OrganizationMembershipRepository membershipRepository) {
+                            com.example.taskflow.repository.OrganizationMembershipRepository membershipRepository,
+                            PermissionService permissionService) {
         this.historyRepository = historyRepository;
         this.membershipRepository = membershipRepository;
+        this.permissionService = permissionService;
     }
 
     // Full signature
@@ -91,14 +94,14 @@ public class TaskAuditService {
         var memberships = membershipRepository.findByUserId(user.getId());
         if (!memberships.isEmpty()) {
             var membership = memberships.get(0);
-            boolean isDirectorOrAdmin = membership.getOrgRole() != null && membership.getOrgRole().getRolePermissionScopes().stream()
-                    .anyMatch(rps -> rps.getPermission().getName().equals("TASK_OVERRIDE") || rps.getPermission().getName().equals("DASHBOARD_ORG_WIDE_VIEW"));
+            Long orgId = membership.getOrganization().getId();
+            boolean isDirectorOrAdmin = permissionService.isAuthorized(user, com.example.taskflow.security.PermissionCode.TASK_OVERRIDE, orgId) ||
+                                        permissionService.isAuthorized(user, com.example.taskflow.security.PermissionCode.DASHBOARD_VIEW, orgId);
             
-            boolean isManager = membership.getOrgRole() != null && membership.getOrgRole().getRolePermissionScopes().stream()
-                    .anyMatch(rps -> rps.getPermission().getName().equals("TASK_ASSIGN") || rps.getPermission().getName().equals("TEAM_MANAGE"));
+            boolean isManager = permissionService.isAuthorized(user, com.example.taskflow.security.PermissionCode.TASK_ASSIGN, orgId) ||
+                                permissionService.isAuthorized(user, com.example.taskflow.security.PermissionCode.TEAM_UPDATE, orgId);
 
             if (isDirectorOrAdmin) {
-                Long orgId = membership.getOrganization().getId();
                 return includeAllTypes
                     ? historyRepository.findOrgFeedAllTypes(orgId, pageable).map(this::mapToActivityEventDTO)
                     : historyRepository.findOrgFeed(orgId, pageable).map(this::mapToActivityEventDTO);

@@ -176,19 +176,32 @@ sequenceDiagram
 
 ## 4. Task System Workflows
 
-### Workflow 4.1: Task Assignment & Hierarchy Validation
-- **APIs**: `POST /api/tasks/assign`, `POST /api/tasks/personal`, `POST /api/tasks/crew` ([TaskAssignmentController.java](../taskflow/src/main/java/com/example/taskflow/controller/TaskAssignmentController.java))
+### Workflow 4.1: Task Assignment & Authorization Pipeline Validation
+- **APIs**: `POST /api/v1/tasks/assign`, `POST /api/v1/tasks/personal`, `POST /api/v1/tasks/crew` ([TaskAssignmentController.java](../taskflow/src/main/java/com/example/taskflow/controller/TaskAssignmentController.java))
+- **Authorization & Context Resolution**:
+  1. Method security triggers `@PreAuthorize("hasPermission(#request, 'TASK_CREATE')")`.
+  2. `CustomPermissionEvaluator` inspects `TaskRequestDTO` and routes to `TaskPermissionHandler`.
+  3. `TaskPermissionHandler` determines mode (`PERSONAL`, `CREW`, `ORG`).
+  4. For `ORG` mode, if `orgId` is omitted from the request body, `TaskPermissionHandler` automatically resolves `orgId` via `teamId` → `projectId` → `OrganizationMembershipRepository.findByUserId(user.getId())`.
+  5. Evaluates `PermissionService.isAuthorized(user, TASK_CREATE, orgId)`, executing the 7-stage `AuthorizationPipeline` (checking Org active status, SuperAdmin status, Role assignments, user overrides, permission implications, and scope).
 - **Diagram 3**: Enterprise Task Assignment & Hierarchy Validation
 ```mermaid
 sequenceDiagram
     actor Assignor as Manager (Assignor)
     participant TaskCtrl as TaskAssignmentController
+    participant PermHandler as TaskPermissionHandler
+    participant AuthPipe as AuthorizationPipeline
     participant TaskAssignSvc as TaskAssignmentServiceImpl
     participant HierVal as TaskHierarchyValidator
     participant TaskRepo as TaskRepository
     participant DB as Database
 
-    Assignor->>TaskCtrl: POST /api/tasks/assign (TaskRequestDTO)
+    Assignor->>TaskCtrl: POST /api/v1/tasks/assign (TaskRequestDTO)
+    TaskCtrl->>PermHandler: @PreAuthorize hasPermission(request, 'TASK_CREATE')
+    PermHandler->>PermHandler: Auto-resolve OrgId (DTO -> Team -> Membership)
+    PermHandler->>AuthPipe: isAuthorized(user, TASK_CREATE, orgId)
+    AuthPipe-->>PermHandler: Grant (200) / Deny (403 Forbidden)
+    
     TaskCtrl->>TaskAssignSvc: assignTask(TaskAssignmentCommand)
     TaskAssignSvc->>HierVal: validateOrgOrTeamTask(assignor, assignee, teamId)
     HierVal->>DB: Query Assignor Priority vs Assignee Priority
@@ -198,7 +211,7 @@ sequenceDiagram
         TaskAssignSvc-->>Assignor: 403 Forbidden
     else Assignor Priority >= Assignee Priority
         HierVal-->>TaskAssignSvc: Validation Succeeded
-        TaskAssignSvc->>TaskRepo: save(Task: status=IN_PROGRESS, mode=ORG)
+        TaskAssignSvc->>TaskRepo: save(Task: status=TODO, mode=ORG)
         TaskRepo->>DB: INSERT INTO tasks
         TaskAssignSvc-->>Assignor: 201 Created (TaskResponseDTO)
     end

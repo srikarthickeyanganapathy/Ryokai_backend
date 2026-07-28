@@ -1,5 +1,7 @@
 package com.example.taskflow.dto;
 
+import java.util.List;
+
 public class PermissionResponseDTO {
     private Long id;
     private String name;
@@ -8,6 +10,7 @@ public class PermissionResponseDTO {
     private String category;
     private String description;
     private boolean system;
+    private String scope;
 
     public PermissionResponseDTO() {}
     public PermissionResponseDTO(Long id, String name, String code, String module, String category, String description, boolean system) {
@@ -19,6 +22,11 @@ public class PermissionResponseDTO {
         this.description = description;
         this.system = system;
     }
+    public PermissionResponseDTO(Long id, String name, String code, String module, String category, String description, boolean system, String scope) {
+        this(id, name, code, module, category, description, system);
+        this.scope = scope;
+    }
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public String getName() { return name; }
@@ -34,6 +42,9 @@ public class PermissionResponseDTO {
     public boolean isSystem() { return system; }
     public void setSystem(boolean system) { this.system = system; }
 
+    public String getScope() { return scope; }
+    public void setScope(String scope) { this.scope = scope; }
+
     public String getGroup() {
         return com.example.taskflow.util.PermissionMetadataRegistry.getGroup(this.code);
     }
@@ -45,4 +56,25 @@ public class PermissionResponseDTO {
     public int getOrder() {
         return com.example.taskflow.util.PermissionMetadataRegistry.getPermissionOrder(this.code);
     }
+
+    public List<String> getSupportedScopes() {
+        return com.example.taskflow.util.PermissionMetadataRegistry.getSupportedScopes(this.code);
+    }
+
+    public boolean isScopeRequired() {
+        return com.example.taskflow.util.PermissionMetadataRegistry.isScopeRequired(this.code);
+    }
+
+    public List<String> getRequires() {
+        return com.example.taskflow.util.PermissionMetadataRegistry.getRequires(this.code);
+    }
+
+    public String getRecommendedScope() {
+        return com.example.taskflow.util.PermissionMetadataRegistry.getRecommendedScope(this.code);
+    }
+
+    public String getActionRules() {
+        return com.example.taskflow.util.PermissionMetadataRegistry.getActionRules(this.code);
+    }
 }
+

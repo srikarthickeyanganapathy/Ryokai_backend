@@ -54,6 +54,10 @@ public class RoleService {
     }
 
     private PermissionResponseDTO mapToPermissionResponseDTO(Permission p) {
+        return mapToPermissionResponseDTO(p, "ORGANIZATION");
+    }
+
+    private PermissionResponseDTO mapToPermissionResponseDTO(Permission p, String scopeCode) {
         return new PermissionResponseDTO(
             p.getId(), 
             p.getName(), 
@@ -61,14 +65,15 @@ public class RoleService {
             p.getModule(), 
             p.getCategory(), 
             p.getDescription(), 
-            p.isSystem()
+            p.isSystem(),
+            scopeCode
         );
     }
 
     public RoleResponseDTO mapToRoleResponseDTO(Role r) {
         Set<PermissionResponseDTO> perms = r.getRolePermissionScopes() != null 
             ? r.getRolePermissionScopes().stream()
-                .map(rps -> mapToPermissionResponseDTO(rps.getPermission()))
+                .map(rps -> mapToPermissionResponseDTO(rps.getPermission(), rps.getScope() != null ? rps.getScope().getCode() : "ORGANIZATION"))
                 .collect(Collectors.toSet())
             : new HashSet<>();
         return new RoleResponseDTO(r.getId(), r.getName(), r.getDescription(), perms,
@@ -313,7 +318,14 @@ public class RoleService {
 
         for (var pAssign : request.permissions()) {
             Permission permission = permissionRepository.findByName(pAssign.permissionName())
+                    .or(() -> permissionRepository.findByCode(pAssign.permissionName()))
                     .orElseThrow(() -> new RuntimeException("Permission not found: " + pAssign.permissionName()));
+
+            List<String> supported = com.example.taskflow.util.PermissionMetadataRegistry.getSupportedScopes(permission.getCode());
+            if (!supported.contains(pAssign.scopeCode())) {
+                throw new IllegalArgumentException("Scope '" + pAssign.scopeCode() + "' is not supported for permission: " + permission.getCode());
+            }
+
             com.example.taskflow.domain.Scope scope = scopeRepository.findByCode(pAssign.scopeCode())
                     .orElseThrow(() -> new RuntimeException("Scope not found: " + pAssign.scopeCode()));
                     
@@ -329,7 +341,7 @@ public class RoleService {
         permissionService.invalidateAll();
         
         Set<PermissionResponseDTO> newPermsDTO = role.getRolePermissionScopes().stream()
-            .map(rps -> mapToPermissionResponseDTO(rps.getPermission())).collect(Collectors.toSet());
+            .map(rps -> mapToPermissionResponseDTO(rps.getPermission(), rps.getScope() != null ? rps.getScope().getCode() : "ORGANIZATION")).collect(Collectors.toSet());
             
         auditService.recordSync("ROLE_PERMISSIONS_CHANGED", caller, "ROLE", id,
                 oldPerms.stream().map(Permission::getName).collect(Collectors.toList()),
