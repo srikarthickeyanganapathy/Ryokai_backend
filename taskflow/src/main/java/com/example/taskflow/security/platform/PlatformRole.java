@@ -1,11 +1,14 @@
 package com.example.taskflow.security.platform;
+import com.example.taskflow.organization.core.domain.Organization;
+import com.example.taskflow.organization.rbac.domain.Role;
+import com.example.taskflow.user.domain.User;
 
 /**
  * Platform-level roles for the Ryokai SaaS platform itself.
  *
  * <p>These are <b>NOT</b> organization roles. Platform identities exist outside
  * any workspace. They manage organizations, billing, feature flags, and
- * platform health — they never interact with workspace RBAC.
+ * platform health â€” they never interact with workspace RBAC.
  *
  * <p>A platform identity is a user with a {@code user_roles} entry pointing
  * to a role whose name matches one of these values.

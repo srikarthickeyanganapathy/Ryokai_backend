@@ -5,13 +5,15 @@ import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
+import com.example.taskflow.organization.rbac.domain.Permission;
+import com.example.taskflow.organization.rbac.domain.Role;
 
 /**
  * Defines which platform permissions each platform role has.
  *
  * <p>This is the platform equivalent of {@code role_permission_scopes}.
  * Since platform roles are fixed (not tenant-configurable), the mapping
- * is defined as code constants — no database table needed.
+ * is defined as code constants â€” no database table needed.
  */
 public final class PlatformRolePermissions {
 

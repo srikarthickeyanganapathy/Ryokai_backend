@@ -1,7 +1,9 @@
 package com.example.taskflow.security.authorization;
+import com.example.taskflow.task.domain.model.Task;
+import com.example.taskflow.user.domain.User;
 
 /**
- * A single policy predicate — a boolean function evaluated at runtime.
+ * A single policy predicate â€” a boolean function evaluated at runtime.
  *
  * <p>Implementations are registered in {@link PolicyPredicateRegistry} by key.
  * Each predicate is a stateless evaluator that receives the full
@@ -10,9 +12,9 @@ package com.example.taskflow.security.authorization;
  *
  * <p>Examples:
  * <ul>
- *   <li>{@code IS_ASSIGNEE} — checks if user is the task assignee</li>
- *   <li>{@code RESOURCE_NOT_ARCHIVED} — checks if the resource is not archived</li>
- *   <li>{@code TASK_STATUS_EQUALS} — checks if task status matches a parameter</li>
+ *   <li>{@code IS_ASSIGNEE} â€” checks if user is the task assignee</li>
+ *   <li>{@code RESOURCE_NOT_ARCHIVED} â€” checks if the resource is not archived</li>
+ *   <li>{@code TASK_STATUS_EQUALS} â€” checks if task status matches a parameter</li>
  * </ul>
  */
 @FunctionalInterface

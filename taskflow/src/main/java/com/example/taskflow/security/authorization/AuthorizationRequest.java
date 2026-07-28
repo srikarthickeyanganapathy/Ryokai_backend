@@ -1,12 +1,17 @@
 package com.example.taskflow.security.authorization;
 
-import com.example.taskflow.domain.User;
+import com.example.taskflow.user.domain.User;
 import com.example.taskflow.security.PermissionCode;
 import com.example.taskflow.security.ScopeType;
 
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
+import com.example.taskflow.organization.core.domain.Organization;
+import com.example.taskflow.organization.rbac.domain.Permission;
+import com.example.taskflow.organization.rbac.domain.Scope;
+import com.example.taskflow.project.domain.Project;
+import com.example.taskflow.team.domain.Team;
 
 /**
  * Encapsulates all context needed for a single authorization evaluation.
@@ -42,7 +47,7 @@ public class AuthorizationRequest {
                 : Collections.emptyMap();
     }
 
-    // ── Getters ─────────────────────────────────────────────────────
+    // â”€â”€ Getters â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     public User getUser() { return user; }
     public PermissionCode getPermission() { return permission; }
@@ -61,7 +66,7 @@ public class AuthorizationRequest {
     public ScopeType getRequiredScope() {
         if (resourceId != null && resourceType != null) {
             // Check if the resource is owned by the user (OWN scope)
-            // This is determined by the caller, not here — we return the
+            // This is determined by the caller, not here â€” we return the
             // minimum structural scope based on the provided context.
         }
         if (projectId != null) return ScopeType.PROJECT;
@@ -70,7 +75,7 @@ public class AuthorizationRequest {
         return ScopeType.OWN;
     }
 
-    // ── Builder ─────────────────────────────────────────────────────
+    // â”€â”€ Builder â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     public static Builder builder(User user, PermissionCode permission) {
         return new Builder(user, permission);

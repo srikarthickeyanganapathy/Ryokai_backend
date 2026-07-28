@@ -14,22 +14,31 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import com.example.taskflow.domain.Organization;
-import com.example.taskflow.domain.OrganizationMembership;
-import com.example.taskflow.domain.PermissionAuditLog;
-import com.example.taskflow.domain.RolePermissionScope;
-import com.example.taskflow.domain.ResourceAssignment;
-import com.example.taskflow.domain.UserPermissionOverride;
-import com.example.taskflow.domain.User;
-import com.example.taskflow.repository.OrganizationMembershipRepository;
-import com.example.taskflow.repository.OrganizationRepository;
-import com.example.taskflow.repository.PermissionAuditLogRepository;
-import com.example.taskflow.repository.ResourceAssignmentRepository;
-import com.example.taskflow.repository.RolePermissionScopeRepository;
-import com.example.taskflow.repository.UserPermissionOverrideRepository;
+import com.example.taskflow.organization.core.domain.Organization;
+import com.example.taskflow.organization.membership.domain.OrganizationMembership;
+import com.example.taskflow.organization.rbac.domain.PermissionAuditLog;
+import com.example.taskflow.organization.rbac.domain.RolePermissionScope;
+import com.example.taskflow.organization.rbac.domain.ResourceAssignment;
+import com.example.taskflow.organization.rbac.domain.UserPermissionOverride;
+import com.example.taskflow.user.domain.User;
+import com.example.taskflow.organization.membership.infrastructure.persistence.OrganizationMembershipRepository;
+import com.example.taskflow.organization.core.infrastructure.persistence.OrganizationRepository;
+import com.example.taskflow.organization.rbac.infrastructure.persistence.PermissionAuditLogRepository;
+import com.example.taskflow.organization.rbac.infrastructure.persistence.ResourceAssignmentRepository;
+import com.example.taskflow.organization.rbac.infrastructure.persistence.RolePermissionScopeRepository;
+import com.example.taskflow.organization.rbac.infrastructure.persistence.UserPermissionOverrideRepository;
 import com.example.taskflow.security.PermissionCode;
 import com.example.taskflow.security.PermissionImplications;
 import com.example.taskflow.security.ScopeType;
+import com.example.taskflow.crew.domain.Crew;
+import com.example.taskflow.organization.membership.domain.OrganizationMembership;
+import com.example.taskflow.organization.rbac.domain.Permission;
+import com.example.taskflow.organization.rbac.domain.Role;
+import com.example.taskflow.organization.rbac.domain.Scope;
+import com.example.taskflow.project.domain.Project;
+import com.example.taskflow.security.platform.PlatformAuthorizationService;
+import com.example.taskflow.task.domain.model.Task;
+import com.example.taskflow.team.domain.Team;
 
 /**
  * The authorization pipeline for <b>Organization Workspaces only</b>.
@@ -42,12 +51,12 @@ import com.example.taskflow.security.ScopeType;
  * <p>Pipeline stages:
  * <ol>
  *   <li>Authenticate User (already done by Spring Security before this point)</li>
- *   <li>Resolve Workspace Type (handled by caller — this pipeline is ONLY for Org workspaces)</li>
+ *   <li>Resolve Workspace Type (handled by caller Ã¢â‚¬â€ this pipeline is ONLY for Org workspaces)</li>
  *   <li>Check Organization Status (active? suspended?)</li>
  *   <li>Load User Roles (via OrganizationMembership)</li>
  *   <li>Check User Overrides (GRANT/DENY per user)</li>
  *   <li>Resolve Permissions + Implications (transitive grant expansion)</li>
- *   <li>Resolve Scope + Resources (ORGANIZATION → TEAM → PROJECT → OWN)</li>
+ *   <li>Resolve Scope + Resources (ORGANIZATION Ã¢â€ â€™ TEAM Ã¢â€ â€™ PROJECT Ã¢â€ â€™ OWN)</li>
  *   <li>Evaluate Policies (runtime predicates)</li>
  *   <li>Evaluate Field Restrictions (field-level access control)</li>
  * </ol>
@@ -110,7 +119,7 @@ public class AuthorizationPipeline {
         User user = request.getUser();
         PermissionCode permission = request.getPermission();
 
-        // ① Check Organization Status
+        // Ã¢â€˜Â  Check Organization Status
         if (request.getOrganizationId() != null) {
             Organization org = organizationRepository.findById(request.getOrganizationId()).orElse(null);
             if (org == null) {
@@ -118,11 +127,11 @@ public class AuthorizationPipeline {
             }
             if (org.getStatus() != Organization.OrgStatus.ACTIVE) {
                 return audit(request, AuthorizationDecision.deny("ORG_STATUS",
-                        "Organization is " + org.getStatus() + " — workspace access is disabled"));
+                        "Organization is " + org.getStatus() + " Ã¢â‚¬â€ workspace access is disabled"));
             }
         }
 
-        // ④ Load User Roles
+        // Ã¢â€˜Â£ Load User Roles
         Long orgId = request.getOrganizationId();
         if (orgId == null) {
             return audit(request, AuthorizationDecision.deny("CONTEXT", "Organization ID is required for org-scoped permission checks"));
@@ -142,7 +151,7 @@ public class AuthorizationPipeline {
         roleIds.add(membership.getOrgRole().getId());
         // Future: add team-level and project-level roles here
 
-        // ⑤ Check User Overrides
+        // Ã¢â€˜Â¤ Check User Overrides
         List<UserPermissionOverride> overrides = overrideRepository.findActiveByUserAndOrg(
                 user.getId(), orgId, LocalDateTime.now());
 
@@ -162,7 +171,7 @@ public class AuthorizationPipeline {
             }
         }
 
-        // ⑥ Resolve Permissions + Implications
+        // Ã¢â€˜Â¥ Resolve Permissions + Implications
         // Expand the requested permission to include all permissions that imply it
         Set<PermissionCode> satisfyingPermissions = findSatisfyingPermissions(permission);
 
@@ -179,19 +188,19 @@ public class AuthorizationPipeline {
             return audit(request, AuthorizationDecision.denyPermission(permission.code()));
         }
 
-        // ⑦ Resolve Scope + Resources
+        // Ã¢â€˜Â¦ Resolve Scope + Resources
         AuthorizationDecision scopeResult = resolveScope(request, grants);
         if (scopeResult.isDenied()) {
             return audit(request, scopeResult);
         }
 
-        // ⑧ Evaluate Policies
+        // Ã¢â€˜Â§ Evaluate Policies
         AuthorizationDecision policyResult = policyEvaluator.evaluate(request);
         if (policyResult.isDenied()) {
             return audit(request, policyResult);
         }
 
-        // ⑨ Evaluate Field Restrictions
+        // Ã¢â€˜Â¨ Evaluate Field Restrictions
         return evaluateFields(request, roleIds);
     }
 
@@ -212,7 +221,7 @@ public class AuthorizationPipeline {
     }
 
     /**
-     * Stage ⑦: Checks if any grant's scope is sufficient for the request's context.
+     * Stage Ã¢â€˜Â¦: Checks if any grant's scope is sufficient for the request's context.
      */
     private AuthorizationDecision resolveScope(AuthorizationRequest request, List<RolePermissionScope> grants) {
         ScopeType requiredScope = request.getRequiredScope();
@@ -227,7 +236,7 @@ public class AuthorizationPipeline {
                         .findByRolePermissionScopeId(grant.getId());
 
                 if (assignments.isEmpty()) {
-                    // No narrowing — permission applies to all resources within scope
+                    // No narrowing Ã¢â‚¬â€ permission applies to all resources within scope
                     return AuthorizationDecision.grant("SCOPE");
                 }
 
@@ -268,7 +277,7 @@ public class AuthorizationPipeline {
     }
 
     /**
-     * Stage ⑨: Evaluate field restrictions (only for _UPDATE operations with modified fields).
+     * Stage Ã¢â€˜Â¨: Evaluate field restrictions (only for _UPDATE operations with modified fields).
      */
     private AuthorizationDecision evaluateFields(AuthorizationRequest request, List<Long> roleIds) {
         if (request.getModifiedFields().isEmpty()) {

@@ -1,0 +1,109 @@
+package com.example.taskflow.organization.rbac.api;
+
+import java.util.List;
+import java.util.Set;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.example.taskflow.user.domain.User;
+import com.example.taskflow.organization.rbac.dto.AssignPermissionsRequestDTO;
+import com.example.taskflow.organization.rbac.dto.PermissionResponseDTO;
+import com.example.taskflow.organization.rbac.dto.RoleCreateRequestDTO;
+import com.example.taskflow.organization.rbac.dto.RoleResponseDTO;
+import com.example.taskflow.organization.rbac.dto.RoleUpdateRequestDTO;
+import com.example.taskflow.organization.rbac.application.OrganizationRoleService;
+import com.example.taskflow.user.application.UserService;
+
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import com.example.taskflow.organization.core.domain.Organization;
+
+@RestController
+@RequestMapping(value = "/api/v1/organizations", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
+@Validated
+public class OrganizationRoleController {
+
+    private final OrganizationRoleService organizationRoleService;
+    private final UserService userService;
+
+    public OrganizationRoleController(OrganizationRoleService organizationRoleService, UserService userService) {
+        this.organizationRoleService = organizationRoleService;
+        this.userService = userService;
+    }
+
+    private User getCurrentUser(UserDetails userDetails) {
+        if (userDetails == null) {
+            throw new RuntimeException("Unauthorized: No authenticated user found");
+        }
+        return userService.getCurrentUser(userDetails.getUsername());
+    }
+
+    @GetMapping("/{id}/roles")
+    @PreAuthorize("hasPermission(#id, 'Organization', 'MEMBER') or hasRole('SUPER_ADMIN')")
+    public ResponseEntity<List<RoleResponseDTO>> listRoles(
+            @PathVariable @Min(1) Long id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(organizationRoleService.getRolesByOrganizationId(id));
+    }
+
+    @PostMapping("/{id}/roles")
+    @PreAuthorize("hasPermission(#id, 'Organization', 'ROLE_MANAGE') or hasRole('SUPER_ADMIN')")
+    public ResponseEntity<RoleResponseDTO> createRole(
+            @PathVariable @Min(1) Long id,
+            @Valid @RequestBody RoleCreateRequestDTO request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User user = getCurrentUser(userDetails);
+        RoleCreateRequestDTO orgRequest = new RoleCreateRequestDTO(
+            request.name(), request.description(), id, request.priority());
+        RoleResponseDTO response = organizationRoleService.createRole(orgRequest, user);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PutMapping("/{id}/roles/{roleId}")
+    @PreAuthorize("hasPermission(#id, 'Organization', 'ROLE_MANAGE') or hasRole('SUPER_ADMIN')")
+    public ResponseEntity<RoleResponseDTO> updateRole(
+            @PathVariable @Min(1) Long id,
+            @PathVariable @Min(1) Long roleId,
+            @Valid @RequestBody RoleUpdateRequestDTO request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User user = getCurrentUser(userDetails);
+        RoleResponseDTO response = organizationRoleService.updateRole(roleId, request, user);
+        return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/{id}/roles/{roleId}")
+    @PreAuthorize("hasPermission(#id, 'Organization', 'ROLE_MANAGE') or hasRole('SUPER_ADMIN')")
+    public ResponseEntity<Void> deleteRole(
+            @PathVariable @Min(1) Long id,
+            @PathVariable @Min(1) Long roleId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User user = getCurrentUser(userDetails);
+        organizationRoleService.deleteRole(roleId, user);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{id}/roles/{roleId}/permissions")
+    @PreAuthorize("hasPermission(#id, 'Organization', 'ROLE_MANAGE') or hasRole('SUPER_ADMIN')")
+    public ResponseEntity<Set<PermissionResponseDTO>> updateRolePermissions(
+            @PathVariable @Min(1) Long id,
+            @PathVariable @Min(1) Long roleId,
+            @Valid @RequestBody AssignPermissionsRequestDTO request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User user = getCurrentUser(userDetails);
+        Set<PermissionResponseDTO> response = organizationRoleService.assignRolePermissions(roleId, request, user);
+        return ResponseEntity.ok(response);
+    }
+}

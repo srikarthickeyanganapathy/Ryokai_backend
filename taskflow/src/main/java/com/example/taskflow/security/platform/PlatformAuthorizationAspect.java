@@ -1,7 +1,7 @@
 package com.example.taskflow.security.platform;
 
-import com.example.taskflow.domain.User;
-import com.example.taskflow.repository.UserRepository;
+import com.example.taskflow.user.domain.User;
+import com.example.taskflow.user.infrastructure.persistence.UserRepository;
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Before;
@@ -11,6 +11,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
+import com.example.taskflow.organization.rbac.domain.Permission;
 
 /**
  * Aspect that enforces {@link PlatformAuthorize} on platform endpoints.

@@ -1,11 +1,18 @@
 package com.example.taskflow.security;
+import com.example.taskflow.crew.domain.Crew;
+import com.example.taskflow.organization.core.domain.Organization;
+import com.example.taskflow.organization.rbac.domain.Permission;
+import com.example.taskflow.organization.rbac.domain.Scope;
+import com.example.taskflow.project.domain.Project;
+import com.example.taskflow.team.domain.Team;
+import com.example.taskflow.user.domain.User;
 
 /**
  * Authorization scope levels for Organization RBAC.
  * Scopes determine <b>where</b> a permission applies.
  *
  * <p>Scope hierarchy (higher includes lower):
- * {@code ORGANIZATION ⊇ TEAM ⊇ PROJECT ⊇ OWN}
+ * {@code ORGANIZATION âŠ‡ TEAM âŠ‡ PROJECT âŠ‡ OWN}
  *
  * <p>Personal and Crew workspaces do NOT use scopes.
  */
@@ -13,7 +20,7 @@ public enum ScopeType {
 
     /**
      * Applies only to resources owned by or assigned to the user.
-     * Lowest scope — most restrictive.
+     * Lowest scope â€” most restrictive.
      */
     OWN(0),
 

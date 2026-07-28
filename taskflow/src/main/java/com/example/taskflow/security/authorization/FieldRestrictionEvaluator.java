@@ -5,8 +5,13 @@ import java.util.Set;
 
 import org.springframework.stereotype.Service;
 
-import com.example.taskflow.domain.FieldRestriction;
-import com.example.taskflow.repository.FieldRestrictionRepository;
+import com.example.taskflow.organization.rbac.domain.FieldRestriction;
+import com.example.taskflow.organization.rbac.infrastructure.persistence.FieldRestrictionRepository;
+import com.example.taskflow.organization.rbac.domain.Role;
+import com.example.taskflow.project.domain.Project;
+import com.example.taskflow.task.domain.model.Task;
+import com.example.taskflow.team.domain.Team;
+import com.example.taskflow.user.domain.User;
 
 /**
  * Evaluates field-level access control for _UPDATE operations.
@@ -16,10 +21,10 @@ import com.example.taskflow.repository.FieldRestrictionRepository;
  *   <li>Load field restrictions for the user's role(s) and the target resource type</li>
  *   <li>For each field being modified:
  *       <ul>
- *         <li>If the field has an explicit DENY → deny the entire request</li>
- *         <li>If the field has READ_ONLY → deny the entire request</li>
- *         <li>If the field has ALLOW → permit</li>
- *         <li>If no restriction exists → permit (default open)</li>
+ *         <li>If the field has an explicit DENY â†’ deny the entire request</li>
+ *         <li>If the field has READ_ONLY â†’ deny the entire request</li>
+ *         <li>If the field has ALLOW â†’ permit</li>
+ *         <li>If no restriction exists â†’ permit (default open)</li>
  *       </ul>
  *   </li>
  * </ol>
@@ -70,7 +75,7 @@ public class FieldRestrictionEvaluator {
                 .findByRoleIdInAndResourceType(roleIds, resourceType);
 
         if (restrictions.isEmpty()) {
-            // No restrictions configured → default open
+            // No restrictions configured â†’ default open
             return AuthorizationDecision.grant("FIELD");
         }
 
@@ -93,12 +98,12 @@ public class FieldRestrictionEvaluator {
                 }
             }
 
-            // If we found an explicit restriction and no ALLOW from any role → deny
+            // If we found an explicit restriction and no ALLOW from any role â†’ deny
             if (fieldRestricted && !fieldAllowed) {
                 return AuthorizationDecision.denyField(field);
             }
 
-            // If no restriction found for this field at all → default open (allow)
+            // If no restriction found for this field at all â†’ default open (allow)
         }
 
         return AuthorizationDecision.grant("FIELD");

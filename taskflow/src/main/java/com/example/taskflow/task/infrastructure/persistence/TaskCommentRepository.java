@@ -1,0 +1,19 @@
+package com.example.taskflow.task.infrastructure.persistence;
+
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import com.example.taskflow.task.domain.model.TaskComment;
+import com.example.taskflow.task.domain.model.Task;
+
+public interface TaskCommentRepository extends JpaRepository<TaskComment, Long> {
+    // Spring Data JPA automatically derives the query for task.id
+    Page<TaskComment> findByTaskIdOrderByCreatedAtAsc(Long taskId, Pageable pageable);
+
+    /** Top-level comments only (parent_id IS NULL) for threaded display. */
+    Page<TaskComment> findByTaskIdAndParentIsNullOrderByCreatedAtAsc(Long taskId, Pageable pageable);
+
+    void deleteByTaskId(Long taskId);
+}

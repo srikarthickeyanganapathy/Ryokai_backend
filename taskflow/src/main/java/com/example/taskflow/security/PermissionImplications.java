@@ -5,6 +5,11 @@ import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
+import com.example.taskflow.organization.core.domain.Organization;
+import com.example.taskflow.organization.rbac.domain.Permission;
+import com.example.taskflow.project.domain.Project;
+import com.example.taskflow.task.domain.model.Task;
+import com.example.taskflow.user.domain.User;
 
 /**
  * Framework-level permission implication rules.
@@ -13,7 +18,7 @@ import java.util.Set;
  * If a user has permission A and A implies B, the user implicitly has permission B.
  *
  * <p>Implications are resolved <b>transitively</b>:
- * {@code TASK_OVERRIDE → TASK_REASSIGN → TASK_ASSIGN → TASK_VIEW}
+ * {@code TASK_OVERRIDE â†’ TASK_REASSIGN â†’ TASK_ASSIGN â†’ TASK_VIEW}
  *
  * <p>Example: A user with {@code TASK_UPDATE} implicitly has {@code TASK_VIEW}
  * without needing a separate row in {@code role_permission_scopes}.
@@ -26,7 +31,7 @@ public final class PermissionImplications {
     static {
         EnumMap<PermissionCode, Set<PermissionCode>> map = new EnumMap<>(PermissionCode.class);
 
-        // ── Task ────────────────────────────────────────────────────────
+        // â”€â”€ Task â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         map.put(PermissionCode.TASK_UPDATE,           EnumSet.of(PermissionCode.TASK_VIEW));
         map.put(PermissionCode.TASK_DELETE,           EnumSet.of(PermissionCode.TASK_VIEW));
         map.put(PermissionCode.TASK_APPROVE,          EnumSet.of(PermissionCode.TASK_VIEW));
@@ -41,14 +46,14 @@ public final class PermissionImplications {
                 PermissionCode.TASK_CANCEL,
                 PermissionCode.TASK_DEPENDENCY_UPDATE));
 
-        // ── Project ─────────────────────────────────────────────────────
+        // â”€â”€ Project â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         map.put(PermissionCode.PROJECT_UPDATE,         EnumSet.of(PermissionCode.PROJECT_VIEW));
         map.put(PermissionCode.PROJECT_DELETE,         EnumSet.of(PermissionCode.PROJECT_VIEW));
         map.put(PermissionCode.PROJECT_SETTINGS_UPDATE, EnumSet.of(PermissionCode.PROJECT_VIEW));
         map.put(PermissionCode.PROJECT_MEMBER_ADD,     EnumSet.of(PermissionCode.PROJECT_VIEW));
         map.put(PermissionCode.PROJECT_ARCHIVE,        EnumSet.of(PermissionCode.PROJECT_VIEW));
 
-        // ── Organization ────────────────────────────────────────────────
+        // â”€â”€ Organization â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         map.put(PermissionCode.ORG_SETTINGS_UPDATE,    EnumSet.of(PermissionCode.ORG_SETTINGS_VIEW));
         map.put(PermissionCode.ORG_PROFILE_UPDATE,     EnumSet.of(PermissionCode.ORG_VIEW));
 

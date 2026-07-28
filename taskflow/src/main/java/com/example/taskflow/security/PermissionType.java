@@ -1,4 +1,8 @@
 package com.example.taskflow.security;
+import com.example.taskflow.organization.core.domain.Organization;
+import com.example.taskflow.project.domain.Project;
+import com.example.taskflow.task.domain.model.Task;
+import com.example.taskflow.team.domain.Team;
 
 /**
  * @deprecated Use {@link com.example.taskflow.security.PermissionCode} instead.

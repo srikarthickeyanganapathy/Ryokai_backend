@@ -1,8 +1,11 @@
 package com.example.taskflow.security.authorization;
 
-import com.example.taskflow.domain.Task;
-import com.example.taskflow.domain.TaskMode;
+import com.example.taskflow.task.domain.model.Task;
+import com.example.taskflow.task.domain.model.TaskMode;
 import com.example.taskflow.security.WorkspaceType;
+import com.example.taskflow.crew.domain.Crew;
+import com.example.taskflow.organization.core.domain.Organization;
+import com.example.taskflow.organization.rbac.domain.Permission;
 
 /**
  * Resolves the workspace type for a given context, determining which
@@ -10,9 +13,9 @@ import com.example.taskflow.security.WorkspaceType;
  *
  * <p>The workspace type is determined by the resource being accessed:
  * <ul>
- *   <li>{@code PERSONAL} — No RBAC; owner-only access</li>
- *   <li>{@code CREW} — Fixed roles; no permission DB</li>
- *   <li>{@code ORGANIZATION} — Full RBAC pipeline</li>
+ *   <li>{@code PERSONAL} â€” No RBAC; owner-only access</li>
+ *   <li>{@code CREW} â€” Fixed roles; no permission DB</li>
+ *   <li>{@code ORGANIZATION} â€” Full RBAC pipeline</li>
  * </ul>
  */
 public final class WorkspaceTypeResolver {

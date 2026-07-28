@@ -5,6 +5,15 @@ import com.example.taskflow.security.PermissionCode;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import com.example.taskflow.goal.domain.Goal;
+import com.example.taskflow.organization.announcement.domain.Announcement;
+import com.example.taskflow.organization.core.domain.Organization;
+import com.example.taskflow.organization.rbac.domain.Permission;
+import com.example.taskflow.organization.rbac.domain.Role;
+import com.example.taskflow.project.domain.Project;
+import com.example.taskflow.security.DomainPermissionHandler;
+import com.example.taskflow.task.domain.model.Task;
+import com.example.taskflow.team.domain.Team;
 
 /**
  * Maps legacy permission strings used in existing {@code @PreAuthorize} annotations
@@ -26,7 +35,7 @@ public final class LegacyPermissionMapper {
     static {
         Map<String, PermissionCode> map = new HashMap<>();
 
-        // ── Task domain ─────────────────────────────────────────────────
+        // â”€â”€ Task domain â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         // Controllers use both short ("VIEW") and prefixed ("TASK_VIEW") forms
         map.put("VIEW", PermissionCode.TASK_VIEW);
         map.put("TASK_VIEW", PermissionCode.TASK_VIEW);
@@ -54,7 +63,7 @@ public final class LegacyPermissionMapper {
         map.put("TASK_ARCHIVE", PermissionCode.TASK_ARCHIVE);
         map.put("TASK_OVERRIDE", PermissionCode.TASK_OVERRIDE);
 
-        // ── Project domain ──────────────────────────────────────────────
+        // â”€â”€ Project domain â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         map.put("PROJECT_CREATE", PermissionCode.PROJECT_CREATE);
         map.put("PROJECT_MANAGE", PermissionCode.PROJECT_UPDATE);
         map.put("PROJECT_READ", PermissionCode.PROJECT_VIEW);
@@ -62,7 +71,7 @@ public final class LegacyPermissionMapper {
         map.put("PROJECT_EDIT", PermissionCode.PROJECT_UPDATE);
         map.put("PROJECT_DELETE", PermissionCode.PROJECT_DELETE);
 
-        // ── Organization domain ─────────────────────────────────────────
+        // â”€â”€ Organization domain â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         map.put("ORG_MEMBER_INVITE", PermissionCode.MEMBER_INVITE);
         map.put("ORG_MEMBER_REMOVE", PermissionCode.MEMBER_REMOVE);
         map.put("ORG_READ", PermissionCode.ORG_VIEW);
@@ -72,23 +81,23 @@ public final class LegacyPermissionMapper {
         map.put("ORG_DELETE", PermissionCode.ORG_ARCHIVE);
         map.put("ORG_MEMBER", PermissionCode.ORG_VIEW); // A generic fallback often used
 
-        // ── Team domain ─────────────────────────────────────────────────
+        // â”€â”€ Team domain â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         map.put("TEAM_CREATE", PermissionCode.TEAM_CREATE);
         map.put("TEAM_MANAGE", PermissionCode.TEAM_UPDATE);
 
-        // ── Role domain ─────────────────────────────────────────────────
+        // â”€â”€ Role domain â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         map.put("ROLE_MANAGE", PermissionCode.ROLE_UPDATE);
 
-        // ── Leave domain ────────────────────────────────────────────────
+        // â”€â”€ Leave domain â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         map.put("LEAVE_REQUEST_MANAGE", PermissionCode.LEAVE_APPROVE);
 
-        // ── Announcement domain ─────────────────────────────────────────
+        // â”€â”€ Announcement domain â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         map.put("ANNOUNCEMENT_MANAGE", PermissionCode.ANNOUNCEMENT_CREATE);
 
-        // ── Goal domain ─────────────────────────────────────────────────
+        // â”€â”€ Goal domain â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         map.put("GOAL_MANAGE", PermissionCode.GOAL_CREATE);
 
-        // ── Dashboard domain ────────────────────────────────────────────
+        // â”€â”€ Dashboard domain â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         map.put("DASHBOARD_ORG_WIDE_VIEW", PermissionCode.DASHBOARD_VIEW);
 
         LEGACY_MAP = Collections.unmodifiableMap(map);

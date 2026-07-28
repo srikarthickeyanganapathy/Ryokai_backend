@@ -1,0 +1,121 @@
+package com.example.taskflow.security.filters;
+
+import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import org.slf4j.MDC;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import com.example.taskflow.identity.application.CustomUserDetailsService;
+import io.jsonwebtoken.JwtException;
+import com.example.taskflow.identity.application.TokenDenylistService;
+import com.example.taskflow.security.jwt.JwtUtil;
+
+@Component
+public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    private final JwtUtil jwtUtil;
+    private final CustomUserDetailsService customUserDetailsService;
+    private final com.example.taskflow.identity.application.TokenDenylistService tokenDenylistService;
+
+    public JwtAuthenticationFilter(JwtUtil jwtUtil, CustomUserDetailsService customUserDetailsService,
+            com.example.taskflow.identity.application.TokenDenylistService tokenDenylistService) {
+        this.jwtUtil = jwtUtil;
+        this.customUserDetailsService = customUserDetailsService;
+        this.tokenDenylistService = tokenDenylistService;
+    }
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+            throws ServletException, IOException {
+
+        if (request.getRequestURI().startsWith("/ws")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        String tokenHeader = request.getHeader("Authorization");
+
+        try {
+            if (tokenHeader != null && tokenHeader.startsWith("Bearer ")) {
+                String token = tokenHeader.substring(7);
+
+                try {
+                    if (jwtUtil.isAccessTokenValid(token)) {
+                        String username = jwtUtil.extractUsername(token);
+
+                        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                            // Check if this token has been revoked (e.g., via logout)
+                            String tokenId = jwtUtil.extractTokenId(token);
+                            if (tokenDenylistService.isDenied(tokenId)) {
+                                SecurityContextHolder.clearContext();
+                                sendUnauthorizedResponse(response, "Token has been revoked");
+                                return;
+                            }
+
+                            UserDetails userDetails = customUserDetailsService.loadUserByUsername(username);
+
+                            if (userDetails instanceof CustomUserDetailsService.CustomUserDetails customUser) {
+                                Integer jwtVersion = jwtUtil.extractTokenVersion(token);
+                                if (jwtVersion == null || !jwtVersion.equals(customUser.getTokenVersion())) {
+                                    SecurityContextHolder.clearContext();
+                                    sendUnauthorizedResponse(response,
+                                            "Token invalidated: missing or mismatched version");
+                                    return;
+                                }
+                                org.slf4j.MDC.put("userId", String.valueOf(customUser.getUser().getId()));
+                            } else {
+                                org.slf4j.MDC.put("userId", username);
+                            }
+
+                            UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                                    userDetails, null, userDetails.getAuthorities());
+                            authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                            SecurityContextHolder.getContext().setAuthentication(authToken);
+                        }
+                    } else {
+                        SecurityContextHolder.clearContext();
+                        sendUnauthorizedResponse(response, "Invalid token");
+                        return;
+                    }
+                } catch (JwtException e) {
+                    SecurityContextHolder.clearContext();
+                    sendUnauthorizedResponse(response, "Invalid or expired token");
+                    return;
+                }
+            } else if (tokenHeader != null && tokenHeader.startsWith("Bearer")) {
+                SecurityContextHolder.clearContext();
+                sendUnauthorizedResponse(response, "Malformed Authorization header format");
+                return;
+            }
+
+            filterChain.doFilter(request, response);
+        } finally {
+            org.slf4j.MDC.remove("userId");
+        }
+    }
+
+    private void sendUnauthorizedResponse(HttpServletResponse response, String message) throws IOException {
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setContentType("application/json");
+        String correlationId = MDC.get("correlationId");
+
+        String jsonResponse = String.format(
+                "{\"timestamp\":\"%s\",\"status\":401,\"error\":\"Unauthorized\",\"code\":\"INVALID_TOKEN\",\"message\":\"%s\",\"correlationId\":\"%s\"}",
+                LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
+                message,
+                correlationId != null ? correlationId : "");
+        response.getWriter().write(jsonResponse);
+    }
+}

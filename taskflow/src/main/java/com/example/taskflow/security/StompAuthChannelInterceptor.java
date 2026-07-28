@@ -1,14 +1,14 @@
 package com.example.taskflow.security;
 
-import com.example.taskflow.util.JwtUtil;
-import com.example.taskflow.service.CustomUserDetailsService;
-import com.example.taskflow.domain.User;
-import com.example.taskflow.domain.Task;
-import com.example.taskflow.repository.UserRepository;
-import com.example.taskflow.repository.TaskRepository;
-import com.example.taskflow.repository.WhiteboardRepository;
-import com.example.taskflow.repository.CrewMemberRepository;
-import com.example.taskflow.domain.Whiteboard;
+import com.example.taskflow.security.jwt.JwtUtil;
+import com.example.taskflow.identity.application.CustomUserDetailsService;
+import com.example.taskflow.user.domain.User;
+import com.example.taskflow.task.domain.model.Task;
+import com.example.taskflow.user.infrastructure.persistence.UserRepository;
+import com.example.taskflow.task.infrastructure.persistence.TaskRepository;
+import com.example.taskflow.whiteboard.WhiteboardRepository;
+import com.example.taskflow.crew.infrastructure.persistence.CrewMemberRepository;
+import com.example.taskflow.whiteboard.Whiteboard;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
@@ -20,6 +20,8 @@ import org.springframework.security.authentication.AuthenticationCredentialsNotF
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
+import com.example.taskflow.crew.domain.Crew;
+import com.example.taskflow.task.security.TaskPermissionHandler;
 
 @Component
 @RequiredArgsConstructor

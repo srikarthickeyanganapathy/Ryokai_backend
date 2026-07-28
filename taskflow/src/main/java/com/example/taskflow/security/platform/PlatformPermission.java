@@ -1,4 +1,7 @@
 package com.example.taskflow.security.platform;
+import com.example.taskflow.organization.core.domain.Organization;
+import com.example.taskflow.organization.rbac.domain.Role;
+import com.example.taskflow.user.domain.User;
 
 /**
  * Platform-level permissions for Ryokai SaaS operations.
@@ -19,7 +22,7 @@ package com.example.taskflow.security.platform;
  */
 public enum PlatformPermission {
 
-    // ── Organization Lifecycle ──────────────────────────────────────
+    // â”€â”€ Organization Lifecycle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     ORG_CREATE("Create a new organization tenant"),
     ORG_SUSPEND("Suspend an organization"),
     ORG_UNSUSPEND("Reactivate a suspended organization"),
@@ -27,27 +30,27 @@ public enum PlatformPermission {
     ORG_VIEW_ALL("View all organizations on the platform"),
     ORG_VIEW_DETAILS("View detailed organization internals for support"),
 
-    // ── Platform User Management ────────────────────────────────────
+    // â”€â”€ Platform User Management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     PLATFORM_USER_VIEW("View platform user directory"),
     PLATFORM_USER_CREATE("Create platform identity (admin/support)"),
     PLATFORM_USER_DISABLE("Disable a platform identity"),
     PLATFORM_USER_ROLE_UPDATE("Change a platform user's role"),
 
-    // ── Platform Analytics ──────────────────────────────────────────
+    // â”€â”€ Platform Analytics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     PLATFORM_ANALYTICS_VIEW("View platform-wide analytics"),
     PLATFORM_HEALTH_VIEW("View platform health and infrastructure status"),
 
-    // ── Platform Settings ───────────────────────────────────────────
+    // â”€â”€ Platform Settings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     PLATFORM_SETTINGS_VIEW("View platform configuration"),
     PLATFORM_SETTINGS_UPDATE("Modify platform configuration"),
     FEATURE_FLAG_VIEW("View feature flags"),
     FEATURE_FLAG_UPDATE("Toggle feature flags"),
 
-    // ── Billing ─────────────────────────────────────────────────────
+    // â”€â”€ Billing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     BILLING_VIEW("View billing and subscription data"),
     BILLING_UPDATE("Modify billing configuration"),
 
-    // ── Support Tools ───────────────────────────────────────────────
+    // â”€â”€ Support Tools â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     IMPERSONATE_USER("Impersonate a user for debugging"),
     AUDIT_LOG_VIEW("View platform audit logs");
 

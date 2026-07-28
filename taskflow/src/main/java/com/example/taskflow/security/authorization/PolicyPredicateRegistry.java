@@ -6,6 +6,9 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import com.example.taskflow.task.domain.model.Task;
+import com.example.taskflow.task.domain.model.TaskStatus;
+import com.example.taskflow.user.domain.User;
 
 /**
  * Registry of all available policy predicates.
@@ -52,7 +55,7 @@ public class PolicyPredicateRegistry {
     }
 
     private void registerBuiltins() {
-        // ── Ownership predicates ────────────────────────────────────
+        // â”€â”€ Ownership predicates â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         register("IS_ASSIGNEE", (request, params) -> {
             Object assigneeId = request.getPolicyContext().get("assigneeId");
             return assigneeId != null && assigneeId.equals(request.getUser().getId());
@@ -88,7 +91,7 @@ public class PolicyPredicateRegistry {
             return true;
         });
 
-        // ── Resource state predicates ───────────────────────────────
+        // â”€â”€ Resource state predicates â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         register("RESOURCE_NOT_ARCHIVED", (request, params) -> {
             Object archived = request.getPolicyContext().get("archived");
             return !Boolean.TRUE.equals(archived);
@@ -104,7 +107,7 @@ public class PolicyPredicateRegistry {
             return orgStatus == null || "ACTIVE".equals(orgStatus);
         });
 
-        // ── Task status predicates ──────────────────────────────────
+        // â”€â”€ Task status predicates â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         register("TASK_STATUS_EQUALS", (request, params) -> {
             Object taskStatus = request.getPolicyContext().get("taskStatus");
             if (taskStatus == null || params == null) return false;
@@ -118,7 +121,7 @@ public class PolicyPredicateRegistry {
             return !params.contains(taskStatus.toString());
         });
 
-        // ── Guard predicates ────────────────────────────────────────
+        // â”€â”€ Guard predicates â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         register("NOT_SELF", (request, params) -> {
             Object targetUserId = request.getPolicyContext().get("targetUserId");
             return targetUserId == null || !targetUserId.equals(request.getUser().getId());

@@ -7,8 +7,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import com.example.taskflow.domain.PermissionPolicyMapping;
-import com.example.taskflow.repository.PermissionPolicyRepository;
+import com.example.taskflow.organization.rbac.domain.PermissionPolicyMapping;
+import com.example.taskflow.organization.rbac.infrastructure.persistence.PermissionPolicyRepository;
+import com.example.taskflow.organization.rbac.domain.Permission;
+import com.example.taskflow.organization.rbac.domain.Scope;
+import com.example.taskflow.security.PermissionCode;
+import com.example.taskflow.task.domain.model.Task;
 
 /**
  * Evaluates runtime policy predicates for a given permission.

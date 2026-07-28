@@ -1,6 +1,10 @@
 package com.example.taskflow.security.authorization;
 
-import com.example.taskflow.domain.User;
+import com.example.taskflow.user.domain.User;
+import com.example.taskflow.organization.core.domain.Organization;
+import com.example.taskflow.organization.rbac.domain.Permission;
+import com.example.taskflow.organization.rbac.domain.Scope;
+import com.example.taskflow.security.PermissionCode;
 
 /**
  * The result of an authorization evaluation through the pipeline.
@@ -27,7 +31,7 @@ public record AuthorizationDecision(
         return decision == Decision.DENY;
     }
 
-    // ── Factory methods ─────────────────────────────────────────────
+    // â”€â”€ Factory methods â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     public static AuthorizationDecision grant(String stage) {
         return new AuthorizationDecision(Decision.GRANT, stage, null);

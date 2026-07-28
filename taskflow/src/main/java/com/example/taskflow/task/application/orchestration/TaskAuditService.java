@@ -1,0 +1,142 @@
+package com.example.taskflow.task.application.orchestration;
+
+import java.time.LocalDateTime;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.example.taskflow.task.domain.model.Task;
+import com.example.taskflow.task.domain.model.TaskStatusHistory;
+import com.example.taskflow.user.domain.User;
+import com.example.taskflow.dashboard.dto.ActivityEventDTO;
+import com.example.taskflow.user.dto.UserSummaryDTO;
+import com.example.taskflow.task.infrastructure.persistence.TaskStatusHistoryRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import com.example.taskflow.shared.util.RelativeTimeFormatter;
+import com.example.taskflow.organization.core.domain.Organization;
+import com.example.taskflow.organization.membership.infrastructure.persistence.OrganizationMembershipRepository;
+import com.example.taskflow.organization.rbac.application.PermissionService;
+import com.example.taskflow.security.PermissionCode;
+
+@Service
+public class TaskAuditService {
+
+    private final TaskStatusHistoryRepository historyRepository;
+    private final com.example.taskflow.organization.membership.infrastructure.persistence.OrganizationMembershipRepository membershipRepository;
+    private final PermissionService permissionService;
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
+
+    public TaskAuditService(TaskStatusHistoryRepository historyRepository,
+                            com.example.taskflow.organization.membership.infrastructure.persistence.OrganizationMembershipRepository membershipRepository,
+                            PermissionService permissionService) {
+        this.historyRepository = historyRepository;
+        this.membershipRepository = membershipRepository;
+        this.permissionService = permissionService;
+    }
+
+    // Full signature
+    @Transactional
+    public void recordStatus(Task task, String fromStatus, String toStatus, String eventType, User actor, String reason) {
+        recordStatus(task, fromStatus, toStatus, eventType, actor, reason, null);
+    }
+
+    @Transactional
+    public void recordStatus(Task task, String fromStatus, String toStatus, String eventType, User actor, String reason, java.util.Map<String, Object> metadata) {
+        TaskStatusHistory h = new TaskStatusHistory();
+        h.setTask(task);
+        h.setFromStatus(fromStatus);
+        h.setToStatus(toStatus);
+        h.setStatus(toStatus != null ? toStatus : task.getCurrentStatus().name()); // keep old field for backwards compat during migration
+        h.setEventType(eventType);
+        h.setReason(reason);
+        h.setChangedBy(actor);
+        h.setChangedAt(LocalDateTime.now());
+        h.setTaskTitleSnapshot(task.getTitle());
+        h.setActorUsernameSnapshot(actor.getUsername());
+        h.setAssigneeUsernameSnapshot(task.getAssignee() != null ? task.getAssignee().getUsername() : null);
+        h.setCreatorUsernameSnapshot(task.getCreator() != null ? task.getCreator().getUsername() : null);
+        
+        if (metadata != null && !metadata.isEmpty()) {
+            try {
+                h.setMetadataJson(objectMapper.writeValueAsString(metadata));
+            } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+                // Log and ignore to prevent transaction rollback for audit serialization failure
+                org.slf4j.LoggerFactory.getLogger(TaskAuditService.class).warn("Failed to serialize metadata for task history", e);
+            }
+        }
+        
+        historyRepository.save(h);
+    }
+
+    // Convenience overload  -  infers fromStatus from task's current status BEFORE mutation
+    @Transactional
+    public void recordStatus(Task task, String toStatus, String eventType, User actor, String reason) {
+        recordStatus(task, task.getCurrentStatus().name(), toStatus, eventType, actor, reason);
+    }
+
+    // Overload for backward compatibility / simple status changes
+    @Transactional
+    public void recordStatus(Task task, String status, User user) {
+        recordStatus(task, task.getCurrentStatus().name(), status, "STATUS_CHANGE", user, null);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<ActivityEventDTO> getActivityFeedForTask(Long taskId, Pageable pageable) {
+        return historyRepository.findByTask_Id(taskId, pageable)
+                .map(this::mapToActivityEventDTO);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<ActivityEventDTO> getGlobalActivityFeed(User user, Pageable pageable, boolean includeAllTypes) {
+        if (user.isSuperAdmin()) {
+            return includeAllTypes
+                ? historyRepository.findGlobalFeedForUserAllTypes(user.getId(), pageable).map(this::mapToActivityEventDTO)
+                : historyRepository.findGlobalFeedForUser(user.getId(), pageable).map(this::mapToActivityEventDTO);
+        }
+
+        var memberships = membershipRepository.findByUserId(user.getId());
+        if (!memberships.isEmpty()) {
+            var membership = memberships.get(0);
+            Long orgId = membership.getOrganization().getId();
+            boolean isDirectorOrAdmin = permissionService.isAuthorized(user, com.example.taskflow.security.PermissionCode.TASK_OVERRIDE, orgId) ||
+                                        permissionService.isAuthorized(user, com.example.taskflow.security.PermissionCode.DASHBOARD_VIEW, orgId);
+            
+            boolean isManager = permissionService.isAuthorized(user, com.example.taskflow.security.PermissionCode.TASK_ASSIGN, orgId) ||
+                                permissionService.isAuthorized(user, com.example.taskflow.security.PermissionCode.TEAM_UPDATE, orgId);
+
+            if (isDirectorOrAdmin) {
+                return includeAllTypes
+                    ? historyRepository.findOrgFeedAllTypes(orgId, pageable).map(this::mapToActivityEventDTO)
+                    : historyRepository.findOrgFeed(orgId, pageable).map(this::mapToActivityEventDTO);
+            }
+
+            if (isManager) {
+                return includeAllTypes
+                    ? historyRepository.findManagerFeedAllTypes(user.getId(), pageable).map(this::mapToActivityEventDTO)
+                    : historyRepository.findManagerFeed(user.getId(), pageable).map(this::mapToActivityEventDTO);
+            }
+        }
+
+        // Employee sees only own
+        return includeAllTypes
+            ? historyRepository.findGlobalFeedForUserAllTypes(user.getId(), pageable).map(this::mapToActivityEventDTO)
+            : historyRepository.findGlobalFeedForUser(user.getId(), pageable).map(this::mapToActivityEventDTO);
+    }
+
+    private ActivityEventDTO mapToActivityEventDTO(TaskStatusHistory history) {
+        return new ActivityEventDTO(
+                history.getId(),
+                history.getTask().getId(),
+                history.getTaskTitleSnapshot() != null ? history.getTaskTitleSnapshot() : history.getTask().getTitle(),
+                history.getEventType(),
+                history.getFromStatus(),
+                history.getToStatus(),
+                history.getReason(),
+                new UserSummaryDTO(history.getChangedBy().getId(), 
+                        history.getActorUsernameSnapshot() != null ? history.getActorUsernameSnapshot() : history.getChangedBy().getUsername()),
+                history.getChangedAt(),
+                RelativeTimeFormatter.format(history.getChangedAt())
+        );
+    }
+}

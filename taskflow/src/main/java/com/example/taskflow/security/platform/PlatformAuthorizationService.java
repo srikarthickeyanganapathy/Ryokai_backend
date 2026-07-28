@@ -1,9 +1,16 @@
 package com.example.taskflow.security.platform;
 
-import com.example.taskflow.domain.User;
+import com.example.taskflow.user.domain.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import com.example.taskflow.organization.rbac.domain.Permission;
+import com.example.taskflow.organization.rbac.domain.Role;
+import com.example.taskflow.security.authorization.AuthorizationPipeline;
+import com.example.taskflow.security.authorization.PolicyEvaluator;
+import com.example.taskflow.security.PermissionCode;
+import com.example.taskflow.security.ScopeType;
+import com.example.taskflow.shared.exception.UnauthorizedActionException;
 
 /**
  * Authorization service for platform-level operations.
@@ -14,16 +21,16 @@ import org.springframework.stereotype.Service;
  *
  * <h3>Architecture Boundary</h3>
  * <pre>
- * Platform Layer          │  Workspace Layer
- * ────────────────────────┼────────────────────────
- * PlatformAuthService     │  AuthorizationPipeline
- * PlatformRole            │  PermissionCode
- * PlatformPermission      │  ScopeType
- * PlatformRolePermissions │  PolicyEvaluator
- *                         │
- * /api/v1/platform/**     │  /api/v1/organizations/**
- *                         │  /api/v1/tasks/**
- *                         │  /api/v1/projects/**
+ * Platform Layer          â”‚  Workspace Layer
+ * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+ * PlatformAuthService     â”‚  AuthorizationPipeline
+ * PlatformRole            â”‚  PermissionCode
+ * PlatformPermission      â”‚  ScopeType
+ * PlatformRolePermissions â”‚  PolicyEvaluator
+ *                         â”‚
+ * /api/v1/platform/**     â”‚  /api/v1/organizations/**
+ *                         â”‚  /api/v1/tasks/**
+ *                         â”‚  /api/v1/projects/**
  * </pre>
  *
  * <p>The two systems <b>never call each other</b>.
@@ -87,7 +94,7 @@ public class PlatformAuthorizationService {
      */
     public void requirePermission(User user, PlatformPermission permission) {
         if (!hasPermission(user, permission)) {
-            throw new com.example.taskflow.exception.UnauthorizedActionException(
+            throw new com.example.taskflow.shared.exception.UnauthorizedActionException(
                     "This action requires platform permission: " + permission.name());
         }
     }

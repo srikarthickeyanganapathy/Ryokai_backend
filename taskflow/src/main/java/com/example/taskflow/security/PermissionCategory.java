@@ -1,4 +1,5 @@
 package com.example.taskflow.security;
+import com.example.taskflow.organization.rbac.domain.Permission;
 
 /**
  * Permission action categories.
