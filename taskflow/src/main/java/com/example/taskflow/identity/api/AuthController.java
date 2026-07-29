@@ -1,39 +1,8 @@
 package com.example.taskflow.identity.api;
 
 import java.time.Duration;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-
-import com.example.taskflow.identity.domain.RefreshToken;
-import com.example.taskflow.user.domain.User;
-import com.example.taskflow.identity.dto.JwtResponseDTO;
-import com.example.taskflow.identity.dto.LoginRequestDTO;
-import com.example.taskflow.team.dto.MessageResponseDTO;
-import com.example.taskflow.identity.dto.RegisterRequestDTO;
-import com.example.taskflow.identity.dto.ResendVerificationRequestDTO;
-import com.example.taskflow.identity.dto.TokenRefreshRequestDTO;
-import com.example.taskflow.user.dto.UserResponseDTO;
-import com.example.taskflow.security.exception.InvalidCredentialsException;
-import com.example.taskflow.security.exception.TokenRefreshException;
-import com.example.taskflow.identity.application.AuthService;
-import com.example.taskflow.user.application.UserService;
-import com.example.taskflow.integration.email.EmailService;
-import com.example.taskflow.integration.websocket.RealtimeBroadcaster;
-import com.example.taskflow.identity.application.RefreshTokenService;
-import com.example.taskflow.audit.application.SecurityAuditService;
-import com.example.taskflow.identity.application.TokenDenylistService;
-import com.example.taskflow.user.application.UserProfileService;
-import com.example.taskflow.security.jwt.JwtUtil;
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
-
-import io.github.bucket4j.Bandwidth;
-import io.github.bucket4j.Bucket;
-import io.swagger.v3.oas.annotations.Operation;
-
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.validation.Valid;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,16 +21,33 @@ import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import com.example.taskflow.audit.application.SecurityAuditService;
+import com.example.taskflow.identity.application.AuthService;
+import com.example.taskflow.identity.application.RefreshTokenService;
+import com.example.taskflow.identity.dto.JwtResponseDTO;
+import com.example.taskflow.identity.dto.LoginRequestDTO;
+import com.example.taskflow.identity.dto.RegisterRequestDTO;
 import com.example.taskflow.security.ClientIpResolver;
-import com.example.taskflow.task.domain.model.Task;
+import com.example.taskflow.security.exception.InvalidCredentialsException;
+import com.example.taskflow.security.jwt.JwtUtil;
 import com.example.taskflow.task.infrastructure.monitoring.TaskMetrics;
+import com.example.taskflow.team.dto.MessageResponseDTO;
+import com.example.taskflow.user.application.UserProfileService;
+import com.example.taskflow.user.application.UserService;
+import com.example.taskflow.user.domain.User;
+import com.example.taskflow.user.dto.UserResponseDTO;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+
+import io.github.bucket4j.Bandwidth;
+import io.github.bucket4j.Bucket;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping(value = "/api/v1/auth", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -72,16 +58,12 @@ public class AuthController {
     private final AuthenticationManager authenticationManager;
     private final JwtUtil jwtUtil;
     private final UserService userService;
-    private final PasswordEncoder passwordEncoder;
     private final RefreshTokenService refreshTokenService;
     private final UserProfileService userProfileService;
-    private final EmailService emailService;
-    private final RealtimeBroadcaster realtimeBroadcaster;
     private final AuthService authService;
     private final SecurityAuditService securityAuditService;
-    private final TokenDenylistService tokenDenylistService;
-    private final com.example.taskflow.security.ClientIpResolver clientIpResolver;
-    private final com.example.taskflow.task.infrastructure.monitoring.TaskMetrics taskMetrics;
+    private final ClientIpResolver clientIpResolver;
+    private final TaskMetrics taskMetrics;
 
     // --- Externalized rate-limit configuration (tunable via application.properties) ---
 
@@ -105,25 +87,19 @@ public class AuthController {
 
     public AuthController(AuthenticationManager authenticationManager, JwtUtil jwtUtil,
                           UserService userService,
-                          PasswordEncoder passwordEncoder, RefreshTokenService refreshTokenService,
-                          UserProfileService userProfileService, EmailService emailService,
-                          RealtimeBroadcaster realtimeBroadcaster,
+                          RefreshTokenService refreshTokenService,
+                          UserProfileService userProfileService,
                           AuthService authService,
                           SecurityAuditService securityAuditService,
-                          TokenDenylistService tokenDenylistService,
-                          com.example.taskflow.security.ClientIpResolver clientIpResolver,
-                          com.example.taskflow.task.infrastructure.monitoring.TaskMetrics taskMetrics) {
+                          ClientIpResolver clientIpResolver,
+                          TaskMetrics taskMetrics) {
         this.authenticationManager = authenticationManager;
         this.jwtUtil = jwtUtil;
         this.userService = userService;
-        this.passwordEncoder = passwordEncoder;
         this.refreshTokenService = refreshTokenService;
         this.userProfileService = userProfileService;
-        this.emailService = emailService;
-        this.realtimeBroadcaster = realtimeBroadcaster;
         this.authService = authService;
         this.securityAuditService = securityAuditService;
-        this.tokenDenylistService = tokenDenylistService;
         this.clientIpResolver = clientIpResolver;
         this.taskMetrics = taskMetrics;
     }

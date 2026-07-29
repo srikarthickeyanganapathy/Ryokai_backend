@@ -6,7 +6,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.example.taskflow.task.domain.model.TaskComment;
-import com.example.taskflow.task.domain.model.Task;
 
 public interface TaskCommentRepository extends JpaRepository<TaskComment, Long> {
     // Spring Data JPA automatically derives the query for task.id

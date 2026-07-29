@@ -14,8 +14,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import com.example.taskflow.organization.rbac.application.PermissionService;
-import com.example.taskflow.security.PermissionCode;
-import com.example.taskflow.shared.exception.UnauthorizedActionException;
 
 @Service
 @RequiredArgsConstructor

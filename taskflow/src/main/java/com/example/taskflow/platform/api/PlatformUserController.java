@@ -4,7 +4,6 @@ import java.util.List;
 import java.util.Set;
 
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import com.example.taskflow.organization.rbac.dto.RoleResponseDTO;
@@ -17,7 +16,6 @@ import jakarta.validation.constraints.NotEmpty;
 
 import com.example.taskflow.security.platform.PlatformAuthorize;
 import com.example.taskflow.security.platform.PlatformPermission;
-import com.example.taskflow.user.domain.User;
 
 /**
  * Platform Control Plane user governance endpoints.

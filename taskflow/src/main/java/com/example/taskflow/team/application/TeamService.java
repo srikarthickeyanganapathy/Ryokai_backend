@@ -24,13 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.stream.Collectors;
 import com.example.taskflow.notification.application.NotificationService;
-import com.example.taskflow.notification.domain.Notification;
-import com.example.taskflow.notification.event.NotificationEvent;
-import com.example.taskflow.organization.membership.domain.OrganizationMembership;
 import com.example.taskflow.organization.rbac.application.PermissionService;
-import com.example.taskflow.organization.rbac.domain.Role;
-import com.example.taskflow.security.PermissionCode;
-import com.example.taskflow.user.dto.UserSummaryDTO;
 
 @Service
 public class TeamService {
@@ -266,7 +260,7 @@ public class TeamService {
         requireOrgMembership(caller, team.getOrganization());
         
         return teamObserverRepository.findByTeam(team).stream()
-                .map(TeamObserver::getUser)
+                .map(obs -> obs.getUser())
                 .collect(Collectors.toList());
     }
 

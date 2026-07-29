@@ -24,10 +24,6 @@ import com.example.taskflow.project.application.ProjectService;
 import com.example.taskflow.user.application.UserService;
 
 import jakarta.validation.Valid;
-import com.example.taskflow.crew.api.CrewController;
-import com.example.taskflow.crew.domain.Crew;
-import com.example.taskflow.organization.rbac.domain.Scope;
-import com.example.taskflow.project.domain.Project;
 
 @RestController
 @RequestMapping(value = "/api/v1/projects", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)

@@ -2,7 +2,6 @@ package com.example.taskflow.organization.rbac.domain;
 
 import jakarta.persistence.*;
 import lombok.*;
-import com.example.taskflow.team.domain.Team;
 
 /**
  * Optional narrowing of a {@link RolePermissionScope} to specific resource instances.

@@ -2,7 +2,6 @@ package com.example.taskflow.organization.rbac.dto;
 
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
-import com.example.taskflow.organization.rbac.domain.Role;
 
 public record RoleUpdateRequestDTO(
     @Size(min = 2, max = 50, message = "Role name must be between 2 and 50 characters")

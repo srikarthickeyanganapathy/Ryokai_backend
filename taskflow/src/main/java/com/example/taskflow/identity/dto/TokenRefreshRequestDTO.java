@@ -1,7 +1,6 @@
 package com.example.taskflow.identity.dto;
 
 import jakarta.validation.constraints.NotBlank;
-import com.example.taskflow.identity.domain.RefreshToken;
 
 public class TokenRefreshRequestDTO {
     @NotBlank(message = "Refresh token is required")

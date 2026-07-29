@@ -14,10 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
 import java.util.Set;
-import com.example.taskflow.crew.domain.Crew;
 import com.example.taskflow.notification.application.NotificationService;
-import com.example.taskflow.organization.core.domain.Organization;
-import com.example.taskflow.organization.rbac.domain.Scope;
 import com.example.taskflow.task.application.orchestration.TaskAuditService;
 
 @Service
@@ -93,7 +90,7 @@ public class TaskDependencyService {
         visited.add(current.getId());
 
         return taskDependencyRepository.findByTask_Id(current.getId()).stream()
-                .map(TaskDependency::getDependsOn)
+                .map(td -> td.getDependsOn())
                 .anyMatch(nextTask -> detectCycle(nextTask, target, visited));
     }
 

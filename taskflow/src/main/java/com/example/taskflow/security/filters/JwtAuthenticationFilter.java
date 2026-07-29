@@ -18,19 +18,19 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.example.taskflow.identity.application.CustomUserDetailsService;
-import io.jsonwebtoken.JwtException;
 import com.example.taskflow.identity.application.TokenDenylistService;
 import com.example.taskflow.security.jwt.JwtUtil;
+import io.jsonwebtoken.JwtException;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
     private final CustomUserDetailsService customUserDetailsService;
-    private final com.example.taskflow.identity.application.TokenDenylistService tokenDenylistService;
+    private final TokenDenylistService tokenDenylistService;
 
     public JwtAuthenticationFilter(JwtUtil jwtUtil, CustomUserDetailsService customUserDetailsService,
-            com.example.taskflow.identity.application.TokenDenylistService tokenDenylistService) {
+            TokenDenylistService tokenDenylistService) {
         this.jwtUtil = jwtUtil;
         this.customUserDetailsService = customUserDetailsService;
         this.tokenDenylistService = tokenDenylistService;

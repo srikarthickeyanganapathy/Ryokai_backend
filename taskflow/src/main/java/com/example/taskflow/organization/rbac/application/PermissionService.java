@@ -2,33 +2,22 @@ package com.example.taskflow.organization.rbac.application;
 
 import java.util.HashSet;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.concurrent.TimeUnit;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import com.example.taskflow.user.domain.User;
-import com.example.taskflow.organization.rbac.domain.Permission;
 import com.example.taskflow.organization.membership.domain.OrganizationMembership;
 import com.example.taskflow.organization.membership.infrastructure.persistence.OrganizationMembershipRepository;
 import com.example.taskflow.security.PermissionCode;
 import com.example.taskflow.security.authorization.AuthorizationDecision;
 import com.example.taskflow.security.authorization.AuthorizationPipeline;
 import com.example.taskflow.security.authorization.AuthorizationRequest;
-import com.example.taskflow.organization.core.domain.Organization;
-import com.example.taskflow.organization.membership.domain.OrganizationMembership;
-import com.example.taskflow.organization.rbac.domain.Role;
-import com.example.taskflow.organization.rbac.domain.RolePermissionScope;
-import com.example.taskflow.shared.exception.UnauthorizedActionException;
 
 @Service
 public class PermissionService {
-
-    private static final Logger log = LoggerFactory.getLogger(PermissionService.class);
 
     private final OrganizationMembershipRepository membershipRepository;
     private final AuthorizationPipeline authorizationPipeline;
@@ -133,9 +122,9 @@ public class PermissionService {
                 user.getRoles().stream()
                     .filter(role -> role != null && role.getRolePermissionScopes() != null)
                     .flatMap(role -> role.getRolePermissionScopes().stream())
-                    .map(com.example.taskflow.organization.rbac.domain.RolePermissionScope::getPermission)
+                    .map(rps -> rps.getPermission())
                     .filter(permission -> permission != null && permission.getName() != null)
-                    .map(Permission::getName)
+                    .map(p -> p.getName())
                     .forEach(perms::add);
             }
 
@@ -146,9 +135,9 @@ public class PermissionService {
                 if (m.getOrgRole() != null) {
                     if (m.getOrgRole().getRolePermissionScopes() != null) {
                         m.getOrgRole().getRolePermissionScopes().stream()
-                            .map(com.example.taskflow.organization.rbac.domain.RolePermissionScope::getPermission)
+                            .map(rps -> rps.getPermission())
                             .filter(p -> p != null && p.getName() != null)
-                            .map(Permission::getName)
+                            .map(p -> p.getName())
                             .forEach(perms::add);
                     }
                 }

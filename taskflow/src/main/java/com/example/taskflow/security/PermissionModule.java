@@ -1,12 +1,4 @@
 package com.example.taskflow.security;
-import com.example.taskflow.goal.domain.Goal;
-import com.example.taskflow.organization.announcement.domain.Announcement;
-import com.example.taskflow.organization.core.domain.Organization;
-import com.example.taskflow.organization.rbac.domain.Permission;
-import com.example.taskflow.organization.rbac.domain.Role;
-import com.example.taskflow.project.domain.Project;
-import com.example.taskflow.task.domain.model.Task;
-import com.example.taskflow.team.domain.Team;
 
 /**
  * Permission modules â€” groups permissions by the resource they protect.

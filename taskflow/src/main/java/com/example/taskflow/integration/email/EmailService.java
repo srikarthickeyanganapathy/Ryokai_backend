@@ -16,8 +16,6 @@ import com.example.taskflow.user.domain.User;
 import com.example.taskflow.user.infrastructure.persistence.UserRepository;
 
 import jakarta.mail.internet.MimeMessage;
-import com.example.taskflow.notification.domain.Notification;
-import com.example.taskflow.task.domain.model.Task;
 
 @Service
 public class EmailService {
@@ -59,7 +57,7 @@ public class EmailService {
     public boolean shouldSendNotificationTo(String email) {
         if (email == null || email.isBlank()) return false;
         return userRepository.findByEmail(email)
-            .map(User::isEmailNotificationsEnabled)
+            .map(u -> u.isEmailNotificationsEnabled())
             .orElse(false);
     }
 

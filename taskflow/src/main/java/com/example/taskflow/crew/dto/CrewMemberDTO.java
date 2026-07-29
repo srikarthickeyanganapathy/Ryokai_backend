@@ -7,7 +7,6 @@ import com.example.taskflow.crew.domain.CrewRole;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import com.example.taskflow.organization.rbac.domain.Role;
 
 @Data
 @NoArgsConstructor

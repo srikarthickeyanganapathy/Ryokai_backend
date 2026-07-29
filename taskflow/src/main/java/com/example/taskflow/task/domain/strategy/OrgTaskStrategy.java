@@ -11,8 +11,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.EnumSet;
 import java.util.Set;
-import com.example.taskflow.organization.core.domain.Organization;
-import com.example.taskflow.organization.membership.infrastructure.persistence.OrganizationMembershipRepository;
 
 @Component
 public class OrgTaskStrategy implements TaskLifecycleStrategy, TaskScopeBehavior, Approvable {

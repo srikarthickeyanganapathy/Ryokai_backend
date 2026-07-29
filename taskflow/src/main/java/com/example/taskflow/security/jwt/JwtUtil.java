@@ -47,7 +47,7 @@ public class JwtUtil {
         Set<Role> roles = user.getRoles();
         return Jwts.builder()
                 .subject(user.getUsername())
-                .claim("roles", roles.stream().map(Role::getName).collect(Collectors.joining(".")))
+                .claim("roles", roles.stream().map(r -> r.getName()).collect(Collectors.joining(".")))
                 .claim("tv", user.getTokenVersion())
                 .claim("tokenId", tokenId)
                 .issuedAt(new Date())
@@ -142,7 +142,7 @@ public class JwtUtil {
     }
 
     public String extractUsername(String token) {
-        return extractClaim(token, Claims::getSubject);
+        return extractClaim(token, c -> c.getSubject());
     }
 
     public String extractTokenId(String token) {

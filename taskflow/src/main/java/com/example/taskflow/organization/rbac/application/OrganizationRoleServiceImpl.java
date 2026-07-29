@@ -6,8 +6,6 @@ import com.example.taskflow.organization.rbac.dto.PermissionResponseDTO;
 import com.example.taskflow.organization.rbac.dto.RoleCreateRequestDTO;
 import com.example.taskflow.organization.rbac.dto.RoleResponseDTO;
 import com.example.taskflow.organization.rbac.dto.RoleUpdateRequestDTO;
-import com.example.taskflow.organization.rbac.application.RoleService;
-import com.example.taskflow.organization.rbac.application.OrganizationRoleService;
 import org.springframework.stereotype.Service;
 
 import java.util.List;

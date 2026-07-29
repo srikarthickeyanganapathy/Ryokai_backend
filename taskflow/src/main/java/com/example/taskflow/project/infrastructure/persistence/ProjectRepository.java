@@ -5,17 +5,9 @@ import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
 
 import com.example.taskflow.project.domain.Project;
-import com.example.taskflow.crew.domain.Crew;
-import com.example.taskflow.crew.domain.CrewMember;
-import com.example.taskflow.organization.core.domain.Organization;
-import com.example.taskflow.organization.rbac.domain.Scope;
-import com.example.taskflow.project.domain.ProjectScope;
-import com.example.taskflow.user.domain.User;
 
-@Repository
 public interface ProjectRepository extends JpaRepository<Project, Long> {
 
     List<Project> findByOrganizationId(Long organizationId);

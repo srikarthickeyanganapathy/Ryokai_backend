@@ -3,12 +3,10 @@ package com.example.taskflow.crew.infrastructure.persistence;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
 import com.example.taskflow.crew.domain.CrewMember;
 import com.example.taskflow.crew.domain.CrewMemberId;
 
-@Repository
 public interface CrewMemberRepository extends JpaRepository<CrewMember, CrewMemberId> {
 
     List<CrewMember> findByIdCrewId(Long crewId);

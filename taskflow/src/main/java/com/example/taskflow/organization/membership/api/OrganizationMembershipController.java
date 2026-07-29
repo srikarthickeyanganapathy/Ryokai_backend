@@ -32,10 +32,6 @@ import com.example.taskflow.user.application.UserService;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
-import com.example.taskflow.organization.core.domain.Organization;
-import com.example.taskflow.organization.membership.dto.AdminLeaveRequestDTO;
-import com.example.taskflow.organization.rbac.domain.Role;
-import com.example.taskflow.organization.rbac.dto.UpdateRoleRequestDTO;
 
 @RestController
 @RequestMapping(value = "/api/v1/organizations", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)

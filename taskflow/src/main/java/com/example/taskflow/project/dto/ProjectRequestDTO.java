@@ -5,7 +5,6 @@ import java.util.List;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
-import com.example.taskflow.project.domain.Project;
 
 public class ProjectRequestDTO {
 

@@ -1,24 +1,23 @@
 package com.example.taskflow.notification.application;
 
-import com.example.taskflow.notification.domain.Notification;
-import com.example.taskflow.task.domain.model.Task;
-import com.example.taskflow.user.domain.User;
-import com.example.taskflow.notification.dto.NotificationDTO;
-import com.example.taskflow.notification.event.NotificationEvent;
-import com.example.taskflow.notification.infrastructure.persistence.NotificationRepository;
-import com.example.taskflow.shared.exception.UnauthorizedActionException;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.time.LocalDateTime;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import com.example.taskflow.integration.websocket.RealtimeBroadcaster;
-import com.example.taskflow.notification.event.NotificationCreatedEvent;
-import com.example.taskflow.notification.infrastructure.renderer.NotificationEmailRenderer;
-import com.example.taskflow.shared.events.DomainEventPublisher;
+import com.example.taskflow.notification.domain.Notification;
+import com.example.taskflow.notification.dto.NotificationDTO;
+import com.example.taskflow.notification.event.NotificationEvent;
+import com.example.taskflow.notification.infrastructure.persistence.NotificationRepository;
+import com.example.taskflow.shared.exception.UnauthorizedActionException;
+import com.example.taskflow.task.domain.model.Task;
+import com.example.taskflow.user.domain.User;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor

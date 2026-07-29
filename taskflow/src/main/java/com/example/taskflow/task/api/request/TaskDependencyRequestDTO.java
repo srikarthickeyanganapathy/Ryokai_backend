@@ -1,7 +1,6 @@
 package com.example.taskflow.task.api.request;
 
 import jakarta.validation.constraints.NotNull;
-import com.example.taskflow.task.domain.model.Task;
 
 public class TaskDependencyRequestDTO {
 

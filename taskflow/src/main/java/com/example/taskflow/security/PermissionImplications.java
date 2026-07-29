@@ -5,11 +5,6 @@ import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
-import com.example.taskflow.organization.core.domain.Organization;
-import com.example.taskflow.organization.rbac.domain.Permission;
-import com.example.taskflow.project.domain.Project;
-import com.example.taskflow.task.domain.model.Task;
-import com.example.taskflow.user.domain.User;
 
 /**
  * Framework-level permission implication rules.

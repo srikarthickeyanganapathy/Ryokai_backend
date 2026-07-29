@@ -20,7 +20,6 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import com.example.taskflow.audit.application.SecurityAuditService;
-import com.example.taskflow.identity.domain.RefreshToken;
 import com.example.taskflow.integration.email.EmailService;
 
 @Service

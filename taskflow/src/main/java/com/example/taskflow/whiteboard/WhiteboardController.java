@@ -4,7 +4,6 @@ import com.example.taskflow.user.domain.User;
 import com.example.taskflow.whiteboard.WhiteboardDTOs.WhiteboardRequestDTO;
 import com.example.taskflow.whiteboard.WhiteboardDTOs.WhiteboardResponseDTO;
 import com.example.taskflow.user.application.UserService;
-import com.example.taskflow.whiteboard.WhiteboardService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;

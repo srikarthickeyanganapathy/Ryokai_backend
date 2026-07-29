@@ -1,8 +1,6 @@
 package com.example.taskflow.security.authorization;
 
 import java.util.Set;
-import com.example.taskflow.organization.rbac.domain.Permission;
-import com.example.taskflow.organization.rbac.domain.Role;
 import com.example.taskflow.security.ImpersonationSession;
 
 public record AuthorizationContext(

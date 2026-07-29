@@ -8,9 +8,6 @@ import org.springframework.stereotype.Component;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
-import com.example.taskflow.organization.core.domain.Organization;
-import com.example.taskflow.organization.rbac.domain.Scope;
-
 /**
  * Micrometer metrics helper component for domain & business KPIs.
  * Exposes counters, timers, and gauges scraped by Prometheus.
@@ -23,7 +20,7 @@ public class TaskMetrics {
 
     // Initializer to register custom gauges
     public void initGauges() {
-        Gauge.builder("taskflow_websocket_connections_active", activeWebSocketConnections, AtomicInteger::get)
+        Gauge.builder("taskflow_websocket_connections_active", activeWebSocketConnections, ai -> ai.get())
                 .description("Active WebSocket STOMP sessions")
                 .register(registry);
     }

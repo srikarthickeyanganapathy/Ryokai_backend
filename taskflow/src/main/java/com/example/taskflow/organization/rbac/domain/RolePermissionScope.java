@@ -2,7 +2,6 @@ package com.example.taskflow.organization.rbac.domain;
 
 import jakarta.persistence.*;
 import lombok.*;
-import com.example.taskflow.organization.core.domain.Organization;
 
 /**
  * Core junction table linking a Role to a Permission at a specific Scope.

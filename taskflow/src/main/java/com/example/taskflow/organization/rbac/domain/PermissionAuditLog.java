@@ -5,7 +5,6 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
-import com.example.taskflow.security.PermissionCode;
 
 /**
  * Audit log for authorization decisions.

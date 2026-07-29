@@ -1,10 +1,6 @@
 package com.example.taskflow.task.api.response;
 
 import java.time.LocalDateTime;
-import com.example.taskflow.project.domain.Project;
-import com.example.taskflow.project.domain.ProjectActivityLog;
-import com.example.taskflow.task.domain.model.Task;
-import com.example.taskflow.task.domain.model.TaskActivityLog;
 import com.example.taskflow.user.dto.UserSummaryDTO;
 
 public record ActivityLogDTO(

@@ -1,8 +1,4 @@
 package com.example.taskflow.security;
-import com.example.taskflow.crew.domain.Crew;
-import com.example.taskflow.organization.core.domain.Organization;
-import com.example.taskflow.organization.rbac.domain.Permission;
-import com.example.taskflow.user.domain.User;
 
 /**
  * Workspace types in Ryokai. Every authorization decision starts by

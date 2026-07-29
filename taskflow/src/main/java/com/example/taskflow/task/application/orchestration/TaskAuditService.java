@@ -14,10 +14,7 @@ import com.example.taskflow.task.infrastructure.persistence.TaskStatusHistoryRep
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import com.example.taskflow.shared.util.RelativeTimeFormatter;
-import com.example.taskflow.organization.core.domain.Organization;
-import com.example.taskflow.organization.membership.infrastructure.persistence.OrganizationMembershipRepository;
 import com.example.taskflow.organization.rbac.application.PermissionService;
-import com.example.taskflow.security.PermissionCode;
 
 @Service
 public class TaskAuditService {

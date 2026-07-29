@@ -2,7 +2,6 @@ package com.example.taskflow.organization.core.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
-import com.example.taskflow.organization.core.domain.Organization;
 
 public class CreateOrganizationRequestDTO {
 

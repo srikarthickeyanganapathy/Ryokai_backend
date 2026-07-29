@@ -17,9 +17,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import com.example.taskflow.organization.core.domain.Organization;
-import com.example.taskflow.organization.rbac.dto.PermissionCatalogResponseDTO;
-import com.example.taskflow.security.PermissionMetadataRegistry;
 
 @RestController
 @RequestMapping("/api/v1/permissions")
@@ -36,7 +33,7 @@ public class PermissionCatalogController {
         List<Permission> allPermissions = permissionRepository.findAll();
 
         Map<String, List<Permission>> byModule = allPermissions.stream()
-                .collect(Collectors.groupingBy(Permission::getModule));
+                .collect(Collectors.groupingBy(p -> p.getModule()));
 
         List<PermissionModuleDTO> catalog = new ArrayList<>();
 
@@ -58,7 +55,7 @@ public class PermissionCatalogController {
                             p.getCategory(),
                             p.getDescription(),
                             p.isSystem()))
-                    .sorted(Comparator.comparingInt(PermissionResponseDTO::getOrder).thenComparing(PermissionResponseDTO::getCode))
+                    .sorted(Comparator.comparingInt((PermissionResponseDTO p) -> p.getOrder()).thenComparing(p -> p.getCode()))
                     .collect(Collectors.toList());
 
             PermissionModuleDTO moduleDTO = new PermissionModuleDTO(
@@ -73,7 +70,7 @@ public class PermissionCatalogController {
         }
 
         // Sort modules using metadata order
-        catalog.sort(Comparator.comparingInt(PermissionModuleDTO::getOrder));
+        catalog.sort(Comparator.comparingInt(m -> m.getOrder()));
 
         String now = java.time.Instant.now().toString();
         com.example.taskflow.organization.rbac.dto.PermissionCatalogResponseDTO response = new com.example.taskflow.organization.rbac.dto.PermissionCatalogResponseDTO(1, now, catalog);

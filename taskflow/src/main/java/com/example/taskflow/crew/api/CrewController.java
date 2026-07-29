@@ -3,8 +3,6 @@ package com.example.taskflow.crew.api;
 import java.util.List;
 import java.util.UUID;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -17,7 +15,6 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.bind.annotation.RequestParam;
 
 import com.example.taskflow.user.domain.User;
 import com.example.taskflow.task.api.request.ConvertToTaskRequestDTO;
@@ -30,7 +27,6 @@ import com.example.taskflow.crew.dto.CrewMessageDTO;
 import com.example.taskflow.crew.dto.CrewMessageRequestDTO;
 import com.example.taskflow.crew.dto.CrewRequestDTO;
 import com.example.taskflow.crew.dto.CrewResponseDTO;
-import com.example.taskflow.project.dto.ProjectSummaryDTO;
 import com.example.taskflow.task.api.request.CrewTaskRequestDTO;
 import com.example.taskflow.task.api.response.TaskResponseDTO;
 import com.example.taskflow.crew.application.CrewChannelService;
@@ -43,13 +39,6 @@ import com.example.taskflow.user.application.UserService;
 import jakarta.validation.Valid;
 
 import org.springframework.security.access.prepost.PreAuthorize;
-import com.example.taskflow.crew.domain.Crew;
-import com.example.taskflow.organization.rbac.domain.Scope;
-import com.example.taskflow.project.domain.Project;
-import com.example.taskflow.task.api.request.TaskAssignmentCommand;
-import com.example.taskflow.task.api.request.TaskRequestDTO;
-import com.example.taskflow.task.domain.model.Task;
-import com.example.taskflow.task.domain.model.TaskScope;
 
 @RestController
 @RequestMapping("/api/v1/crews")

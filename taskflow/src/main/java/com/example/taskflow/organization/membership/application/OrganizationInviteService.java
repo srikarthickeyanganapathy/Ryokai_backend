@@ -13,6 +13,7 @@ import com.example.taskflow.organization.core.domain.Organization;
 import com.example.taskflow.organization.membership.domain.OrganizationInvite;
 import com.example.taskflow.organization.membership.domain.OrganizationInvite.InviteStatus;
 import com.example.taskflow.organization.membership.domain.OrganizationMembership;
+import com.example.taskflow.organization.rbac.application.PermissionService;
 import com.example.taskflow.organization.rbac.domain.Role;
 import com.example.taskflow.user.domain.User;
 import com.example.taskflow.organization.membership.dto.OrganizationInviteDTO;
@@ -25,13 +26,8 @@ import com.example.taskflow.user.infrastructure.persistence.UserRepository;
 import com.example.taskflow.organization.rbac.infrastructure.persistence.RoleRepository;
 import com.example.taskflow.audit.application.AuditService;
 import com.example.taskflow.notification.application.NotificationService;
-import com.example.taskflow.notification.domain.Notification;
-import com.example.taskflow.organization.membership.domain.OrganizationInvite;
-import com.example.taskflow.organization.membership.domain.OrganizationMembership;
-import com.example.taskflow.organization.rbac.application.PermissionService;
-import com.example.taskflow.organization.rbac.domain.Permission;
-import com.example.taskflow.security.authorization.LegacyPermissionMapper;
 import com.example.taskflow.security.PermissionCode;
+import com.example.taskflow.security.authorization.LegacyPermissionMapper;
 
 @Service
 public class OrganizationInviteService {
@@ -88,7 +84,7 @@ public class OrganizationInviteService {
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new IllegalArgumentException("Role not found"));
 
-        if (role.isBuiltinAdmin()) {
+        if ("ADMIN".equals(role.getName())) {
             throw new IllegalArgumentException("Only one Admin is allowed in the organization. You cannot invite another Admin.");
         }
 
@@ -133,7 +129,7 @@ public class OrganizationInviteService {
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new IllegalArgumentException("Role not found"));
 
-        if (role.isBuiltinAdmin()) {
+        if ("ADMIN".equals(role.getName())) {
             throw new IllegalArgumentException("Only one Admin is allowed in the organization. You cannot invite another Admin.");
         }
 
@@ -326,15 +322,16 @@ public class OrganizationInviteService {
         );
     }
 
+    @SuppressWarnings("deprecation")
     private void requirePermission(User caller, Organization org, String permission) {
         OrganizationMembership membership = membershipRepository.findByUserAndOrganization(caller, org)
                 .orElseThrow(() -> new UnauthorizedActionException("You are not a member of this organization"));
         
-        if (caller.isSuperAdmin() || (membership.getOrgRole() != null && membership.getOrgRole().isBuiltinAdmin())) {
+        if (caller.isSuperAdmin() || (membership.getOrgRole() != null && "ADMIN".equals(membership.getOrgRole().getName()))) {
             return;
         }
 
-        com.example.taskflow.security.PermissionCode code = com.example.taskflow.security.authorization.LegacyPermissionMapper.resolve(permission);
+        PermissionCode code = LegacyPermissionMapper.resolve(permission);
         if (code != null) {
             permissionService.requireAuthorization(caller, code, org.getId());
         }

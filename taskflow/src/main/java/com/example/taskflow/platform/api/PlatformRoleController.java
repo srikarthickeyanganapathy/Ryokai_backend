@@ -4,7 +4,6 @@ import java.util.List;
 import java.util.Set;
 
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
@@ -22,8 +21,6 @@ import com.example.taskflow.security.platform.PlatformAuthorize;
 import com.example.taskflow.security.platform.PlatformPermission;
 
 import jakarta.validation.Valid;
-import com.example.taskflow.organization.rbac.domain.Permission;
-import com.example.taskflow.organization.rbac.domain.Role;
 
 /**
  * Platform Control Plane role and permission governance endpoints.

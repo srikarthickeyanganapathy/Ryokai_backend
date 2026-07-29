@@ -9,12 +9,9 @@ import com.example.taskflow.user.domain.User;
 import com.example.taskflow.task.domain.model.Task;
 import com.example.taskflow.dashboard.dto.DashboardStatsDTO;
 import com.example.taskflow.dashboard.dto.ActivityEventDTO;
+import com.example.taskflow.task.application.orchestration.TaskAuditService;
 import com.example.taskflow.task.infrastructure.persistence.TaskRepository;
 import com.example.taskflow.task.security.TaskPermissionHandler;
-import com.example.taskflow.organization.rbac.domain.Scope;
-import com.example.taskflow.shared.exception.UnauthorizedActionException;
-import com.example.taskflow.task.application.orchestration.TaskAuditService;
-import com.example.taskflow.task.exception.TaskNotFoundException;
 
 @Service
 public class DashboardQueryService {

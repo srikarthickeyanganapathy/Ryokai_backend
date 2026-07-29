@@ -9,7 +9,6 @@ import java.util.HashSet;
 import java.util.Set;
 
 import jakarta.persistence.*; // Use Jakarta imports for Spring Boot 3
-import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

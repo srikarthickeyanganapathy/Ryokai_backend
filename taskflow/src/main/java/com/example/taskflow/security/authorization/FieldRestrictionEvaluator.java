@@ -7,11 +7,6 @@ import org.springframework.stereotype.Service;
 
 import com.example.taskflow.organization.rbac.domain.FieldRestriction;
 import com.example.taskflow.organization.rbac.infrastructure.persistence.FieldRestrictionRepository;
-import com.example.taskflow.organization.rbac.domain.Role;
-import com.example.taskflow.project.domain.Project;
-import com.example.taskflow.task.domain.model.Task;
-import com.example.taskflow.team.domain.Team;
-import com.example.taskflow.user.domain.User;
 
 /**
  * Evaluates field-level access control for _UPDATE operations.

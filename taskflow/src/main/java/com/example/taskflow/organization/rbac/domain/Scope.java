@@ -2,9 +2,6 @@ package com.example.taskflow.organization.rbac.domain;
 
 import jakarta.persistence.*;
 import lombok.*;
-import com.example.taskflow.organization.core.domain.Organization;
-import com.example.taskflow.project.domain.Project;
-import com.example.taskflow.team.domain.Team;
 
 /**
  * Authorization scope levels.

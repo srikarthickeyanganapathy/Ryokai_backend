@@ -9,8 +9,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.EnumSet;
 import java.util.Set;
-import com.example.taskflow.crew.domain.Crew;
-import com.example.taskflow.crew.infrastructure.persistence.CrewMemberRepository;
 
 @Component
 public class PersonalTaskStrategy implements TaskLifecycleStrategy, TaskScopeBehavior {

@@ -15,8 +15,6 @@ import com.example.taskflow.team.infrastructure.persistence.TeamRepository;
 import com.example.taskflow.crew.infrastructure.persistence.CrewMemberRepository;
 import com.example.taskflow.organization.rbac.application.PermissionService;
 import com.example.taskflow.security.authorization.LegacyPermissionMapper;
-import com.example.taskflow.crew.domain.Crew;
-import com.example.taskflow.organization.rbac.domain.Permission;
 import com.example.taskflow.security.DomainPermissionHandler;
 import com.example.taskflow.security.PermissionCode;
 

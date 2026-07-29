@@ -1,19 +1,11 @@
 package com.example.taskflow.crew.application;
 
 
-import com.example.taskflow.organization.rbac.domain.Scope;
-import com.example.taskflow.shared.exception.UnauthorizedActionException;
-import com.example.taskflow.task.api.request.TaskAssignmentCommand;
-import com.example.taskflow.task.api.request.TaskRequestDTO;
 import com.example.taskflow.task.application.command.TaskAssignmentService;
-import com.example.taskflow.task.domain.model.TaskScope;
-import com.example.taskflow.task.domain.strategy.Claimable;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

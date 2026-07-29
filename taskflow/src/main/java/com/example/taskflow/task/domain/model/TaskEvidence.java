@@ -1,7 +1,6 @@
 package com.example.taskflow.task.domain.model;
 
 
-import com.example.taskflow.note.Note;
 import com.example.taskflow.user.domain.User;
 import java.time.LocalDateTime;
 

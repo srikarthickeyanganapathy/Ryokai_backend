@@ -2,7 +2,6 @@ package com.example.taskflow.team.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
-import com.example.taskflow.team.domain.Team;
 
 public class CreateTeamRequestDTO {
 

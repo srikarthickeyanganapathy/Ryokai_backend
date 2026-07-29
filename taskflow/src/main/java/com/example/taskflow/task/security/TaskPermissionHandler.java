@@ -16,17 +16,7 @@ import com.example.taskflow.security.authorization.WorkspaceTypeResolver;
 import com.example.taskflow.security.WorkspaceType;
 import com.example.taskflow.security.authorization.LegacyPermissionMapper;
 import com.example.taskflow.security.PermissionCode;
-import com.example.taskflow.crew.domain.Crew;
-import com.example.taskflow.organization.membership.infrastructure.persistence.OrganizationMembershipRepository;
-import com.example.taskflow.organization.rbac.domain.Permission;
-import com.example.taskflow.project.domain.Project;
-import com.example.taskflow.project.infrastructure.persistence.ProjectRepository;
 import com.example.taskflow.security.DomainPermissionHandler;
-import com.example.taskflow.task.api.request.BulkAssignRequestDTO;
-import com.example.taskflow.task.api.request.TaskRequestDTO;
-import com.example.taskflow.task.domain.model.TaskMode;
-import com.example.taskflow.team.domain.Team;
-import com.example.taskflow.team.infrastructure.persistence.TeamRepository;
 
 @Component
 public class TaskPermissionHandler implements DomainPermissionHandler {

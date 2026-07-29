@@ -1,11 +1,4 @@
 package com.example.taskflow.security;
-import com.example.taskflow.crew.domain.Crew;
-import com.example.taskflow.organization.core.domain.Organization;
-import com.example.taskflow.organization.rbac.domain.Permission;
-import com.example.taskflow.organization.rbac.domain.Scope;
-import com.example.taskflow.project.domain.Project;
-import com.example.taskflow.team.domain.Team;
-import com.example.taskflow.user.domain.User;
 
 /**
  * Authorization scope levels for Organization RBAC.

@@ -1,7 +1,6 @@
 package com.example.taskflow.team.dto;
 
 import jakarta.validation.constraints.NotNull;
-import com.example.taskflow.user.domain.User;
 
 public class TeamMemberRequestDTO {
 

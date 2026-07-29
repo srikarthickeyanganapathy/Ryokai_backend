@@ -44,8 +44,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.security.access.prepost.PreAuthorize;
-import com.example.taskflow.note.Note;
-import com.example.taskflow.security.ClientIpResolver;
 
 @RestController
 @RequestMapping(value = "/api/v1/session", produces = MediaType.APPLICATION_JSON_VALUE)

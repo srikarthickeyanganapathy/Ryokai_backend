@@ -10,7 +10,6 @@ import com.example.taskflow.organization.core.infrastructure.persistence.Organiz
 import com.example.taskflow.organization.rbac.application.PermissionService;
 import com.example.taskflow.security.authorization.LegacyPermissionMapper;
 import com.example.taskflow.security.PermissionCode;
-import com.example.taskflow.organization.rbac.domain.Permission;
 import com.example.taskflow.security.DomainPermissionHandler;
 
 @Component

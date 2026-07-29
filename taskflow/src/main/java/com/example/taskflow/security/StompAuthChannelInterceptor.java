@@ -20,7 +20,6 @@ import org.springframework.security.authentication.AuthenticationCredentialsNotF
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
-import com.example.taskflow.crew.domain.Crew;
 import com.example.taskflow.task.security.TaskPermissionHandler;
 
 @Component

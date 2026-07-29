@@ -16,7 +16,6 @@ import com.example.taskflow.task.api.response.ChecklistItemDTO;
 import com.example.taskflow.task.api.request.ChecklistItemRequestDTO;
 import com.example.taskflow.task.application.command.ChecklistService;
 import com.example.taskflow.user.application.UserService;
-import com.example.taskflow.task.domain.model.Task;
 
 @RestController
 @RequestMapping(value = "/api/v1/tasks", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)

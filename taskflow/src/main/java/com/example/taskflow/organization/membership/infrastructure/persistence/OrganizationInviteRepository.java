@@ -4,12 +4,9 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
 import com.example.taskflow.organization.membership.domain.OrganizationInvite;
-import com.example.taskflow.organization.membership.domain.OrganizationInvite;
 
-@Repository
 public interface OrganizationInviteRepository extends JpaRepository<OrganizationInvite, Long> {
     List<OrganizationInvite> findByInviteeUserIdAndStatus(Long userId, OrganizationInvite.InviteStatus status);
     List<OrganizationInvite> findByOrganizationId(Long orgId);

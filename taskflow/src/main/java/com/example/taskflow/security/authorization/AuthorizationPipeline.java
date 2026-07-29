@@ -30,15 +30,6 @@ import com.example.taskflow.organization.rbac.infrastructure.persistence.UserPer
 import com.example.taskflow.security.PermissionCode;
 import com.example.taskflow.security.PermissionImplications;
 import com.example.taskflow.security.ScopeType;
-import com.example.taskflow.crew.domain.Crew;
-import com.example.taskflow.organization.membership.domain.OrganizationMembership;
-import com.example.taskflow.organization.rbac.domain.Permission;
-import com.example.taskflow.organization.rbac.domain.Role;
-import com.example.taskflow.organization.rbac.domain.Scope;
-import com.example.taskflow.project.domain.Project;
-import com.example.taskflow.security.platform.PlatformAuthorizationService;
-import com.example.taskflow.task.domain.model.Task;
-import com.example.taskflow.team.domain.Team;
 
 /**
  * The authorization pipeline for <b>Organization Workspaces only</b>.
@@ -177,7 +168,7 @@ public class AuthorizationPipeline {
 
         // Query role_permission_scopes for any of these permissions
         Set<String> satisfyingCodes = satisfyingPermissions.stream()
-                .map(PermissionCode::code)
+                .map(p -> p.code())
                 .collect(Collectors.toSet());
 
         List<RolePermissionScope> grants = rpsRepository.findByRoleIdIn(roleIds).stream()

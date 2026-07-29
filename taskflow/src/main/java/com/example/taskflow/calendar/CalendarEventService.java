@@ -6,11 +6,9 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.example.taskflow.calendar.CalendarEvent;
 import com.example.taskflow.user.domain.User;
 import com.example.taskflow.calendar.CalendarEventDTOs.CalendarEventRequestDTO;
 import com.example.taskflow.calendar.CalendarEventDTOs.CalendarEventResponseDTO;
-import com.example.taskflow.calendar.CalendarEventRepository;
 
 import lombok.RequiredArgsConstructor;
 

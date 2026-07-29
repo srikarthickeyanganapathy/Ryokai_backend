@@ -2,7 +2,6 @@ package com.example.taskflow.organization.rbac.domain;
 
 
 import com.example.taskflow.organization.core.domain.Organization;
-import com.example.taskflow.security.PermissionCode;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.HashSet;

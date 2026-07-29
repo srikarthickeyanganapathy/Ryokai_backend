@@ -1,7 +1,6 @@
 package com.example.taskflow.security.authorization;
 
 import java.util.List;
-import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -9,10 +8,6 @@ import org.springframework.stereotype.Service;
 
 import com.example.taskflow.organization.rbac.domain.PermissionPolicyMapping;
 import com.example.taskflow.organization.rbac.infrastructure.persistence.PermissionPolicyRepository;
-import com.example.taskflow.organization.rbac.domain.Permission;
-import com.example.taskflow.organization.rbac.domain.Scope;
-import com.example.taskflow.security.PermissionCode;
-import com.example.taskflow.task.domain.model.Task;
 
 /**
  * Evaluates runtime policy predicates for a given permission.
@@ -51,8 +46,6 @@ public class PolicyEvaluator {
         if (policies.isEmpty()) {
             return AuthorizationDecision.grant("POLICY");
         }
-
-        Map<String, Object> context = request.getPolicyContext();
 
         for (PermissionPolicyMapping policy : policies) {
             String key = policy.getPolicyKey();

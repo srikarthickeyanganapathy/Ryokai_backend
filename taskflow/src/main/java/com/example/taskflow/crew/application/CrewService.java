@@ -1,43 +1,26 @@
 package com.example.taskflow.crew.application;
 
-import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.example.taskflow.crew.domain.ChannelType;
 import com.example.taskflow.crew.domain.Crew;
 import com.example.taskflow.crew.domain.CrewChannel;
-import com.example.taskflow.crew.domain.CrewInvite;
 import com.example.taskflow.crew.domain.CrewMember;
 import com.example.taskflow.crew.domain.CrewMemberId;
 import com.example.taskflow.crew.domain.CrewRole;
-import com.example.taskflow.project.domain.Project;
 import com.example.taskflow.user.domain.User;
 import com.example.taskflow.crew.dto.CrewChannelDTO;
-import com.example.taskflow.crew.dto.CrewInviteDTO;
 import com.example.taskflow.crew.dto.CrewMemberDTO;
 import com.example.taskflow.crew.dto.CrewRequestDTO;
 import com.example.taskflow.crew.dto.CrewResponseDTO;
-import com.example.taskflow.crew.exception.CrewFullException;
-import com.example.taskflow.crew.exception.CrewInviteExpiredException;
 import com.example.taskflow.crew.exception.CrewNotFoundException;
-import com.example.taskflow.shared.exception.ResourceNotFoundException;
 import com.example.taskflow.crew.infrastructure.persistence.CrewChannelRepository;
-import com.example.taskflow.crew.infrastructure.persistence.CrewInviteRepository;
 import com.example.taskflow.crew.infrastructure.persistence.CrewMemberRepository;
 import com.example.taskflow.crew.infrastructure.persistence.CrewRepository;
-import com.example.taskflow.project.infrastructure.persistence.ProjectRepository;
-import com.example.taskflow.crew.domain.CrewVisibility;
-import com.example.taskflow.notification.application.NotificationService;
-import com.example.taskflow.project.application.ProjectService;
-import com.example.taskflow.shared.exception.UnauthorizedActionException;
-import com.example.taskflow.task.domain.model.Task;
 import com.example.taskflow.task.infrastructure.persistence.TaskRepository;
 
 @Service
@@ -46,28 +29,16 @@ public class CrewService {
     private final CrewRepository crewRepository;
     private final CrewMemberRepository crewMemberRepository;
     private final CrewChannelRepository channelRepository;
-    private final CrewInviteRepository inviteRepository;
-    private final ProjectRepository projectRepository;
-    private final NotificationService notificationService;
-    private final com.example.taskflow.task.infrastructure.persistence.TaskRepository taskRepository;
-    private final ProjectService projectService;
+    private final TaskRepository taskRepository;
 
     public CrewService(CrewRepository crewRepository,
                        CrewMemberRepository crewMemberRepository,
                        CrewChannelRepository channelRepository,
-                       CrewInviteRepository inviteRepository,
-                       ProjectRepository projectRepository,
-                       NotificationService notificationService,
-                       com.example.taskflow.task.infrastructure.persistence.TaskRepository taskRepository,
-                       ProjectService projectService) {
+                       TaskRepository taskRepository) {
         this.crewRepository = crewRepository;
         this.crewMemberRepository = crewMemberRepository;
         this.channelRepository = channelRepository;
-        this.inviteRepository = inviteRepository;
-        this.projectRepository = projectRepository;
-        this.notificationService = notificationService;
         this.taskRepository = taskRepository;
-        this.projectService = projectService;
     }
 
     private String generateSlug(String name) {

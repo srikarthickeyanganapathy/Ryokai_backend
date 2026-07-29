@@ -6,14 +6,9 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
 
 import com.example.taskflow.organization.rbac.domain.Role;
-import com.example.taskflow.organization.core.domain.Organization;
-import com.example.taskflow.organization.rbac.domain.Permission;
-import com.example.taskflow.organization.rbac.domain.Scope;
 
-@Repository
 public interface RoleRepository extends JpaRepository<Role, Long> {
 
     Optional<Role> findByName(String name);

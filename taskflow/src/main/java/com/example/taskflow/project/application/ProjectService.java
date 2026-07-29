@@ -11,26 +11,17 @@ import com.example.taskflow.project.domain.Project;
 import com.example.taskflow.crew.domain.Crew;
 import com.example.taskflow.team.domain.Team;
 import com.example.taskflow.user.domain.User;
-import com.example.taskflow.task.domain.model.Task;
-import com.example.taskflow.task.domain.model.TaskPriority;
-import com.example.taskflow.task.domain.model.TaskStatus;
 import com.example.taskflow.project.dto.ProjectRequestDTO;
 import com.example.taskflow.project.dto.ProjectResponseDTO;
 import com.example.taskflow.organization.core.infrastructure.persistence.OrganizationRepository;
 import com.example.taskflow.project.infrastructure.persistence.ProjectRepository;
 import com.example.taskflow.task.infrastructure.persistence.TaskRepository;
-import com.example.taskflow.crew.domain.CrewMember;
 import com.example.taskflow.crew.infrastructure.persistence.CrewMemberRepository;
 import com.example.taskflow.team.infrastructure.persistence.TeamRepository;
 import com.example.taskflow.team.infrastructure.persistence.TeamMemberRepository;
 import com.example.taskflow.organization.membership.infrastructure.persistence.OrganizationMembershipRepository;
 import com.example.taskflow.security.PermissionCode;
-import com.example.taskflow.crew.infrastructure.persistence.CrewRepository;
 import com.example.taskflow.organization.rbac.application.PermissionService;
-import com.example.taskflow.organization.rbac.domain.Permission;
-import com.example.taskflow.organization.rbac.domain.Scope;
-import com.example.taskflow.team.infrastructure.persistence.TeamObserverRepository;
-import com.example.taskflow.user.infrastructure.persistence.UserRepository;
 
 @Service
 public class ProjectService {
@@ -379,13 +370,13 @@ public class ProjectService {
         dto.setCrewId(p.getCrew() != null ? p.getCrew().getId() : null);
         dto.setCrewName(p.getCrew() != null ? p.getCrew().getName() : null);
         if (p.getCollaborators() != null) {
-            dto.setCollaboratorIds(p.getCollaborators().stream().map(User::getId).collect(Collectors.toList()));
+            dto.setCollaboratorIds(p.getCollaborators().stream().map(u -> u.getId()).collect(Collectors.toList()));
         } else {
             dto.setCollaboratorIds(new java.util.ArrayList<>());
         }
         
         if (p.getSharedCrews() != null) {
-            dto.setSharedCrewIds(p.getSharedCrews().stream().map(Crew::getId).collect(java.util.stream.Collectors.toList()));
+            dto.setSharedCrewIds(p.getSharedCrews().stream().map(c -> c.getId()).collect(java.util.stream.Collectors.toList()));
         } else {
             dto.setSharedCrewIds(new java.util.ArrayList<>());
         }

@@ -5,7 +5,6 @@ import java.time.LocalDate;
 import com.example.taskflow.task.domain.model.TaskPriority;
 
 import jakarta.validation.constraints.NotBlank;
-import com.example.taskflow.crew.domain.Crew;
 
 /**
  * DTO for creating crew tasks via POST /api/crews/{crewId}/tasks.

@@ -7,11 +7,6 @@ import com.example.taskflow.security.ScopeType;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
-import com.example.taskflow.organization.core.domain.Organization;
-import com.example.taskflow.organization.rbac.domain.Permission;
-import com.example.taskflow.organization.rbac.domain.Scope;
-import com.example.taskflow.project.domain.Project;
-import com.example.taskflow.team.domain.Team;
 
 /**
  * Encapsulates all context needed for a single authorization evaluation.

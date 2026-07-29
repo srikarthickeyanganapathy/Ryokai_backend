@@ -1,10 +1,8 @@
 package com.example.taskflow.saveditem;
 
-import com.example.taskflow.saveditem.SavedEntityType;
 import com.example.taskflow.user.domain.User;
 import com.example.taskflow.saveditem.SavedItemDTOs.SavedItemRequestDTO;
 import com.example.taskflow.saveditem.SavedItemDTOs.SavedItemResponseDTO;
-import com.example.taskflow.saveditem.SavedItemService;
 import com.example.taskflow.user.application.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

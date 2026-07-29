@@ -1,8 +1,6 @@
 package com.example.taskflow.organization.rbac.dto;
 
 import java.util.List;
-import com.example.taskflow.organization.rbac.domain.Scope;
-import com.example.taskflow.security.PermissionMetadataRegistry;
 
 public class PermissionResponseDTO {
     private Long id;

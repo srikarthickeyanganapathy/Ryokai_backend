@@ -3,7 +3,6 @@ package com.example.taskflow.task.event;
 import java.util.Map;
 
 import com.example.taskflow.audit.domain.AuditEventSource;
-import com.example.taskflow.task.domain.model.EvidenceType;
 
 public record EvidenceUploadedEvent(
     int eventVersion,

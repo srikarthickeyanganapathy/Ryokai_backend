@@ -6,7 +6,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.example.taskflow.task.domain.model.TaskStatusHistory;
-import com.example.taskflow.task.domain.model.Task;
 
 public interface TaskStatusHistoryRepository extends JpaRepository<TaskStatusHistory, Long> {
 

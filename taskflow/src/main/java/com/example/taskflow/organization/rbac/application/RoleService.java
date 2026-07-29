@@ -23,14 +23,6 @@ import com.example.taskflow.user.domain.User;
 
 import jakarta.transaction.Transactional;
 import com.example.taskflow.audit.application.AuditService;
-import com.example.taskflow.organization.membership.domain.OrganizationMembership;
-import com.example.taskflow.organization.membership.infrastructure.persistence.OrganizationMembershipRepository;
-import com.example.taskflow.organization.rbac.domain.RolePermissionScope;
-import com.example.taskflow.organization.rbac.domain.Scope;
-import com.example.taskflow.organization.rbac.infrastructure.persistence.ScopeRepository;
-import com.example.taskflow.security.authorization.LegacyPermissionMapper;
-import com.example.taskflow.security.PermissionCode;
-import com.example.taskflow.security.PermissionMetadataRegistry;
 
 @Service
 public class RoleService {
@@ -105,7 +97,7 @@ public class RoleService {
             // Global roles
             return caller.getRoles().stream()
                     .map(r -> r.getPriority() != null ? r.getPriority() : 100)
-                    .min(Integer::compareTo).orElse(100);
+                    .min((a, b) -> Integer.compare(a, b)).orElse(100);
         }
     }
 
@@ -315,7 +307,7 @@ public class RoleService {
         }
         
         Set<Permission> oldPerms = role.getRolePermissionScopes().stream()
-                .map(com.example.taskflow.organization.rbac.domain.RolePermissionScope::getPermission)
+                .map(rps -> rps.getPermission())
                 .collect(Collectors.toSet());
                 
         role.getRolePermissionScopes().clear();
@@ -353,8 +345,8 @@ public class RoleService {
             .map(rps -> mapToPermissionResponseDTO(rps.getPermission(), rps.getScope() != null ? rps.getScope().getCode() : "ORGANIZATION")).collect(Collectors.toSet());
             
         auditService.recordSync("ROLE_PERMISSIONS_CHANGED", caller, "ROLE", id,
-                oldPerms.stream().map(Permission::getName).collect(Collectors.toList()),
-                newPermsDTO.stream().map(PermissionResponseDTO::getName).collect(Collectors.toList()),
+                oldPerms.stream().map(p -> p.getName()).collect(Collectors.toList()),
+                newPermsDTO.stream().map(p -> p.getName()).collect(Collectors.toList()),
                 "Updated permissions for role: " + role.getName());
         
         return newPermsDTO;
@@ -393,7 +385,7 @@ public class RoleService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         
-        Set<String> oldRoles = user.getRoles().stream().map(Role::getName).collect(Collectors.toSet());
+        Set<String> oldRoles = user.getRoles().stream().map(r -> r.getName()).collect(Collectors.toSet());
         
         Set<Role> newRoles = roleNames.stream()
                 .map(requested -> {
@@ -408,7 +400,7 @@ public class RoleService {
         permissionService.invalidateCache(user.getId());
         
         auditService.recordSync("USER_ROLES_ASSIGNED", caller, "USER", user.getId(),
-                oldRoles, newRoles.stream().map(Role::getName).collect(Collectors.toSet()),
+                oldRoles, newRoles.stream().map(r -> r.getName()).collect(Collectors.toSet()),
                 "Assigned roles to user " + user.getUsername());
 
         return newRoles.stream()

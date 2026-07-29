@@ -18,7 +18,6 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.example.taskflow.user.domain.User;
-import com.example.taskflow.organization.membership.domain.OrganizationMembership;
 import com.example.taskflow.identity.dto.ChangePasswordRequestDTO;
 import com.example.taskflow.identity.dto.SessionDTO;
 import com.example.taskflow.user.dto.UpdateProfileRequestDTO;
@@ -31,9 +30,6 @@ import com.example.taskflow.security.jwt.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.transaction.annotation.Transactional;
-import com.example.taskflow.notification.domain.Notification;
-import com.example.taskflow.organization.core.domain.Organization;
-import com.example.taskflow.task.domain.model.Task;
 
 @RestController
 @RequestMapping(value = "/api/v1/users", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)

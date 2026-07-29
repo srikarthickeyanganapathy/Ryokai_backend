@@ -8,7 +8,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
-import com.example.taskflow.organization.rbac.domain.Scope;
 
 @Component
 @RequiredArgsConstructor

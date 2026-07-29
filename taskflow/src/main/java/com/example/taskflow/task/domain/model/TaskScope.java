@@ -1,8 +1,6 @@
 package com.example.taskflow.task.domain.model;
 
 import lombok.Getter;
-import com.example.taskflow.crew.domain.Crew;
-import com.example.taskflow.organization.rbac.domain.Scope;
 
 @Getter
 public class TaskScope {

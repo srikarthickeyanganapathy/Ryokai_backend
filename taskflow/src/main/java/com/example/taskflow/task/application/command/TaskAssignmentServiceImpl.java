@@ -1,8 +1,6 @@
 package com.example.taskflow.task.application.command;
 
-import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.List;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -13,24 +11,16 @@ import com.example.taskflow.task.domain.model.TaskPriority;
 import com.example.taskflow.task.domain.model.TaskStatus;
 import com.example.taskflow.team.domain.Team;
 import com.example.taskflow.user.domain.User;
-import com.example.taskflow.project.domain.Project;
 import com.example.taskflow.task.api.response.TaskResponseDTO;
 import com.example.taskflow.crew.infrastructure.persistence.CrewRepository;
 import com.example.taskflow.organization.membership.infrastructure.persistence.OrganizationMembershipRepository;
-import com.example.taskflow.project.infrastructure.persistence.ProjectRepository;
 import com.example.taskflow.task.infrastructure.persistence.TaskRepository;
 import com.example.taskflow.team.infrastructure.persistence.TeamRepository;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.transaction.Transactional;
-import com.example.taskflow.crew.domain.Crew;
 import com.example.taskflow.notification.application.NotificationService;
-import com.example.taskflow.notification.domain.Notification;
-import com.example.taskflow.notification.event.NotificationEvent;
-import com.example.taskflow.task.api.request.TaskAssignmentCommand;
-import com.example.taskflow.task.api.response.ChecklistItemDTO;
 import com.example.taskflow.task.application.orchestration.TaskAuditService;
-import com.example.taskflow.task.domain.model.TaskMode;
 import com.example.taskflow.task.domain.validation.TaskHierarchyValidator;
 
 @Service

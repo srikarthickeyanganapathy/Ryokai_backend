@@ -1,25 +1,23 @@
 package com.example.taskflow.identity.application;
 
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.scheduling.annotation.Scheduled;
 
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-
-import com.example.taskflow.identity.domain.PasswordResetToken;
-import com.example.taskflow.user.domain.User;
-import com.example.taskflow.shared.exception.UnauthorizedActionException;
-import com.example.taskflow.identity.infrastructure.persistence.PasswordResetTokenRepository;
-import com.example.taskflow.user.infrastructure.persistence.UserRepository;
-import com.example.taskflow.security.jwt.JwtUtil;
 import com.example.taskflow.audit.application.SecurityAuditService;
+import com.example.taskflow.identity.domain.PasswordResetToken;
+import com.example.taskflow.identity.infrastructure.persistence.PasswordResetTokenRepository;
 import com.example.taskflow.integration.email.EmailService;
+import com.example.taskflow.shared.exception.UnauthorizedActionException;
+import com.example.taskflow.user.domain.User;
+import com.example.taskflow.user.infrastructure.persistence.UserRepository;
 
 @Service
 public class PasswordResetService {
@@ -29,7 +27,6 @@ public class PasswordResetService {
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenService refreshTokenService;
     private final EmailService emailService;
-    private final JwtUtil jwtUtil; // to hash token
     private final SecurityAuditService securityAuditService;
 
     @Value("${app.password-reset.expiry-minutes:60}")
@@ -37,13 +34,12 @@ public class PasswordResetService {
 
     public PasswordResetService(PasswordResetTokenRepository tokenRepository, UserRepository userRepository,
                                 PasswordEncoder passwordEncoder, RefreshTokenService refreshTokenService,
-                                EmailService emailService, JwtUtil jwtUtil, SecurityAuditService securityAuditService) {
+                                EmailService emailService, SecurityAuditService securityAuditService) {
         this.tokenRepository = tokenRepository;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.refreshTokenService = refreshTokenService;
         this.emailService = emailService;
-        this.jwtUtil = jwtUtil;
         this.securityAuditService = securityAuditService;
     }
 

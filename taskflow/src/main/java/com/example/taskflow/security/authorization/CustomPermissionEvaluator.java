@@ -15,23 +15,8 @@ import com.example.taskflow.organization.membership.domain.OrganizationMembershi
 import com.example.taskflow.user.infrastructure.persistence.UserRepository;
 import com.example.taskflow.organization.membership.infrastructure.persistence.OrganizationMembershipRepository;
 import com.example.taskflow.organization.rbac.application.PermissionService;
-import com.example.taskflow.security.authorization.AuthorizationDecision;
-import com.example.taskflow.security.authorization.AuthorizationPipeline;
-import com.example.taskflow.security.authorization.AuthorizationRequest;
-import com.example.taskflow.security.authorization.LegacyPermissionMapper;
-import com.example.taskflow.organization.core.domain.Organization;
-import com.example.taskflow.organization.membership.domain.OrganizationMembership;
-import com.example.taskflow.organization.rbac.domain.Permission;
-import com.example.taskflow.project.domain.Project;
-import com.example.taskflow.project.dto.ProjectRequestDTO;
 import com.example.taskflow.security.DomainPermissionHandler;
 import com.example.taskflow.security.PermissionCode;
-import com.example.taskflow.task.api.request.BulkAssignRequestDTO;
-import com.example.taskflow.task.api.request.TaskRequestDTO;
-import com.example.taskflow.task.domain.model.Task;
-import com.example.taskflow.team.domain.Team;
-import com.example.taskflow.team.dto.CreateTeamRequestDTO;
-import com.example.taskflow.team.dto.TeamMemberRequestDTO;
 
 @Component
 public class CustomPermissionEvaluator implements PermissionEvaluator {
@@ -144,7 +129,6 @@ public class CustomPermissionEvaluator implements PermissionEvaluator {
      * back to the legacy PermissionService.hasPermission if the permission
      * string is not mapped to a PermissionCode.
      */
-    @SuppressWarnings("deprecation")
     private boolean evaluateNullTarget(User user, String perm) {
         // Try to resolve through the new pipeline
         PermissionCode code = LegacyPermissionMapper.resolve(perm);
@@ -161,7 +145,7 @@ public class CustomPermissionEvaluator implements PermissionEvaluator {
         }
 
         // Fall back to legacy flat permission check
-        return permissionService.hasPermission(user, perm);
+        return permissionService.getPermissionsForUser(user).contains(perm);
     }
 
     /**

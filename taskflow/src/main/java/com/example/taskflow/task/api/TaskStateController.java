@@ -14,8 +14,6 @@ import com.example.taskflow.organization.membership.dto.RejectReasonDTO;
 import com.example.taskflow.task.api.response.TaskResponseDTO;
 import com.example.taskflow.task.application.command.TaskStateTransitionService;
 import com.example.taskflow.user.application.UserService;
-import com.example.taskflow.crew.domain.Crew;
-import com.example.taskflow.task.domain.model.Task;
 
 @RestController
 @RequestMapping(value = "/api/v1/tasks", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)

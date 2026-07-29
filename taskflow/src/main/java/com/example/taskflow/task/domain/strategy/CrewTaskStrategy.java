@@ -10,7 +10,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.EnumSet;
 import java.util.Set;
-import com.example.taskflow.crew.domain.Crew;
 
 @Component
 public class CrewTaskStrategy implements TaskLifecycleStrategy, TaskScopeBehavior, Claimable {

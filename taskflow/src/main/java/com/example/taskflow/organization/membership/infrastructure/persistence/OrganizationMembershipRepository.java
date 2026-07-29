@@ -1,16 +1,15 @@
 package com.example.taskflow.organization.membership.infrastructure.persistence;
 
-import com.example.taskflow.organization.membership.domain.OrganizationMembership;
-import com.example.taskflow.user.domain.User;
-import com.example.taskflow.organization.core.domain.Organization;
+import java.util.List;
+import java.util.Optional;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import java.util.List;
-import java.util.Optional;
+
+import com.example.taskflow.organization.core.domain.Organization;
 import com.example.taskflow.organization.membership.domain.OrganizationMembership;
-import com.example.taskflow.organization.rbac.domain.Permission;
-import com.example.taskflow.organization.rbac.domain.Scope;
+import com.example.taskflow.user.domain.User;
 
 public interface OrganizationMembershipRepository extends JpaRepository<OrganizationMembership, Long> {
     List<OrganizationMembership> findByUserId(Long userId);

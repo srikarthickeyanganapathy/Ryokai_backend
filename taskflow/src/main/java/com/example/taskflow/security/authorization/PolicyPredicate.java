@@ -1,6 +1,4 @@
 package com.example.taskflow.security.authorization;
-import com.example.taskflow.task.domain.model.Task;
-import com.example.taskflow.user.domain.User;
 
 /**
  * A single policy predicate â€” a boolean function evaluated at runtime.

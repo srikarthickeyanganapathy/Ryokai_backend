@@ -16,8 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
-import com.example.taskflow.organization.core.domain.Organization;
-import com.example.taskflow.organization.membership.domain.OrganizationMembership;
 
 @Service
 public class TeamMessageService {

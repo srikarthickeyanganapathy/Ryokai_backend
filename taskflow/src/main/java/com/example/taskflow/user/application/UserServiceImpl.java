@@ -9,8 +9,7 @@ import com.example.taskflow.user.exception.UserNotFoundException;
 import com.example.taskflow.user.infrastructure.persistence.UserRepository;
 import com.example.taskflow.organization.membership.infrastructure.persistence.OrganizationMembershipRepository;
 import com.example.taskflow.organization.membership.domain.OrganizationMembership;
-import com.example.taskflow.organization.membership.domain.OrganizationMembership;
-import com.example.taskflow.team.domain.Team;
+
 
 @Service
 public class UserServiceImpl implements UserService {
@@ -70,7 +69,7 @@ public class UserServiceImpl implements UserService {
         }
         Long orgId = memberships.get(0).getOrganization().getId();
         return membershipRepository.findByOrganizationId(orgId).stream()
-                .map(OrganizationMembership::getUser)
+                .map(om -> om.getUser())
                 .collect(java.util.stream.Collectors.toList());
     }
 

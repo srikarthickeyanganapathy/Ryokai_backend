@@ -55,7 +55,7 @@ public class Team {
      */
     public Set<User> getMembers() {
         return teamMembers.stream()
-                .map(TeamMember::getUser)
+                .map(tm -> tm.getUser())
                 .collect(Collectors.toSet());
     }
 }

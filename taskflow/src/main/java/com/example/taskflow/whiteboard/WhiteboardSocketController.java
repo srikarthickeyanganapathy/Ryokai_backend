@@ -1,7 +1,6 @@
 package com.example.taskflow.whiteboard;
 
 import com.example.taskflow.whiteboard.WhiteboardDTOs.DrawEventDTO;
-import com.example.taskflow.whiteboard.WhiteboardService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;

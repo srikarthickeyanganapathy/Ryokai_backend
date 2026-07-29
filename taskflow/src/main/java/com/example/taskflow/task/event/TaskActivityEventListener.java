@@ -8,8 +8,6 @@ import org.springframework.transaction.event.TransactionalEventListener;
 import com.example.taskflow.task.domain.model.Task;
 import com.example.taskflow.task.domain.model.TaskActivityLog;
 import com.example.taskflow.user.domain.User;
-import com.example.taskflow.task.event.EvidenceUploadedEvent;
-import com.example.taskflow.task.event.TaskStatusChangedEvent;
 import com.example.taskflow.task.infrastructure.persistence.TaskActivityLogRepository;
 import com.example.taskflow.task.infrastructure.persistence.TaskRepository;
 import com.example.taskflow.user.infrastructure.persistence.UserRepository;
@@ -17,8 +15,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import com.example.taskflow.task.domain.model.EvidenceType;
-import com.example.taskflow.task.domain.model.TaskEvidence;
 
 @Component
 @RequiredArgsConstructor

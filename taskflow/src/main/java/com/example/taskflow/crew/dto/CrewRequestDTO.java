@@ -5,7 +5,6 @@ import com.example.taskflow.crew.domain.CrewVisibility;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import com.example.taskflow.crew.domain.Crew;
 
 @Data
 @NoArgsConstructor

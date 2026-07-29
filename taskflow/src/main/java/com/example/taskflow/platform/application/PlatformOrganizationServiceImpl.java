@@ -4,7 +4,6 @@ import com.example.taskflow.organization.core.domain.Organization;
 import com.example.taskflow.organization.core.dto.OrganizationResponseDTO;
 import com.example.taskflow.organization.membership.infrastructure.persistence.OrganizationMembershipRepository;
 import com.example.taskflow.organization.core.infrastructure.persistence.OrganizationRepository;
-import com.example.taskflow.platform.application.PlatformOrganizationService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

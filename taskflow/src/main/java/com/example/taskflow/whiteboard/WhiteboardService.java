@@ -2,13 +2,11 @@ package com.example.taskflow.whiteboard;
 
 import com.example.taskflow.crew.domain.Crew;
 import com.example.taskflow.user.domain.User;
-import com.example.taskflow.whiteboard.Whiteboard;
 import com.example.taskflow.whiteboard.WhiteboardDTOs.WhiteboardRequestDTO;
 import com.example.taskflow.whiteboard.WhiteboardDTOs.WhiteboardResponseDTO;
 import com.example.taskflow.shared.exception.UnauthorizedActionException;
 import com.example.taskflow.crew.infrastructure.persistence.CrewMemberRepository;
 import com.example.taskflow.crew.infrastructure.persistence.CrewRepository;
-import com.example.taskflow.whiteboard.WhiteboardRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

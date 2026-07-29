@@ -6,7 +6,6 @@ import java.util.Set;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
-import com.example.taskflow.organization.core.exception.OrganizationSuspendedException;
 import com.example.taskflow.organization.membership.domain.OrganizationMembership;
 import com.example.taskflow.organization.rbac.domain.Role;
 import com.example.taskflow.team.domain.Team;
@@ -63,10 +62,10 @@ public class Organization {
 
     public void ensureNotLastAdmin(User user) {
         long adminCount = this.memberships.stream()
-                .filter(m -> m.getOrgRole() != null && m.getOrgRole().isBuiltinAdmin())
+                .filter(m -> m.getOrgRole() != null && "ADMIN".equals(m.getOrgRole().getName()))
                 .count();
         boolean isAdmin = this.memberships.stream()
-                .anyMatch(m -> m.getUser().getId().equals(user.getId()) && m.getOrgRole() != null && m.getOrgRole().isBuiltinAdmin());
+                .anyMatch(m -> m.getUser().getId().equals(user.getId()) && m.getOrgRole() != null && "ADMIN".equals(m.getOrgRole().getName()));
         if (isAdmin && adminCount <= 1) {
             throw new IllegalStateException(
                     "Cannot remove the last Admin of the organization. Promote another member to Admin first.");

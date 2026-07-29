@@ -20,9 +20,6 @@ import com.example.taskflow.task.application.query.TaskQueryService;
 import com.example.taskflow.task.application.command.TaskLifecycleService;
 import com.example.taskflow.task.application.orchestration.TaskAuditService;
 import com.example.taskflow.user.application.UserService;
-import com.example.taskflow.dashboard.dto.ActivityEventDTO;
-import com.example.taskflow.organization.rbac.domain.Scope;
-import com.example.taskflow.task.domain.model.Task;
 
 @RestController
 @RequestMapping(value = "/api/v1/tasks", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)

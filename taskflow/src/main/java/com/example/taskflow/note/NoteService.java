@@ -1,15 +1,14 @@
 package com.example.taskflow.note;
 
-import com.example.taskflow.note.Note;
-import com.example.taskflow.user.domain.User;
-import com.example.taskflow.note.NoteDTOs.NoteRequestDTO;
-import com.example.taskflow.note.NoteDTOs.NoteResponseDTO;
-import com.example.taskflow.note.NoteRepository;
-import lombok.RequiredArgsConstructor;
+import java.util.List;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import com.example.taskflow.note.NoteDTOs.NoteRequestDTO;
+import com.example.taskflow.note.NoteDTOs.NoteResponseDTO;
+import com.example.taskflow.user.domain.User;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor

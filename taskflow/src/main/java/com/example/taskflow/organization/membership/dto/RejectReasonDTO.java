@@ -2,7 +2,6 @@ package com.example.taskflow.organization.membership.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
-import com.example.taskflow.task.api.TaskController;
 
 /**
  * SM-M01 fix: spec requires rejection_reason NOT NULL enforced at DTO + DB level.

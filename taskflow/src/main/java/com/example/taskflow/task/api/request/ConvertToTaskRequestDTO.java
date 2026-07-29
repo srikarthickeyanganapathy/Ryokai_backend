@@ -3,8 +3,6 @@ package com.example.taskflow.task.api.request;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import com.example.taskflow.task.domain.model.Task;
-import com.example.taskflow.task.domain.model.TaskPriority;
 
 @Data
 @NoArgsConstructor

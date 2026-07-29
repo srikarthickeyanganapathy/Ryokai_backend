@@ -18,20 +18,6 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import com.example.taskflow.security.exception.TokenRefreshException;
-import com.example.taskflow.crew.domain.Crew;
-import com.example.taskflow.crew.exception.CrewFullException;
-import com.example.taskflow.crew.exception.CrewInviteExpiredException;
-import com.example.taskflow.crew.exception.CrewNotFoundException;
-import com.example.taskflow.organization.core.domain.Organization;
-import com.example.taskflow.organization.core.exception.OrganizationSuspendedException;
-import com.example.taskflow.security.exception.InvalidCredentialsException;
-import com.example.taskflow.shared.exception.ResourceNotFoundException;
-import com.example.taskflow.shared.exception.UnauthorizedActionException;
-import com.example.taskflow.task.domain.model.Task;
-import com.example.taskflow.task.exception.TaskNotFoundException;
-import com.example.taskflow.user.domain.User;
-import com.example.taskflow.user.exception.UsernameConflictException;
-import com.example.taskflow.user.exception.UserNotFoundException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {

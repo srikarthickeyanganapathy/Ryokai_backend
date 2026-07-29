@@ -1,6 +1,5 @@
 package com.example.taskflow.task.application.command;
 
-import com.example.taskflow.task.domain.model.TaskStatus;
 import com.example.taskflow.user.domain.User;
 import com.example.taskflow.task.api.response.TaskResponseDTO;
 

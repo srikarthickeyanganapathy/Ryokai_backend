@@ -3,7 +3,6 @@ package com.example.taskflow.organization.rbac.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
-import com.example.taskflow.organization.rbac.domain.Role;
 
 public record RoleCreateRequestDTO(
     @NotBlank(message = "Role name is required")

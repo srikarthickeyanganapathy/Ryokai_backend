@@ -1,6 +1,5 @@
 package com.example.taskflow.saveditem;
 
-import com.example.taskflow.saveditem.SavedEntityType;
 import java.time.LocalDateTime;
 
 public class SavedItemDTOs {

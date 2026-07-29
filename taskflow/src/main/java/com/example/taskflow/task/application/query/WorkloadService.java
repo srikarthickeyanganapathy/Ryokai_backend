@@ -18,7 +18,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import com.example.taskflow.organization.membership.domain.OrganizationMembership;
 
 @Service
 @RequiredArgsConstructor

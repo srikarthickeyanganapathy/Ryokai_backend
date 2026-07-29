@@ -1,19 +1,10 @@
 package com.example.taskflow.saveditem;
-
-import com.example.taskflow.note.Note;
-import com.example.taskflow.organization.core.domain.Organization;
-import com.example.taskflow.project.domain.Project;
-import com.example.taskflow.saveditem.SavedEntityType;
-import com.example.taskflow.saveditem.SavedItem;
-import com.example.taskflow.task.domain.model.Task;
-import com.example.taskflow.team.domain.Team;
 import com.example.taskflow.user.domain.User;
 import com.example.taskflow.saveditem.SavedItemDTOs.SavedItemRequestDTO;
 import com.example.taskflow.saveditem.SavedItemDTOs.SavedItemResponseDTO;
 import com.example.taskflow.note.NoteRepository;
 import com.example.taskflow.organization.core.infrastructure.persistence.OrganizationRepository;
 import com.example.taskflow.project.infrastructure.persistence.ProjectRepository;
-import com.example.taskflow.saveditem.SavedItemRepository;
 import com.example.taskflow.task.infrastructure.persistence.TaskRepository;
 import com.example.taskflow.team.infrastructure.persistence.TeamRepository;
 import lombok.RequiredArgsConstructor;

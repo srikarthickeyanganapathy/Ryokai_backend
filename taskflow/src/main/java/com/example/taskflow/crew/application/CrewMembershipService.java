@@ -26,11 +26,7 @@ import com.example.taskflow.crew.infrastructure.persistence.CrewChannelRepositor
 import com.example.taskflow.crew.infrastructure.persistence.CrewInviteRepository;
 import com.example.taskflow.crew.infrastructure.persistence.CrewMemberRepository;
 import com.example.taskflow.crew.infrastructure.persistence.CrewRepository;
-import com.example.taskflow.crew.domain.CrewVisibility;
 import com.example.taskflow.notification.application.NotificationService;
-import com.example.taskflow.notification.domain.Notification;
-import com.example.taskflow.notification.event.NotificationEvent;
-import com.example.taskflow.shared.exception.UnauthorizedActionException;
 
 @Service
 public class CrewMembershipService {
@@ -228,8 +224,6 @@ public class CrewMembershipService {
 
     @Transactional
     public void leaveCrew(Long crewId, User user) {
-        Crew crew = getCrewEntity(crewId);
-        
         CrewMember member = crewMemberRepository.findById(new CrewMemberId(crewId, user.getId()))
                 .orElseThrow(() -> new IllegalStateException("You are not a member of this crew"));
                 

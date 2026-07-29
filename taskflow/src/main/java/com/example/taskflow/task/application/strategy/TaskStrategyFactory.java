@@ -16,7 +16,7 @@ public class TaskStrategyFactory {
 
     public TaskStrategyFactory(List<TaskLifecycleStrategy> allStrategies) {
         this.strategies = allStrategies.stream()
-                .collect(Collectors.toMap(TaskLifecycleStrategy::getSupportedMode, s -> s));
+                .collect(Collectors.toMap(s -> s.getSupportedMode(), s -> s));
     }
 
     public TaskLifecycleStrategy get(TaskMode mode) {

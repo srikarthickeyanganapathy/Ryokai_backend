@@ -2,7 +2,6 @@ package com.example.taskflow.platform.application;
 
 import com.example.taskflow.organization.core.dto.OrganizationResponseDTO;
 import java.util.List;
-import com.example.taskflow.organization.core.domain.Organization;
 
 /**
  * Control Plane organization management service interface per ADR-009.

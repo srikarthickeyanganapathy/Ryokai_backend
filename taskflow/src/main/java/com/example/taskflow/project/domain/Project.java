@@ -3,7 +3,6 @@ package com.example.taskflow.project.domain;
 
 import com.example.taskflow.crew.domain.Crew;
 import com.example.taskflow.organization.core.domain.Organization;
-import com.example.taskflow.organization.rbac.domain.Scope;
 import com.example.taskflow.task.domain.model.Task;
 import com.example.taskflow.team.domain.Team;
 import com.example.taskflow.user.domain.User;
@@ -18,7 +17,6 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.annotations.Formula;
 
-import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

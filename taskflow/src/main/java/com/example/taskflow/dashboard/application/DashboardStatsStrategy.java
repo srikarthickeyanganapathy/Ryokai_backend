@@ -9,12 +9,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
-import com.example.taskflow.organization.rbac.domain.Scope;
-
 public interface DashboardStatsStrategy {
 
     List<TaskStatus> TERMINAL_STATUSES = Arrays.stream(TaskStatus.values())
-            .filter(TaskStatus::isTerminal)
+            .filter(s -> s.isTerminal())
             .collect(Collectors.toList());
 
     boolean supports(String scope);

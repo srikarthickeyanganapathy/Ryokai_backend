@@ -8,21 +8,11 @@ import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
 
 import com.example.taskflow.task.domain.model.Task;
 import com.example.taskflow.task.domain.model.TaskStatus;
 import com.example.taskflow.user.domain.User;
-import com.example.taskflow.crew.domain.Crew;
-import com.example.taskflow.crew.domain.CrewMember;
-import com.example.taskflow.dashboard.application.DashboardQueryService;
-import com.example.taskflow.organization.core.domain.Organization;
-import com.example.taskflow.project.domain.Project;
-import com.example.taskflow.team.domain.Team;
-import com.example.taskflow.team.domain.TeamMember;
-import com.example.taskflow.team.domain.TeamObserver;
 
-@Repository
 public interface TaskRepository extends JpaRepository<Task, Long> {
 
     @EntityGraph(attributePaths = {"assignee","creator","reviewer","org","team","project"})

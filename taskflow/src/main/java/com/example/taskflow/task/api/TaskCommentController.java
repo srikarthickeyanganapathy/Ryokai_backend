@@ -24,7 +24,6 @@ import com.example.taskflow.user.application.UserService;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
-import com.example.taskflow.task.domain.model.Task;
 
 @RestController
 @RequestMapping(value = "/api/v1/tasks", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)

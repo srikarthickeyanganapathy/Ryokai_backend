@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.*;
 import com.example.taskflow.user.domain.User;
 import com.example.taskflow.calendar.CalendarEventDTOs.CalendarEventRequestDTO;
 import com.example.taskflow.calendar.CalendarEventDTOs.CalendarEventResponseDTO;
-import com.example.taskflow.calendar.CalendarEventService;
 import com.example.taskflow.user.application.UserService;
 
 import lombok.RequiredArgsConstructor;

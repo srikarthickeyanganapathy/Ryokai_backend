@@ -19,8 +19,6 @@ import com.example.taskflow.task.api.request.TaskAssignmentCommand;
 import com.example.taskflow.task.api.request.TaskRequestDTO;
 import com.example.taskflow.task.api.response.TaskResponseDTO;
 import com.example.taskflow.team.infrastructure.persistence.TeamRepository;
-import com.example.taskflow.organization.rbac.domain.Scope;
-import com.example.taskflow.task.domain.model.Task;
 import com.example.taskflow.user.application.UserService;
 
 @Service
@@ -55,7 +53,7 @@ public class TaskBulkAssignmentService {
                     .orElseThrow(() -> new IllegalArgumentException("Team not found: " + teamId));
             resolvedUsernames = team.getMembers().stream()
                     .filter(member -> !member.getId().equals(creator.getId())) // exclude creator
-                    .map(User::getUsername)
+                    .map(u -> u.getUsername())
                     .collect(Collectors.toList());
             if (resolvedUsernames.isEmpty()) {
                 throw new IllegalArgumentException("Team has no other members to assign tasks to");

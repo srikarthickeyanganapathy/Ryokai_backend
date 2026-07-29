@@ -2,21 +2,16 @@ package com.example.taskflow.organization.core.application;
 
 import com.example.taskflow.organization.core.domain.Organization;
 import com.example.taskflow.organization.membership.domain.LeaveRequest;
-import com.example.taskflow.organization.membership.domain.OrganizationInvite;
 import com.example.taskflow.organization.membership.domain.OrganizationMembership;
 import com.example.taskflow.organization.rbac.domain.Role;
-import com.example.taskflow.project.domain.Project;
 import com.example.taskflow.task.domain.model.Task;
-import com.example.taskflow.task.domain.model.TaskStatus;
 import com.example.taskflow.user.domain.User;
 import com.example.taskflow.shared.exception.UnauthorizedActionException;
 import com.example.taskflow.user.exception.UserNotFoundException;
 import com.example.taskflow.organization.core.infrastructure.persistence.OrganizationRepository;
 import com.example.taskflow.organization.membership.infrastructure.persistence.LeaveRequestRepository;
-import com.example.taskflow.organization.membership.infrastructure.persistence.OrganizationInviteRepository;
 import com.example.taskflow.organization.membership.infrastructure.persistence.OrganizationMembershipRepository;
 import com.example.taskflow.organization.rbac.infrastructure.persistence.RoleRepository;
-import com.example.taskflow.project.infrastructure.persistence.ProjectRepository;
 import com.example.taskflow.task.infrastructure.persistence.TaskRepository;
 import com.example.taskflow.user.infrastructure.persistence.UserRepository;
 import org.springframework.stereotype.Service;
@@ -74,7 +69,7 @@ public class OrganizationLifecycleService {
 
         OrganizationMembership adminMembership = membershipRepository.findByUserAndOrganization(adminUser, org)
                 .orElseThrow(() -> new UnauthorizedActionException("You are not a member of this organization"));
-        if (!adminMembership.getOrgRole().isBuiltinAdmin()) {
+        if (adminMembership.getOrgRole() == null || !"ADMIN".equals(adminMembership.getOrgRole().getName())) {
             throw new UnauthorizedActionException("Only the Organization Admin can perform this action");
         }
 

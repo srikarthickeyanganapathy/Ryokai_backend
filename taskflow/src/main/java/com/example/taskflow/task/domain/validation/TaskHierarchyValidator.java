@@ -12,10 +12,6 @@ import com.example.taskflow.organization.membership.infrastructure.persistence.O
 import com.example.taskflow.project.infrastructure.persistence.ProjectRepository;
 import com.example.taskflow.team.infrastructure.persistence.TeamMemberRepository;
 import com.example.taskflow.team.infrastructure.persistence.TeamRepository;
-import com.example.taskflow.crew.domain.Crew;
-import com.example.taskflow.organization.core.domain.Organization;
-import com.example.taskflow.organization.membership.domain.OrganizationMembership;
-import com.example.taskflow.organization.rbac.domain.Role;
 
 @Component
 public class TaskHierarchyValidator {

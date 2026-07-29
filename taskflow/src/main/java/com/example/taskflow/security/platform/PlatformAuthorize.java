@@ -4,8 +4,6 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import com.example.taskflow.organization.rbac.domain.Permission;
-import com.example.taskflow.user.domain.User;
 
 /**
  * Annotation for securing platform-level controller methods.

@@ -128,7 +128,7 @@ public class OrganizationMemberService {
         Role newRole = roleRepository.findById(newRoleId)
                 .orElseThrow(() -> new IllegalArgumentException("Role not found"));
 
-        if (newRole.isBuiltinAdmin()) {
+        if ("ADMIN".equals(newRole.getName())) {
             throw new IllegalArgumentException("Only one Admin is allowed in the organization. You cannot promote another member to Admin. Use the Transfer Ownership flow instead.");
         }
 
@@ -138,7 +138,7 @@ public class OrganizationMemberService {
                 "Role does not belong to this organization. Cross-org role assignment is not allowed.");
         }
 
-        if (callerUser.getId().equals(userId) && membership.getOrgRole().isBuiltinAdmin() && !newRole.isBuiltinAdmin()) {
+        if (callerUser.getId().equals(userId) && membership.getOrgRole() != null && "ADMIN".equals(membership.getOrgRole().getName()) && !"ADMIN".equals(newRole.getName())) {
             org.ensureNotLastAdmin(user);
         }
 
@@ -158,8 +158,9 @@ public class OrganizationMemberService {
 
     @Transactional(readOnly = true)
     public List<MembershipResponseDTO> listOrganizationMembers(Long orgId, User caller) {
-        Organization org = organizationRepository.findById(orgId)
-                .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + orgId));
+        if (!organizationRepository.existsById(orgId)) {
+            throw new IllegalArgumentException("Organization not found: " + orgId);
+        }
         return membershipRepository.findByOrganizationId(orgId).stream()
                 .map(this::mapToMembershipDTO)
                 .collect(Collectors.toList());

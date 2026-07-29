@@ -11,17 +11,11 @@ import com.example.taskflow.organization.core.infrastructure.persistence.Organiz
 import com.example.taskflow.organization.rbac.infrastructure.persistence.RoleRepository;
 import com.example.taskflow.organization.rbac.infrastructure.persistence.PermissionRepository;
 import com.example.taskflow.audit.application.AuditService;
-import com.example.taskflow.organization.core.application.OrganizationService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
-import com.example.taskflow.organization.membership.domain.OrganizationMembership;
-import com.example.taskflow.organization.rbac.domain.Permission;
-import com.example.taskflow.organization.rbac.domain.RolePermissionScope;
-import com.example.taskflow.organization.rbac.domain.Scope;
-import com.example.taskflow.organization.rbac.infrastructure.persistence.ScopeRepository;
 
 @Service
 public class OrganizationServiceImpl implements OrganizationService {
@@ -135,13 +129,5 @@ public class OrganizationServiceImpl implements OrganizationService {
                 org.getCreatedBy() != null ? org.getCreatedBy().getUsername() : null,
                 org.getCreatedAt(),
                 memberCount);
-    }
-
-    private java.util.Set<com.example.taskflow.organization.rbac.domain.Permission> loadPermissionsByName(String... names) {
-        java.util.Set<com.example.taskflow.organization.rbac.domain.Permission> perms = new java.util.HashSet<>();
-        for (String name : names) {
-            permissionRepository.findByName(name).ifPresent(perms::add);
-        }
-        return perms;
     }
 }

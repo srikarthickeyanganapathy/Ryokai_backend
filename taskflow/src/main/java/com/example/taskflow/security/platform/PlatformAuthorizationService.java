@@ -4,14 +4,6 @@ import com.example.taskflow.user.domain.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import com.example.taskflow.organization.rbac.domain.Permission;
-import com.example.taskflow.organization.rbac.domain.Role;
-import com.example.taskflow.security.authorization.AuthorizationPipeline;
-import com.example.taskflow.security.authorization.PolicyEvaluator;
-import com.example.taskflow.security.PermissionCode;
-import com.example.taskflow.security.ScopeType;
-import com.example.taskflow.shared.exception.UnauthorizedActionException;
-
 /**
  * Authorization service for platform-level operations.
  *

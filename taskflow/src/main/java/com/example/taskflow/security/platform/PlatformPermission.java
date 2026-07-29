@@ -1,7 +1,4 @@
 package com.example.taskflow.security.platform;
-import com.example.taskflow.organization.core.domain.Organization;
-import com.example.taskflow.organization.rbac.domain.Role;
-import com.example.taskflow.user.domain.User;
 
 /**
  * Platform-level permissions for Ryokai SaaS operations.

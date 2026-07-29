@@ -1,27 +1,25 @@
 package com.example.taskflow.organization.membership.application;
 
-import com.example.taskflow.notification.domain.Notification;
-import com.example.taskflow.organization.core.domain.Organization;
-import com.example.taskflow.organization.membership.domain.LeaveRequest;
-import com.example.taskflow.organization.membership.domain.OrganizationMembership;
-import com.example.taskflow.user.domain.User;
-import com.example.taskflow.organization.membership.dto.LeaveRequestDTO;
-import com.example.taskflow.shared.exception.UnauthorizedActionException;
-import com.example.taskflow.organization.core.infrastructure.persistence.OrganizationRepository;
-import com.example.taskflow.organization.membership.infrastructure.persistence.LeaveRequestRepository;
-import com.example.taskflow.organization.membership.infrastructure.persistence.OrganizationMembershipRepository;
-import com.example.taskflow.task.infrastructure.persistence.TaskRepository;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.example.taskflow.notification.application.NotificationService;
-import com.example.taskflow.notification.event.NotificationEvent;
+import com.example.taskflow.organization.core.domain.Organization;
+import com.example.taskflow.organization.core.infrastructure.persistence.OrganizationRepository;
+import com.example.taskflow.organization.membership.domain.LeaveRequest;
+import com.example.taskflow.organization.membership.domain.OrganizationMembership;
+import com.example.taskflow.organization.membership.dto.LeaveRequestDTO;
+import com.example.taskflow.organization.membership.infrastructure.persistence.LeaveRequestRepository;
+import com.example.taskflow.organization.membership.infrastructure.persistence.OrganizationMembershipRepository;
 import com.example.taskflow.organization.rbac.application.PermissionService;
-import com.example.taskflow.security.PermissionCode;
+import com.example.taskflow.shared.exception.UnauthorizedActionException;
+import com.example.taskflow.task.infrastructure.persistence.TaskRepository;
 import com.example.taskflow.team.application.TeamService;
+import com.example.taskflow.user.domain.User;
 
 @Service
 public class OrganizationLeaveService {
@@ -74,7 +72,7 @@ public class OrganizationLeaveService {
         // Notify all org admins about the leave request
         List<OrganizationMembership> members = membershipRepository.findByOrganizationId(orgId);
         for (OrganizationMembership m : members) {
-            if (m.getOrgRole().isBuiltinAdmin()) {
+            if (m.getOrgRole() != null && "ADMIN".equals(m.getOrgRole().getName())) {
                 notificationService.createAndSend(m.getUser(), user,
                         com.example.taskflow.notification.event.NotificationEvent.LEAVE_REQUESTED,
                         "Leave Request: " , user.getUsername() + " has requested to leave " + org.getName(), null ,

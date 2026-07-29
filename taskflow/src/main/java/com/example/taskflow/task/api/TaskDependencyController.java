@@ -14,7 +14,6 @@ import com.example.taskflow.user.domain.User;
 import com.example.taskflow.task.api.request.TaskDependencyRequestDTO;
 import com.example.taskflow.task.application.command.TaskDependencyService;
 import com.example.taskflow.user.application.UserService;
-import com.example.taskflow.task.domain.model.Task;
 
 @RestController
 @RequestMapping(value = "/api/v1/tasks", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)

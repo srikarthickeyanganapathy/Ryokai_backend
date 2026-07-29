@@ -18,8 +18,6 @@ import com.example.taskflow.integration.email.EmailService;
 import com.example.taskflow.identity.application.PasswordResetService;
 
 import jakarta.validation.Valid;
-import com.example.taskflow.team.domain.Team;
-import com.example.taskflow.team.dto.MessageResponseDTO;
 
 @RestController
 @RequestMapping(value = "/api/v1/auth", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)

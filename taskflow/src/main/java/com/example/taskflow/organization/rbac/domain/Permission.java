@@ -14,10 +14,6 @@ import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
-import com.example.taskflow.organization.core.domain.Organization;
-import com.example.taskflow.project.domain.Project;
-import com.example.taskflow.security.PermissionCode;
-import com.example.taskflow.task.domain.model.Task;
 
 @Entity
 @Table(name = "permissions")

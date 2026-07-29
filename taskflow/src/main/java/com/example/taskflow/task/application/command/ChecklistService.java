@@ -16,9 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import com.example.taskflow.shared.exception.UnauthorizedActionException;
 import com.example.taskflow.task.application.orchestration.TaskAuditService;
-import com.example.taskflow.task.domain.model.TaskStatus;
 
 @Service
 @RequiredArgsConstructor

@@ -14,7 +14,6 @@ import com.example.taskflow.task.api.response.ActivityLogDTO;
 import com.example.taskflow.task.application.orchestration.ActivityLogService;
 
 import lombok.RequiredArgsConstructor;
-import com.example.taskflow.task.domain.model.Task;
 
 @RestController
 @RequestMapping("/api/v1/tasks")

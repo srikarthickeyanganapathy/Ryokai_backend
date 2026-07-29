@@ -20,12 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
-import com.example.taskflow.crew.domain.Crew;
-import com.example.taskflow.organization.core.domain.Organization;
 import com.example.taskflow.organization.rbac.application.PermissionService;
-import com.example.taskflow.organization.rbac.domain.Scope;
-import com.example.taskflow.security.PermissionCode;
-import com.example.taskflow.shared.exception.UnauthorizedActionException;
 
 @Service
 @RequiredArgsConstructor

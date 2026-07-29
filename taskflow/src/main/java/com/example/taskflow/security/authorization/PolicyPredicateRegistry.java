@@ -6,9 +6,6 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-import com.example.taskflow.task.domain.model.Task;
-import com.example.taskflow.task.domain.model.TaskStatus;
-import com.example.taskflow.user.domain.User;
 
 /**
  * Registry of all available policy predicates.

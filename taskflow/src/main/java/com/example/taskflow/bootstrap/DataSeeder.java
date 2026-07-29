@@ -1,6 +1,5 @@
 package com.example.taskflow.bootstrap;
 
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -20,14 +19,6 @@ import com.example.taskflow.organization.rbac.infrastructure.persistence.Permiss
 import com.example.taskflow.organization.rbac.infrastructure.persistence.RoleRepository;
 import com.example.taskflow.user.infrastructure.persistence.UserRepository;
 import com.example.taskflow.security.PermissionCode;
-
-import jakarta.transaction.Transactional;
-import com.example.taskflow.organization.core.domain.Organization;
-import com.example.taskflow.organization.rbac.domain.RolePermissionScope;
-import com.example.taskflow.organization.rbac.domain.Scope;
-import com.example.taskflow.organization.rbac.infrastructure.persistence.ScopeRepository;
-import com.example.taskflow.project.domain.Project;
-import com.example.taskflow.team.domain.Team;
 
 /**
  * Production-safe data seeder. NOT limited to @Profile("dev") anymore.
@@ -130,7 +121,7 @@ public class DataSeeder {
                     .collect(java.util.stream.Collectors.toSet());
 
             java.util.Set<Long> targetPermissionIds = permissions.stream()
-                    .map(Permission::getId)
+                    .map(p -> p.getId())
                     .collect(java.util.stream.Collectors.toSet());
 
             role.getRolePermissionScopes().removeIf(rps ->

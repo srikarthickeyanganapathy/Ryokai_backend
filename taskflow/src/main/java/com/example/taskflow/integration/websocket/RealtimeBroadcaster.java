@@ -3,13 +3,10 @@ package com.example.taskflow.integration.websocket;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.messaging.simp.user.SimpUserRegistry;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
-import com.example.taskflow.task.domain.model.Task;
-import com.example.taskflow.user.domain.User;
 
 @Service
 @RequiredArgsConstructor
@@ -17,7 +14,6 @@ import com.example.taskflow.user.domain.User;
 public class RealtimeBroadcaster {
 
     private final SimpMessagingTemplate messagingTemplate;
-    private final SimpUserRegistry simpUserRegistry;
 
     @Async("realtimeExecutor")
     public void sendToUser(String username, String destination, Object payload) {

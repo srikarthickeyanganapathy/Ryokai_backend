@@ -1,11 +1,5 @@
 package com.example.taskflow.security.authorization;
 
-import com.example.taskflow.user.domain.User;
-import com.example.taskflow.organization.core.domain.Organization;
-import com.example.taskflow.organization.rbac.domain.Permission;
-import com.example.taskflow.organization.rbac.domain.Scope;
-import com.example.taskflow.security.PermissionCode;
-
 /**
  * The result of an authorization evaluation through the pipeline.
  *

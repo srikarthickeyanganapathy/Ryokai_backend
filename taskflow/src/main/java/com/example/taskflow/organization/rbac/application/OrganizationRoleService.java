@@ -8,9 +8,6 @@ import com.example.taskflow.organization.rbac.dto.RoleResponseDTO;
 import com.example.taskflow.organization.rbac.dto.RoleUpdateRequestDTO;
 import java.util.List;
 import java.util.Set;
-import com.example.taskflow.organization.core.domain.Organization;
-import com.example.taskflow.organization.rbac.domain.Permission;
-import com.example.taskflow.organization.rbac.domain.Role;
 
 /**
  * Organization-scoped role and permission management service interface per ADR-009.

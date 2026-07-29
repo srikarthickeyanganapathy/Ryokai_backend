@@ -1,5 +1,6 @@
 package com.example.taskflow.identity.application;
 
+import java.util.Collection;
 import java.util.stream.Collectors;
 
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -10,9 +11,6 @@ import org.springframework.stereotype.Service;
 
 import com.example.taskflow.user.domain.User;
 import com.example.taskflow.user.infrastructure.persistence.UserRepository;
-
-import java.util.Collection;
-import com.example.taskflow.organization.rbac.domain.Role;
 
 @Service
 public class CustomUserDetailsService implements UserDetailsService {

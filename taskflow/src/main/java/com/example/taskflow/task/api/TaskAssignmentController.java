@@ -14,17 +14,10 @@ import com.example.taskflow.user.domain.User;
 import com.example.taskflow.task.api.request.TaskRequestDTO;
 import com.example.taskflow.task.api.response.TaskResponseDTO;
 import com.example.taskflow.task.api.request.TaskReassignRequestDTO;
-import com.example.taskflow.task.api.request.BulkAssignRequestDTO;
 import com.example.taskflow.task.application.command.TaskAssignmentService;
 import com.example.taskflow.task.application.command.TaskBulkAssignmentService;
 import com.example.taskflow.task.application.command.TaskLifecycleService;
 import com.example.taskflow.user.application.UserService;
-import com.example.taskflow.crew.domain.Crew;
-import com.example.taskflow.organization.rbac.domain.Scope;
-import com.example.taskflow.task.api.request.TaskAssignmentCommand;
-import com.example.taskflow.task.api.response.BulkAssignResponseDTO;
-import com.example.taskflow.task.domain.model.Task;
-import com.example.taskflow.task.domain.model.TaskScope;
 
 @RestController
 @RequestMapping(value = "/api/v1/tasks", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)

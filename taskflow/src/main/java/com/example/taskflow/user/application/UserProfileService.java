@@ -16,10 +16,8 @@ import com.example.taskflow.user.dto.UserResponseDTO;
 import com.example.taskflow.identity.infrastructure.persistence.RefreshTokenRepository;
 import com.example.taskflow.user.infrastructure.persistence.UserRepository;
 import com.example.taskflow.security.jwt.JwtUtil;
-import com.example.taskflow.identity.api.AuthController;
 import com.example.taskflow.identity.application.RefreshTokenService;
 import com.example.taskflow.integration.email.EmailService;
-import com.example.taskflow.notification.domain.Notification;
 
 @Service
 public class UserProfileService {

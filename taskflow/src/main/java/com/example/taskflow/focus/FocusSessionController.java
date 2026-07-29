@@ -12,7 +12,6 @@ import org.springframework.web.bind.annotation.*;
 import com.example.taskflow.user.domain.User;
 import com.example.taskflow.focus.FocusSessionDTOs.FocusSessionResponseDTO;
 import com.example.taskflow.focus.FocusSessionDTOs.FocusSessionStartRequestDTO;
-import com.example.taskflow.focus.FocusSessionService;
 import com.example.taskflow.user.application.UserService;
 
 import lombok.RequiredArgsConstructor;

@@ -9,11 +9,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.example.taskflow.focus.FocusSession;
 import com.example.taskflow.task.domain.model.Task;
 import com.example.taskflow.user.domain.User;
 import com.example.taskflow.focus.FocusSessionDTOs.FocusSessionResponseDTO;
-import com.example.taskflow.focus.FocusSessionRepository;
 import com.example.taskflow.task.infrastructure.persistence.TaskRepository;
 
 import lombok.RequiredArgsConstructor;

@@ -15,7 +15,6 @@ import com.example.taskflow.security.exception.TokenRefreshException;
 import com.example.taskflow.identity.infrastructure.persistence.RefreshTokenRepository;
 import com.example.taskflow.user.infrastructure.persistence.UserRepository;
 
-import io.jsonwebtoken.Claims;
 import jakarta.transaction.Transactional;
 import com.example.taskflow.audit.application.SecurityAuditService;
 
@@ -56,9 +55,8 @@ public class RefreshTokenService {
 
     @Transactional
     public User verifyToken(String rawToken) {
-        Claims claims;
         try {
-            claims = jwtUtil.parseRefreshToken(rawToken);
+            jwtUtil.parseRefreshToken(rawToken);
         } catch (Exception e) {
             throw new TokenRefreshException(TokenRefreshException.ErrorCode.INVALID_TOKEN, "Invalid or expired refresh token");
         }

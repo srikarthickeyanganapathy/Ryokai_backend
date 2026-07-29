@@ -1,14 +1,13 @@
 package com.example.taskflow.notification.infrastructure.renderer;
 
-import com.example.taskflow.task.domain.model.Task;
-import com.example.taskflow.user.domain.User;
-import com.example.taskflow.notification.infrastructure.renderer.NotificationEmailRenderer;
-import com.example.taskflow.notification.event.NotificationEvent;
-import com.example.taskflow.integration.email.EmailService;
-import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.example.taskflow.organization.core.domain.Organization;
+import org.springframework.stereotype.Component;
+
+import com.example.taskflow.integration.email.EmailService;
+import com.example.taskflow.notification.event.NotificationEvent;
+import com.example.taskflow.task.domain.model.Task;
+import com.example.taskflow.user.domain.User;
 
 @Component
 public class LeaveRequestedEmailRenderer implements NotificationEmailRenderer {

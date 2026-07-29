@@ -4,7 +4,6 @@ import com.example.taskflow.task.domain.model.TaskScope;
 import com.example.taskflow.user.domain.User;
 import lombok.Builder;
 import lombok.Getter;
-import com.example.taskflow.organization.rbac.domain.Scope;
 
 @Getter
 @Builder

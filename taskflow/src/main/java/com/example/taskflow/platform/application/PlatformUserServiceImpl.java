@@ -3,7 +3,6 @@ package com.example.taskflow.platform.application;
 import com.example.taskflow.user.domain.User;
 import com.example.taskflow.organization.rbac.dto.RoleResponseDTO;
 import com.example.taskflow.organization.rbac.application.RoleService;
-import com.example.taskflow.platform.application.PlatformUserService;
 import org.springframework.stereotype.Service;
 
 import java.util.List;

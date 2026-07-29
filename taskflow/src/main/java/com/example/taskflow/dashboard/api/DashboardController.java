@@ -27,13 +27,6 @@ import com.example.taskflow.user.application.UserService;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import jakarta.servlet.http.HttpServletResponse;
-import com.example.taskflow.audit.application.AuditService;
-import com.example.taskflow.crew.domain.Crew;
-import com.example.taskflow.organization.core.domain.Organization;
-import com.example.taskflow.organization.rbac.domain.Scope;
-import com.example.taskflow.shared.exception.UnauthorizedActionException;
-import com.example.taskflow.task.application.orchestration.TaskAuditService;
-import com.example.taskflow.task.domain.model.Task;
 
 @RestController
 @RequestMapping(value = "/api/v1/dashboard", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)

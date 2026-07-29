@@ -1,18 +1,18 @@
 package com.example.taskflow.note;
 
-import com.example.taskflow.user.domain.User;
-import com.example.taskflow.note.NoteDTOs.NoteRequestDTO;
-import com.example.taskflow.note.NoteDTOs.NoteResponseDTO;
-import com.example.taskflow.note.NoteService;
-import com.example.taskflow.user.application.UserService;
-import lombok.RequiredArgsConstructor;
+import java.util.List;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
+import com.example.taskflow.note.NoteDTOs.NoteRequestDTO;
+import com.example.taskflow.note.NoteDTOs.NoteResponseDTO;
+import com.example.taskflow.user.application.UserService;
+import com.example.taskflow.user.domain.User;
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping(value = "/api/v1/notes", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)

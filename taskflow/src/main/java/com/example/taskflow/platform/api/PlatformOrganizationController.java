@@ -3,14 +3,12 @@ package com.example.taskflow.platform.api;
 import com.example.taskflow.platform.application.PlatformOrganizationService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.security.access.prepost.PreAuthorize;
 import com.example.taskflow.organization.core.dto.OrganizationResponseDTO;
 
 import java.util.List;
 
 import com.example.taskflow.security.platform.PlatformAuthorize;
 import com.example.taskflow.security.platform.PlatformPermission;
-import com.example.taskflow.organization.core.domain.Organization;
 
 /**
  * Super Admin / Platform Control Plane organization management endpoints.

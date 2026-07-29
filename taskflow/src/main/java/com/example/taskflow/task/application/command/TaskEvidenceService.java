@@ -20,10 +20,7 @@ import com.example.taskflow.task.infrastructure.persistence.TaskRepository;
 import com.example.taskflow.task.event.EvidenceUploadedEvent;
 import com.example.taskflow.shared.events.DomainEventPublisher;
 import com.example.taskflow.task.security.TaskPermissionHandler;
-import com.example.taskflow.note.Note;
 import com.example.taskflow.task.application.orchestration.TaskAuditService;
-import com.example.taskflow.task.domain.model.TaskStatus;
-import com.example.taskflow.task.infrastructure.monitoring.TaskMetrics;
 
 @Service
 public class TaskEvidenceService {

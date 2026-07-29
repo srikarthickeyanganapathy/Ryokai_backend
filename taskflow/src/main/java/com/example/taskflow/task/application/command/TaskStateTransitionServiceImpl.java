@@ -14,15 +14,12 @@ import com.example.taskflow.task.infrastructure.persistence.TaskRepository;
 import com.example.taskflow.task.domain.strategy.Approvable;
 import com.example.taskflow.task.domain.strategy.TaskLifecycleStrategy;
 import com.example.taskflow.task.application.strategy.TaskStrategyFactory;
-import com.example.taskflow.task.event.TaskStatusChangedEvent;
-import com.example.taskflow.shared.events.DomainEventPublisher;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
-import com.example.taskflow.crew.domain.Crew;
 import com.example.taskflow.integration.websocket.RealtimeBroadcaster;
 import com.example.taskflow.notification.application.NotificationService;
 import com.example.taskflow.task.application.orchestration.TaskAuditService;
@@ -38,7 +35,6 @@ public class TaskStateTransitionServiceImpl implements TaskStateTransitionServic
     private final RealtimeBroadcaster realtimeBroadcaster;
     private final TaskStrategyFactory taskStrategyFactory;
     private final TaskResponseMapper taskResponseMapper;
-    private final DomainEventPublisher domainEventPublisher;
 
     @Override
     @Transactional
