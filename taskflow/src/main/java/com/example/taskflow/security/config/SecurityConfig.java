@@ -51,9 +51,9 @@ public class SecurityConfig {
                         .frameOptions(frame -> frame.deny())
                         .httpStrictTransportSecurity(hsts -> hsts.includeSubDomains(true).maxAgeInSeconds(31536000)))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/auth/login", "/api/v1/auth/register", "/api/v1/auth/refresh",
-                                "/api/v1/auth/forgot-password", "/api/v1/auth/reset-password", "/api/v1/auth/verify-email",
-                                "/api/v1/auth/resend-verification")
+                        .requestMatchers("/api/v1/auth/login", "/api/v1/auth/register", "/api/v1/session/refresh",
+                                "/api/v1/auth/forgot-password", "/api/v1/auth/reset-password", "/api/v1/session/verify-email",
+                                "/api/v1/session/resend-verification")
                         .permitAll()
                         .requestMatchers("/ws/**", "/ws").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
