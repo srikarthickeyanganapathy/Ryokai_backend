@@ -42,6 +42,9 @@ public class RolePermissionScope {
         return id != null && id.equals(that.getId());
     }
 
+    @OneToMany(mappedBy = "rolePermissionScope", cascade = CascadeType.ALL, orphanRemoval = true)
+    private java.util.List<ResourceAssignment> resourceAssignments = new java.util.ArrayList<>();
+
     @Override
     public int hashCode() {
         return getClass().hashCode();

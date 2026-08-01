@@ -62,7 +62,7 @@ public class OrganizationTeamController {
     }
 
     @GetMapping("/{id}/teams")
-    @PreAuthorize("hasPermission(#id, 'Organization', 'MEMBER') or hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasPermission(#id, 'Organization', 'ORG_VIEW') or hasRole('SUPER_ADMIN')")
     public ResponseEntity<List<TeamResponseDTO>> listTeams(
             @PathVariable @Min(1) Long id,
             @AuthenticationPrincipal UserDetails userDetails) {
@@ -93,7 +93,7 @@ public class OrganizationTeamController {
     }
 
     @GetMapping("/teams/{teamId}")
-    @PreAuthorize("hasPermission(#teamId, 'Team', 'VIEW') or hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasPermission(#teamId, 'Team', 'TEAM_VIEW') or hasRole('SUPER_ADMIN')")
     public ResponseEntity<TeamResponseDTO> getTeam(
             @PathVariable @Min(1) Long teamId,
             @AuthenticationPrincipal UserDetails userDetails) {
@@ -102,7 +102,7 @@ public class OrganizationTeamController {
     }
 
     @PutMapping("/teams/{teamId}")
-    @PreAuthorize("hasPermission(#teamId, 'Team', 'EDIT') or hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasPermission(#teamId, 'Team', 'TEAM_UPDATE') or hasRole('SUPER_ADMIN')")
     public ResponseEntity<TeamResponseDTO> updateTeam(
             @PathVariable @Min(1) Long teamId,
             @Valid @RequestBody CreateTeamRequestDTO request,
@@ -114,7 +114,7 @@ public class OrganizationTeamController {
     }
 
     @DeleteMapping("/teams/{teamId}")
-    @PreAuthorize("hasPermission(#teamId, 'Team', 'DELETE') or hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasPermission(#teamId, 'Team', 'TEAM_DELETE') or hasRole('SUPER_ADMIN')")
     public ResponseEntity<Void> deleteTeam(
             @PathVariable @Min(1) Long teamId,
             @AuthenticationPrincipal UserDetails userDetails) {
@@ -124,7 +124,7 @@ public class OrganizationTeamController {
     }
 
     @GetMapping("/teams/{teamId}/observers")
-    @PreAuthorize("hasPermission(#teamId, 'Team', 'VIEW') or hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasPermission(#teamId, 'Team', 'TEAM_VIEW') or hasRole('SUPER_ADMIN')")
     public ResponseEntity<List<UserSummaryDTO>> getTeamObservers(
             @PathVariable @Min(1) Long teamId,
             @AuthenticationPrincipal UserDetails userDetails) {

@@ -11,6 +11,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -62,6 +63,16 @@ public class OrganizationController {
             @AuthenticationPrincipal UserDetails userDetails) {
         User user = getCurrentUser(userDetails);
         return ResponseEntity.ok(organizationService.listUserOrganizations(user.getId()));
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasPermission(#id, 'Organization', 'ORG_PROFILE_UPDATE') or hasRole('SUPER_ADMIN')")
+    public ResponseEntity<OrganizationResponseDTO> updateOrganization(
+            @PathVariable @Min(1) Long id,
+            @Valid @RequestBody com.example.taskflow.organization.core.dto.UpdateOrganizationRequestDTO request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User user = getCurrentUser(userDetails);
+        return ResponseEntity.ok(organizationService.updateOrganization(id, request.getName(), request.getDescription(), user));
     }
 
     @GetMapping("/{id}")

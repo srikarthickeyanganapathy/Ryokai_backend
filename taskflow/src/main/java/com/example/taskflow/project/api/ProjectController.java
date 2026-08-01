@@ -48,13 +48,13 @@ public class ProjectController {
     }
 
     @GetMapping("/{projectId}")
-    @PreAuthorize("hasPermission(#projectId, 'Project', 'READ')")
+    @PreAuthorize("hasPermission(#projectId, 'Project', 'PROJECT_VIEW')")
     public ResponseEntity<ProjectResponseDTO> getProject(@PathVariable Long projectId) {
         return ResponseEntity.ok(projectService.getProject(projectId));
     }
 
     @PostMapping
-    @PreAuthorize("hasPermission(null, 'Project', 'CREATE')")
+    @PreAuthorize("hasPermission(#request, 'PROJECT_CREATE')")
     public ResponseEntity<ProjectResponseDTO> createProject(
             @Valid @RequestBody ProjectRequestDTO request,
             @AuthenticationPrincipal UserDetails userDetails) {
@@ -64,7 +64,7 @@ public class ProjectController {
     }
 
     @PutMapping("/{projectId}")
-    @PreAuthorize("hasPermission(#projectId, 'Project', 'EDIT')")
+    @PreAuthorize("hasPermission(#projectId, 'Project', 'PROJECT_UPDATE')")
     public ResponseEntity<ProjectResponseDTO> updateProject(
             @PathVariable Long projectId,
             @Valid @RequestBody ProjectRequestDTO request,
@@ -74,14 +74,14 @@ public class ProjectController {
     }
 
     @DeleteMapping("/{projectId}")
-    @PreAuthorize("hasPermission(#projectId, 'Project', 'DELETE')")
+    @PreAuthorize("hasPermission(#projectId, 'Project', 'PROJECT_DELETE')")
     public ResponseEntity<Void> deleteProject(@PathVariable Long projectId) {
         projectService.deleteProject(projectId);
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/{projectId}/share/crew")
-    @PreAuthorize("hasPermission(#projectId, 'Project', 'EDIT')")
+    @PreAuthorize("hasPermission(#projectId, 'Project', 'PROJECT_UPDATE')")
     public ResponseEntity<ProjectResponseDTO> shareProjectToCrew(
             @PathVariable Long projectId,
             @RequestBody ProjectRequestDTO request,
@@ -99,7 +99,7 @@ public class ProjectController {
      */
     @Deprecated
     @DeleteMapping("/{projectId}/share/crew")
-    @PreAuthorize("hasPermission(#projectId, 'Project', 'EDIT')")
+    @PreAuthorize("hasPermission(#projectId, 'Project', 'PROJECT_UPDATE')")
     public ResponseEntity<ProjectResponseDTO> unshareProjectFromCrew(
             @PathVariable Long projectId,
             @AuthenticationPrincipal UserDetails userDetails) {

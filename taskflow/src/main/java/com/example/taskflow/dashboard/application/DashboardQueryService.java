@@ -6,22 +6,18 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import com.example.taskflow.user.domain.User;
-import com.example.taskflow.task.domain.model.Task;
 import com.example.taskflow.dashboard.dto.DashboardStatsDTO;
 import com.example.taskflow.dashboard.dto.ActivityEventDTO;
 import com.example.taskflow.task.application.orchestration.TaskAuditService;
-import com.example.taskflow.task.infrastructure.persistence.TaskRepository;
 
 @Service
 public class DashboardQueryService {
 
-    private final TaskRepository taskRepository;
     private final TaskAuditService taskAuditService;
     private final com.example.taskflow.dashboard.application.DashboardStrategyFactory dashboardStrategyFactory;
 
-    public DashboardQueryService(TaskRepository taskRepository, TaskAuditService taskAuditService,
+    public DashboardQueryService(TaskAuditService taskAuditService,
                             com.example.taskflow.dashboard.application.DashboardStrategyFactory dashboardStrategyFactory) {
-        this.taskRepository = taskRepository;
         this.taskAuditService = taskAuditService;
         this.dashboardStrategyFactory = dashboardStrategyFactory;
     }
@@ -49,9 +45,6 @@ public class DashboardQueryService {
 
     @Transactional(readOnly = true)
     public Page<ActivityEventDTO> getActivityFeedForTask(Long taskId, User user, Pageable pageable) {
-        Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new com.example.taskflow.task.exception.TaskNotFoundException("Task not found"));
-
         return taskAuditService.getActivityFeedForTask(taskId, pageable);
     }
 }

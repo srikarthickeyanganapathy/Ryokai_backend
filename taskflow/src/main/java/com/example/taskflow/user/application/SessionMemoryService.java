@@ -1,7 +1,6 @@
 package com.example.taskflow.user.application;
 
 import com.example.taskflow.user.domain.SessionMemory;
-import com.example.taskflow.user.domain.User;
 import com.example.taskflow.user.infrastructure.SessionMemoryRepository;
 import com.example.taskflow.user.infrastructure.persistence.UserRepository;
 import org.springframework.stereotype.Service;

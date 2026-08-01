@@ -18,7 +18,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.stream.Collectors;
 import com.example.taskflow.audit.application.AuditService;
-import com.example.taskflow.security.authorization.engine.AuthorizationEngine;
 import com.example.taskflow.team.application.TeamService;
 
 @Service
@@ -30,7 +29,6 @@ public class OrganizationMemberService {
     private final RoleRepository roleRepository;
     private final TaskRepository taskRepository;
     private final AuditService auditService;
-    private final AuthorizationEngine authorizationEngine;
     private final TeamService teamService;
 
     public OrganizationMemberService(OrganizationRepository organizationRepository,
@@ -39,7 +37,6 @@ public class OrganizationMemberService {
                                      RoleRepository roleRepository,
                                      TaskRepository taskRepository,
                                      AuditService auditService,
-                                     AuthorizationEngine authorizationEngine,
                                      TeamService teamService) {
         this.organizationRepository = organizationRepository;
         this.membershipRepository = membershipRepository;
@@ -47,7 +44,6 @@ public class OrganizationMemberService {
         this.roleRepository = roleRepository;
         this.taskRepository = taskRepository;
         this.auditService = auditService;
-        this.authorizationEngine = authorizationEngine;
         this.teamService = teamService;
     }
 
@@ -167,7 +163,7 @@ public class OrganizationMemberService {
 
     private MembershipResponseDTO mapToMembershipDTO(OrganizationMembership membership) {
         java.util.List<String> permissions = membership.getOrgRole() != null && membership.getOrgRole().getRolePermissionScopes() != null
-                ? membership.getOrgRole().getRolePermissionScopes().stream().map(rps -> rps.getPermission().getName()).collect(Collectors.toList())
+                ? membership.getOrgRole().getRolePermissionScopes().stream().map(rps -> rps.getPermission().getCode()).collect(Collectors.toList())
                 : java.util.Collections.emptyList();
         return new MembershipResponseDTO(
                 membership.getId(),

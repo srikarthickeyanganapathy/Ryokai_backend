@@ -39,10 +39,7 @@ public class GoalService {
 
     @Transactional
     public GoalResponseDTO create(User user, Long orgId, GoalRequestDTO req) {
-        {
-            com.example.taskflow.security.authorization.AuthorizationDecision _decision = authorizationEngine.authorize(com.example.taskflow.security.authorization.AuthorizationRequest.builder(user, com.example.taskflow.security.PermissionCode.GOAL_CREATE).context(java.util.Map.of("organizationId", orgId)).requiredScope(com.example.taskflow.security.ScopeType.ORGANIZATION).build());
-            if (_decision.isDenied()) throw new com.example.taskflow.shared.exception.UnauthorizedActionException("Action requires permission. Denied at stage: " + _decision.stage());
-        }
+        // Authorization is handled by @PreAuthorize
         Organization org = organizationRepository.findById(orgId)
                 .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + orgId));
         if (org.getStatus() != Organization.OrgStatus.ACTIVE) {
@@ -59,10 +56,7 @@ public class GoalService {
     public GoalResponseDTO update(User user, Long goalId, GoalRequestDTO req) {
         Goal goal = goalRepository.findById(goalId)
                 .orElseThrow(() -> new IllegalArgumentException("Goal not found: " + goalId));
-        {
-            com.example.taskflow.security.authorization.AuthorizationDecision _decision = authorizationEngine.authorize(com.example.taskflow.security.authorization.AuthorizationRequest.builder(user, com.example.taskflow.security.PermissionCode.GOAL_UPDATE).context(java.util.Map.of("organizationId", goal.getOrganization().getId())).requiredScope(com.example.taskflow.security.ScopeType.ORGANIZATION).build());
-            if (_decision.isDenied()) throw new com.example.taskflow.shared.exception.UnauthorizedActionException("Action requires permission. Denied at stage: " + _decision.stage());
-        }
+        // Authorization is handled by @PreAuthorize
         applyRequest(goal, req);
         return toDto(goalRepository.save(goal));
     }
@@ -71,10 +65,7 @@ public class GoalService {
     public void delete(User user, Long goalId) {
         Goal goal = goalRepository.findById(goalId)
                 .orElseThrow(() -> new IllegalArgumentException("Goal not found: " + goalId));
-        {
-            com.example.taskflow.security.authorization.AuthorizationDecision _decision = authorizationEngine.authorize(com.example.taskflow.security.authorization.AuthorizationRequest.builder(user, com.example.taskflow.security.PermissionCode.GOAL_DELETE).context(java.util.Map.of("organizationId", goal.getOrganization().getId())).requiredScope(com.example.taskflow.security.ScopeType.ORGANIZATION).build());
-            if (_decision.isDenied()) throw new com.example.taskflow.shared.exception.UnauthorizedActionException("Action requires permission. Denied at stage: " + _decision.stage());
-        }
+        // Authorization is handled by @PreAuthorize
         goalRepository.delete(goal);
     }
 

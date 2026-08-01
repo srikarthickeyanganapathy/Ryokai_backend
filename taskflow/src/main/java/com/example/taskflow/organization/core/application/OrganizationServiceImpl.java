@@ -111,6 +111,30 @@ public class OrganizationServiceImpl implements OrganizationService {
     }
 
     @Override
+    @Transactional
+    public OrganizationResponseDTO updateOrganization(Long orgId, String name, String description, User caller) {
+        Organization org = organizationRepository.findById(orgId)
+                .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + orgId));
+        
+        OrganizationResponseDTO oldValue = mapToResponseDTO(org);
+        
+        if (name != null) {
+            org.setName(name);
+        }
+        if (description != null) {
+            org.setDescription(description);
+        }
+        
+        Organization saved = organizationRepository.save(org);
+        
+        OrganizationResponseDTO responseDTO = mapToResponseDTO(saved);
+        auditService.recordSync("ORG_UPDATED", caller, "ORGANIZATION", saved.getId(),
+                oldValue, responseDTO, "Updated organization: " + saved.getName());
+                
+        return responseDTO;
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public OrganizationResponseDTO getUserOrganization(Long userId) {
         List<OrganizationMembership> memberships = membershipRepository.findByUserId(userId);

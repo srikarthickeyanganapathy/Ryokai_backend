@@ -12,6 +12,9 @@ public record AssignPermissionsRequestDTO(
         String permissionName,
         
         @NotNull(message = "Scope code cannot be null")
-        String scopeCode
+        String scopeCode,
+
+        Long resourceId,
+        String resourceType
     ) {}
 }

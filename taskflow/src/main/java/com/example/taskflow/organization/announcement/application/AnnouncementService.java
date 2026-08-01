@@ -62,11 +62,7 @@ public class AnnouncementService {
     public AnnouncementResponseDTO createAnnouncement(Long orgId, AnnouncementRequestDTO request, User user) {
         Organization org = getActiveOrganization(orgId);
 
-        // Check permission
-        {
-            com.example.taskflow.security.authorization.AuthorizationDecision _decision = authorizationEngine.authorize(com.example.taskflow.security.authorization.AuthorizationRequest.builder(user, com.example.taskflow.security.PermissionCode.ANNOUNCEMENT_CREATE).context(java.util.Map.of("organizationId", orgId)).requiredScope(com.example.taskflow.security.ScopeType.ORGANIZATION).build());
-            if (_decision.isDenied()) throw new com.example.taskflow.shared.exception.UnauthorizedActionException("Action requires permission. Denied at stage: " + _decision.stage());
-        }
+        // Authorization is handled by @PreAuthorize
 
         Announcement announcement = new Announcement(request.getTitle(), request.getContent(), user, org);
         Announcement saved = announcementRepository.save(announcement);
@@ -104,12 +100,7 @@ public class AnnouncementService {
             throw new ResourceNotFoundException("Announcement not found in this organization");
         }
 
-        boolean isAuthor = announcement.getAuthor().getId().equals(user.getId());
-        boolean hasPermission = authorizationEngine.authorize(com.example.taskflow.security.authorization.AuthorizationRequest.builder(user, com.example.taskflow.security.PermissionCode.ANNOUNCEMENT_CREATE).context(java.util.Map.of("organizationId", orgId)).requiredScope(com.example.taskflow.security.ScopeType.ORGANIZATION).build()).isGranted();
-
-        if (!isAuthor && !hasPermission) {
-            throw new UnauthorizedActionException("You do not have permission to delete this announcement.");
-        }
+        // Authorization is handled by @PreAuthorize
 
         announcementRepository.delete(announcement);
     }

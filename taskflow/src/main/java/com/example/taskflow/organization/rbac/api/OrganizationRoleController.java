@@ -51,7 +51,7 @@ public class OrganizationRoleController {
     }
 
     @GetMapping("/{id}/roles")
-    @PreAuthorize("hasPermission(#id, 'Organization', 'MEMBER') or hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasPermission(#id, 'Organization', 'ORG_VIEW') or hasRole('SUPER_ADMIN')")
     public ResponseEntity<List<RoleResponseDTO>> listRoles(
             @PathVariable @Min(1) Long id,
             @AuthenticationPrincipal UserDetails userDetails) {
@@ -59,7 +59,7 @@ public class OrganizationRoleController {
     }
 
     @PostMapping("/{id}/roles")
-    @PreAuthorize("hasPermission(#id, 'Organization', 'ROLE_MANAGE') or hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasPermission(#id, 'Organization', 'ROLE_CREATE') or hasRole('SUPER_ADMIN')")
     public ResponseEntity<RoleResponseDTO> createRole(
             @PathVariable @Min(1) Long id,
             @Valid @RequestBody RoleCreateRequestDTO request,
@@ -72,7 +72,7 @@ public class OrganizationRoleController {
     }
 
     @PutMapping("/{id}/roles/{roleId}")
-    @PreAuthorize("hasPermission(#id, 'Organization', 'ROLE_MANAGE') or hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasPermission(#id, 'Organization', 'ROLE_UPDATE') or hasRole('SUPER_ADMIN')")
     public ResponseEntity<RoleResponseDTO> updateRole(
             @PathVariable @Min(1) Long id,
             @PathVariable @Min(1) Long roleId,
@@ -84,7 +84,7 @@ public class OrganizationRoleController {
     }
 
     @DeleteMapping("/{id}/roles/{roleId}")
-    @PreAuthorize("hasPermission(#id, 'Organization', 'ROLE_MANAGE') or hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasPermission(#id, 'Organization', 'ROLE_DELETE') or hasRole('SUPER_ADMIN')")
     public ResponseEntity<Void> deleteRole(
             @PathVariable @Min(1) Long id,
             @PathVariable @Min(1) Long roleId,
@@ -95,7 +95,7 @@ public class OrganizationRoleController {
     }
 
     @PutMapping("/{id}/roles/{roleId}/permissions")
-    @PreAuthorize("hasPermission(#id, 'Organization', 'ROLE_MANAGE') or hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasPermission(#id, 'Organization', 'ROLE_UPDATE') or hasRole('SUPER_ADMIN')")
     public ResponseEntity<Set<PermissionResponseDTO>> updateRolePermissions(
             @PathVariable @Min(1) Long id,
             @PathVariable @Min(1) Long roleId,

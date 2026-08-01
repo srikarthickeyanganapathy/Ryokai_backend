@@ -41,7 +41,7 @@ public class TaskChecklistController {
     }
 
     @PostMapping("/{taskId}/checklists")
-    @PreAuthorize("hasPermission(#taskId, 'Task', 'EDIT')")
+    @PreAuthorize("hasPermission(#taskId, 'Task', 'TASK_UPDATE')")
     public ResponseEntity<ChecklistItemDTO> addChecklistItem(@PathVariable @Min(1) Long taskId,
             @Valid @RequestBody ChecklistItemRequestDTO request, @AuthenticationPrincipal UserDetails userDetails) {
         ChecklistItemDTO response = checklistService.addChecklistItem(taskId, request.getText(),
@@ -50,7 +50,7 @@ public class TaskChecklistController {
     }
 
     @PostMapping("/{taskId}/checklists/{itemId}/toggle")
-    @PreAuthorize("hasPermission(#taskId, 'Task', 'EDIT')")
+    @PreAuthorize("hasPermission(#taskId, 'Task', 'TASK_UPDATE')")
     public ResponseEntity<ChecklistItemDTO> toggleChecklistItem(@PathVariable @Min(1) Long taskId,
             @PathVariable @Min(1) Long itemId, @AuthenticationPrincipal UserDetails userDetails) {
         ChecklistItemDTO response = checklistService.toggleChecklistItem(taskId, itemId, getCurrentUser(userDetails));
@@ -58,7 +58,7 @@ public class TaskChecklistController {
     }
 
     @DeleteMapping("/{taskId}/checklists/{itemId}")
-    @PreAuthorize("hasPermission(#taskId, 'Task', 'EDIT')")
+    @PreAuthorize("hasPermission(#taskId, 'Task', 'TASK_UPDATE')")
     public ResponseEntity<Void> deleteChecklistItem(@PathVariable @Min(1) Long taskId,
             @PathVariable @Min(1) Long itemId, @AuthenticationPrincipal UserDetails userDetails) {
         checklistService.deleteChecklistItem(taskId, itemId, getCurrentUser(userDetails));
@@ -66,7 +66,7 @@ public class TaskChecklistController {
     }
 
     @PutMapping("/{taskId}/checklists/order")
-    @PreAuthorize("hasPermission(#taskId, 'Task', 'EDIT')")
+    @PreAuthorize("hasPermission(#taskId, 'Task', 'TASK_UPDATE')")
     public ResponseEntity<Void> reorderChecklistItems(@PathVariable @Min(1) Long taskId,
             @RequestBody List<Long> itemIds, @AuthenticationPrincipal UserDetails userDetails) {
         checklistService.reorderChecklistItems(taskId, itemIds, getCurrentUser(userDetails));

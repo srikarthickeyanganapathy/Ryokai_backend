@@ -28,7 +28,7 @@ public class TaskActivityController {
      */
     @Deprecated
     @GetMapping("/{taskId}/activities")
-    @PreAuthorize("hasPermission(#taskId, 'Task', 'VIEW')")
+    @PreAuthorize("hasPermission(#taskId, 'Task', 'TASK_VIEW')")
     public ResponseEntity<Page<ActivityLogDTO>> getTaskActivities(
             @PathVariable Long taskId,
             @RequestParam(defaultValue = "0") int page,

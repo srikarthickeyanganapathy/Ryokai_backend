@@ -41,14 +41,14 @@ public class TaskEvidenceController {
     }
 
     @GetMapping("/{taskId}/evidence")
-    @PreAuthorize("hasPermission(#taskId, 'Task', 'VIEW')")
+    @PreAuthorize("hasPermission(#taskId, 'Task', 'TASK_VIEW')")
     public ResponseEntity<List<TaskEvidenceDTO>> listEvidence(@PathVariable @Min(1) Long taskId,
             @AuthenticationPrincipal UserDetails userDetails) {
         return ResponseEntity.ok(taskEvidenceService.listEvidence(taskId, getCurrentUser(userDetails)));
     }
 
     @PostMapping("/{taskId}/evidence")
-    @PreAuthorize("hasPermission(#taskId, 'Task', 'EDIT')")
+    @PreAuthorize("hasPermission(#taskId, 'Task', 'TASK_UPDATE')")
     public ResponseEntity<TaskEvidenceDTO> addEvidence(@PathVariable @Min(1) Long taskId,
             @Valid @RequestBody TaskEvidenceRequestDTO request,
             @AuthenticationPrincipal UserDetails userDetails) {
@@ -57,11 +57,23 @@ public class TaskEvidenceController {
     }
 
     @DeleteMapping("/{taskId}/evidence/{evidenceId}")
-    @PreAuthorize("hasPermission(#taskId, 'Task', 'EDIT')")
+    @PreAuthorize("hasPermission(#taskId, 'Task', 'TASK_UPDATE')")
     public ResponseEntity<Void> deleteEvidence(@PathVariable @Min(1) Long taskId,
             @PathVariable @Min(1) Long evidenceId,
             @AuthenticationPrincipal UserDetails userDetails) {
         taskEvidenceService.deleteEvidence(taskId, evidenceId, getCurrentUser(userDetails));
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{taskId}/evidence/upload")
+    @PreAuthorize("hasPermission(#taskId, 'Task', 'TASK_UPDATE')")
+    public ResponseEntity<java.util.Map<String, String>> uploadEvidenceImage(
+            @PathVariable @Min(1) Long taskId,
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        // Just return a dummy URL for now or store it locally.
+        // We will mock this to return an image key for now.
+        String imageKey = "mock_uploaded_image_key_" + System.currentTimeMillis() + "_" + file.getOriginalFilename();
+        return ResponseEntity.ok(java.util.Map.of("imageKey", imageKey));
     }
 }

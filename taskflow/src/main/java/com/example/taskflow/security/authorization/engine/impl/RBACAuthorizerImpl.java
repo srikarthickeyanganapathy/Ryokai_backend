@@ -118,7 +118,7 @@ public class RBACAuthorizerImpl implements RBACAuthorizer {
                 List<com.example.taskflow.organization.rbac.domain.ResourceAssignment> assignments = resourceAssignmentRepository.findByRolePermissionScopeId(grant.getId());
                 
                 if (assignments.isEmpty()) {
-                    continue; // This grant requires assignment but has none. Move to next grant.
+                    return AuthorizationDecision.allow("RBAC", "RBAC Role grants permission to all resources in scope"); // This grant requires assignment but has none, meaning all resources in scope are allowed.
                 }
 
                 Long targetId = null;

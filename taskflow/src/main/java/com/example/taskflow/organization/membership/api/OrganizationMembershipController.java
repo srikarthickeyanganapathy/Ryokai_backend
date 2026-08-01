@@ -77,7 +77,7 @@ public class OrganizationMembershipController {
     }
 
     @DeleteMapping("/{id}/members/{userId}")
-    @PreAuthorize("hasPermission(#id, 'Organization', 'ORG_MEMBER_REMOVE') or hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasPermission(#id, 'Organization', 'MEMBER_REMOVE') or hasRole('SUPER_ADMIN')")
     public ResponseEntity<Void> removeMember(
             @PathVariable @Min(1) Long id,
             @PathVariable @Min(1) Long userId,
@@ -88,7 +88,7 @@ public class OrganizationMembershipController {
     }
 
     @PutMapping("/{id}/members/{userId}/role")
-    @PreAuthorize("hasPermission(#id, 'Organization', 'ROLE_MANAGE') or hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasPermission(#id, 'Organization', 'MEMBER_ROLE_UPDATE') or hasRole('SUPER_ADMIN')")
     public ResponseEntity<MembershipResponseDTO> updateMemberRole(
             @PathVariable @Min(1) Long id,
             @PathVariable @Min(1) Long userId,
@@ -101,7 +101,7 @@ public class OrganizationMembershipController {
     }
 
     @GetMapping("/{id}/members")
-    @PreAuthorize("hasPermission(#id, 'Organization', 'MEMBER') or hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasPermission(#id, 'Organization', 'ORG_VIEW') or hasRole('SUPER_ADMIN')")
     public ResponseEntity<List<MembershipResponseDTO>> listMembers(
             @PathVariable @Min(1) Long id,
             @AuthenticationPrincipal UserDetails userDetails) {
@@ -110,7 +110,7 @@ public class OrganizationMembershipController {
     }
 
     @PostMapping("/{id}/leave")
-    @PreAuthorize("hasPermission(#id, 'Organization', 'MEMBER') or hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasPermission(#id, 'Organization', 'LEAVE_CREATE') or hasRole('SUPER_ADMIN')")
     public ResponseEntity<LeaveRequestDTO> requestLeave(
             @PathVariable @Min(1) Long id,
             @RequestBody(required = false) LeaveReasonDTO body,
@@ -133,7 +133,7 @@ public class OrganizationMembershipController {
     }
 
     @PostMapping("/{id}/leave/{requestId}/approve")
-    @PreAuthorize("hasPermission(#id, 'Organization', 'LEAVE_REQUEST_MANAGE') or hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasPermission(#id, 'Organization', 'LEAVE_APPROVE') or hasRole('SUPER_ADMIN')")
     public ResponseEntity<LeaveRequestDTO> approveLeave(
             @PathVariable @Min(1) Long id,
             @PathVariable @Min(1) Long requestId,
@@ -144,7 +144,7 @@ public class OrganizationMembershipController {
     }
 
     @PostMapping("/{id}/leave/{requestId}/reject")
-    @PreAuthorize("hasPermission(#id, 'Organization', 'LEAVE_REQUEST_MANAGE') or hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasPermission(#id, 'Organization', 'LEAVE_REJECT') or hasRole('SUPER_ADMIN')")
     public ResponseEntity<LeaveRequestDTO> rejectLeave(
             @PathVariable @Min(1) Long id,
             @PathVariable @Min(1) Long requestId,
@@ -157,7 +157,7 @@ public class OrganizationMembershipController {
     }
 
     @GetMapping("/{id}/leave")
-    @PreAuthorize("hasPermission(#id, 'Organization', 'MEMBER') or hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasPermission(#id, 'Organization', 'LEAVE_VIEW') or hasRole('SUPER_ADMIN')")
     public ResponseEntity<List<LeaveRequestDTO>> listLeaveRequests(
             @PathVariable @Min(1) Long id,
             @AuthenticationPrincipal UserDetails userDetails) {
@@ -166,7 +166,7 @@ public class OrganizationMembershipController {
     }
 
     @GetMapping("/{id}/leave/status")
-    @PreAuthorize("hasPermission(#id, 'Organization', 'MEMBER') or hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasPermission(#id, 'Organization', 'LEAVE_VIEW') or hasRole('SUPER_ADMIN')")
     public ResponseEntity<LeaveRequestDTO> getLeaveRequestStatus(
             @PathVariable @Min(1) Long id,
             @AuthenticationPrincipal UserDetails userDetails) {

@@ -23,7 +23,7 @@ public class GoalController {
     private final UserService userService;
 
     @GetMapping
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasPermission(#orgId, 'Organization', 'GOAL_VIEW')")
     public ResponseEntity<List<GoalResponseDTO>> list(@PathVariable Long orgId,
             @AuthenticationPrincipal UserDetails userDetails) {
         User user = userService.getCurrentUser(userDetails.getUsername());
@@ -31,7 +31,7 @@ public class GoalController {
     }
 
     @PostMapping
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasPermission(#orgId, 'Organization', 'GOAL_CREATE')")
     public ResponseEntity<GoalResponseDTO> create(@PathVariable Long orgId, @RequestBody GoalRequestDTO req,
             @AuthenticationPrincipal UserDetails userDetails) {
         User user = userService.getCurrentUser(userDetails.getUsername());
@@ -39,7 +39,7 @@ public class GoalController {
     }
 
     @PutMapping("/{goalId}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasPermission(#goalId, 'Goal', 'GOAL_UPDATE')")
     public ResponseEntity<GoalResponseDTO> update(@PathVariable Long orgId, @PathVariable Long goalId,
             @RequestBody GoalRequestDTO req, @AuthenticationPrincipal UserDetails userDetails) {
         User user = userService.getCurrentUser(userDetails.getUsername());
@@ -47,7 +47,7 @@ public class GoalController {
     }
 
     @DeleteMapping("/{goalId}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasPermission(#goalId, 'Goal', 'GOAL_DELETE')")
     public ResponseEntity<Void> delete(@PathVariable Long orgId, @PathVariable Long goalId,
             @AuthenticationPrincipal UserDetails userDetails) {
         User user = userService.getCurrentUser(userDetails.getUsername());

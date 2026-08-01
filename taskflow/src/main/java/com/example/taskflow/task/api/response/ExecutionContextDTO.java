@@ -1,6 +1,5 @@
 package com.example.taskflow.task.api.response;
 
-import com.example.taskflow.notification.dto.NotificationDTO;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

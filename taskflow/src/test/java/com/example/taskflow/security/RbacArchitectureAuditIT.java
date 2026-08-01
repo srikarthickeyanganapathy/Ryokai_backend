@@ -2,11 +2,9 @@ package com.example.taskflow.security;
 
 import java.io.FileWriter;
 import java.util.*;
-import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import com.example.taskflow.organization.rbac.application.OrganizationRoleService;
@@ -26,9 +24,6 @@ import com.example.taskflow.organization.core.domain.Organization;
 import com.example.taskflow.organization.core.infrastructure.persistence.OrganizationRepository;
 import com.example.taskflow.organization.membership.domain.OrganizationMembership;
 import com.example.taskflow.organization.membership.infrastructure.persistence.OrganizationMembershipRepository;
-import com.example.taskflow.security.PermissionCode;
-import com.example.taskflow.security.PermissionMetadataRegistry;
-import com.example.taskflow.security.ScopeType;
 
 @SpringBootTest
 public class RbacArchitectureAuditIT {

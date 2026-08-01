@@ -39,28 +39,28 @@ public class TaskStateController {
     }
 
     @PostMapping("/{taskId}/submit")
-    @PreAuthorize("hasPermission(#taskId, 'Task', 'SUBMIT')")
+    @PreAuthorize("hasPermission(#taskId, 'Task', 'TASK_SUBMIT')")
     public ResponseEntity<TaskResponseDTO> submitTask(@PathVariable @Min(1) Long taskId,
             @AuthenticationPrincipal UserDetails userDetails) {
         return ResponseEntity.ok(taskStateTransitionService.submitTask(taskId, getCurrentUser(userDetails)));
     }
 
     @PostMapping("/{taskId}/complete")
-    @PreAuthorize("hasPermission(#taskId, 'Task', 'SUBMIT')")
+    @PreAuthorize("hasPermission(#taskId, 'Task', 'TASK_SUBMIT')")
     public ResponseEntity<TaskResponseDTO> completePersonalTask(@PathVariable @Min(1) Long taskId,
             @AuthenticationPrincipal UserDetails userDetails) {
         return ResponseEntity.ok(taskStateTransitionService.completePersonalTask(taskId, getCurrentUser(userDetails)));
     }
 
     @PostMapping("/{taskId}/approve")
-    @PreAuthorize("hasPermission(#taskId, 'Task', 'REVIEW')")
+    @PreAuthorize("hasPermission(#taskId, 'Task', 'TASK_APPROVE')")
     public ResponseEntity<TaskResponseDTO> approveTask(@PathVariable @Min(1) Long taskId,
             @AuthenticationPrincipal UserDetails userDetails) {
         return ResponseEntity.ok(taskStateTransitionService.approveTask(taskId, getCurrentUser(userDetails)));
     }
 
     @PostMapping("/{taskId}/reject")
-    @PreAuthorize("hasPermission(#taskId, 'Task', 'REVIEW')")
+    @PreAuthorize("hasPermission(#taskId, 'Task', 'TASK_REJECT')")
     public ResponseEntity<TaskResponseDTO> rejectTask(@PathVariable @Min(1) Long taskId,
             @Valid @RequestBody RejectReasonDTO request,
             @AuthenticationPrincipal UserDetails userDetails) {
@@ -68,21 +68,21 @@ public class TaskStateController {
     }
 
     @PostMapping("/{taskId}/recall")
-    @PreAuthorize("hasPermission(#taskId, 'Task', 'RECALL')")
+    @PreAuthorize("hasPermission(#taskId, 'Task', 'TASK_RECALL')")
     public ResponseEntity<TaskResponseDTO> recallTask(@PathVariable @Min(1) Long taskId,
             @AuthenticationPrincipal UserDetails userDetails) {
         return ResponseEntity.ok(taskStateTransitionService.recallTask(taskId, getCurrentUser(userDetails)));
     }
 
     @PostMapping("/{taskId}/complete-crew")
-    @PreAuthorize("hasPermission(#taskId, 'Task', 'SUBMIT')")
+    @PreAuthorize("hasPermission(#taskId, 'Task', 'TASK_SUBMIT')")
     public ResponseEntity<TaskResponseDTO> completeCrewTask(@PathVariable @Min(1) Long taskId,
             @AuthenticationPrincipal UserDetails userDetails) {
         return ResponseEntity.ok(taskStateTransitionService.completeCrewTask(taskId, getCurrentUser(userDetails)));
     }
 
     @PostMapping("/{taskId}/claim")
-    @PreAuthorize("hasPermission(#taskId, 'Task', 'EDIT')")
+    @PreAuthorize("hasPermission(#taskId, 'Task', 'TASK_UPDATE')")
     public ResponseEntity<TaskResponseDTO> claimTask(@PathVariable @Min(1) Long taskId,
             @AuthenticationPrincipal UserDetails userDetails) {
         return ResponseEntity.ok(taskStateTransitionService.claimTask(taskId, getCurrentUser(userDetails)));

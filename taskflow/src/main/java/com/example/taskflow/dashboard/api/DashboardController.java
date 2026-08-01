@@ -69,7 +69,7 @@ public class DashboardController {
         return ResponseEntity.ok(dashboardService.getActivityFeed(user, pageable, includeComments));
     }
 
-    @PreAuthorize("hasPermission(#taskId, 'Task', 'VIEW')")
+    @PreAuthorize("hasPermission(#taskId, 'Task', 'TASK_VIEW')")
     @GetMapping("/activity/task/{taskId}")
     public ResponseEntity<Page<ActivityEventDTO>> getActivityFeedForTask(
             @PathVariable Long taskId,

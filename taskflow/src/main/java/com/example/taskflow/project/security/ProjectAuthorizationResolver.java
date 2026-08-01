@@ -34,36 +34,44 @@ public class ProjectAuthorizationResolver implements AuthorizationResourceResolv
     }
 
     @Override
-    public String getTargetType() {
-        return "Project";
+    public boolean supportsResourceType(String resourceType) {
+        return "Project".equalsIgnoreCase(resourceType);
+    }
+
+    @Override
+    public boolean supportsClass(Class<?> targetClass) {
+        return Project.class.isAssignableFrom(targetClass) || requestBuilder.supportsDto(targetClass, "PROJECT");
     }
 
     @Override
     public AuthorizationRequest buildRequest(Authentication auth, User user, Object targetDomainObject, PermissionCode permissionCode) {
-        if (!(targetDomainObject instanceof Project project)) return null;
-
-        WorkspaceType type = WorkspaceTypeResolver.fromDomainObject(project);
-        Map<String, Long> context = new HashMap<>();
-        context.put("organizationId", project.getOrganization() != null ? project.getOrganization().getId() : null);
-        context.put("projectId", project.getId());
-        context.put("crewId", project.getCrew() != null ? project.getCrew().getId() : null);
-
-        Set<OwnershipRole> ownership = EnumSet.noneOf(OwnershipRole.class);
-        if (project.getCreatedBy() != null && project.getCreatedBy().getId().equals(user.getId())) {
-            ownership.add(OwnershipRole.CREATOR);
-            ownership.add(OwnershipRole.PROJECT_OWNER);
+        if (targetDomainObject instanceof Project project) {
+            WorkspaceType type = WorkspaceTypeResolver.fromDomainObject(project);
+            Map<String, Long> context = new HashMap<>();
+            context.put("organizationId", project.getOrganization() != null ? project.getOrganization().getId() : null);
+            context.put("projectId", project.getId());
+            context.put("crewId", project.getCrew() != null ? project.getCrew().getId() : null);
+    
+            Set<OwnershipRole> ownership = EnumSet.noneOf(OwnershipRole.class);
+            if (project.getCreatedBy() != null && project.getCreatedBy().getId().equals(user.getId())) {
+                ownership.add(OwnershipRole.CREATOR);
+                ownership.add(OwnershipRole.PROJECT_OWNER);
+            }
+    
+            return requestBuilder.build(
+                    user,
+                    permissionCode,
+                    "PROJECT",
+                    project.getId(),
+                    type,
+                    ScopeType.PROJECT,
+                    context,
+                    ownership
+            );
+        } else if (requestBuilder.supportsDto(targetDomainObject.getClass(), "PROJECT")) {
+            return requestBuilder.buildFromDto(user, permissionCode, targetDomainObject, "PROJECT");
         }
-
-        return requestBuilder.build(
-                user,
-                permissionCode,
-                "PROJECT",
-                project.getId(),
-                type,
-                ScopeType.TEAM,
-                context,
-                ownership
-        );
+        return null;
     }
 
     @Override

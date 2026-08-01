@@ -4,7 +4,6 @@ import com.example.taskflow.task.domain.model.Task;
 import com.example.taskflow.task.domain.model.TaskStatus;
 import com.example.taskflow.task.domain.model.TaskPriority;
 import com.example.taskflow.notification.domain.Notification;
-import com.example.taskflow.notification.domain.PriorityTier;
 import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.util.List;

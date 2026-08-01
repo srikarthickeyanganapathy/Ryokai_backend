@@ -46,7 +46,7 @@ public class TaskCommentController {
     }
 
     @GetMapping("/{taskId}/comments")
-    @PreAuthorize("hasPermission(#taskId, 'Task', 'VIEW')")
+    @PreAuthorize("hasPermission(#taskId, 'Task', 'TASK_VIEW')")
     public ResponseEntity<Page<TaskCommentDTO>> getComments(@PathVariable @Min(1) Long taskId, Pageable pageable,
             @AuthenticationPrincipal UserDetails userDetails) {
         Pageable safePage = PageRequest.of(pageable.getPageNumber(), Math.min(pageable.getPageSize(), 100),
@@ -55,7 +55,7 @@ public class TaskCommentController {
     }
 
     @PostMapping("/{taskId}/comments")
-    @PreAuthorize("hasPermission(#taskId, 'Task', 'VIEW')")
+    @PreAuthorize("hasPermission(#taskId, 'Task', 'TASK_VIEW')")
     public ResponseEntity<TaskCommentDTO> addComment(@PathVariable @Min(1) Long taskId,
             @Valid @RequestBody CommentRequestDTO request, @AuthenticationPrincipal UserDetails userDetails) {
         TaskCommentDTO response = taskCommentService.addComment(taskId, getCurrentUser(userDetails),

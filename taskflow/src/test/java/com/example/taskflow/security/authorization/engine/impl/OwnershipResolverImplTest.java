@@ -1,7 +1,6 @@
 package com.example.taskflow.security.authorization.engine.impl;
 
 import com.example.taskflow.security.PermissionCode;
-import com.example.taskflow.security.WorkspaceType;
 import com.example.taskflow.security.authorization.AuthorizationDecision;
 import com.example.taskflow.security.authorization.AuthorizationRequest;
 import com.example.taskflow.security.authorization.OwnershipRole;
@@ -9,7 +8,6 @@ import com.example.taskflow.user.domain.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.EnumSet;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;

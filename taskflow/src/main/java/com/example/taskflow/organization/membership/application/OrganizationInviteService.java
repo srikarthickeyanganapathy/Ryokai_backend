@@ -321,7 +321,6 @@ public class OrganizationInviteService {
         );
     }
 
-    @SuppressWarnings("deprecation")
     private void requirePermission(User caller, Organization org, PermissionCode code) {
         OrganizationMembership membership = membershipRepository.findByUserAndOrganization(caller, org)
                 .orElseThrow(() -> new UnauthorizedActionException("You are not a member of this organization"));

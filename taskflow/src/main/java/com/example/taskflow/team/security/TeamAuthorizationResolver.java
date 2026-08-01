@@ -33,31 +33,39 @@ public class TeamAuthorizationResolver implements AuthorizationResourceResolver 
     }
 
     @Override
-    public String getTargetType() {
-        return "Team";
+    public boolean supportsResourceType(String resourceType) {
+        return "Team".equalsIgnoreCase(resourceType);
+    }
+
+    @Override
+    public boolean supportsClass(Class<?> targetClass) {
+        return Team.class.isAssignableFrom(targetClass) || requestBuilder.supportsDto(targetClass, "TEAM");
     }
 
     @Override
     public AuthorizationRequest buildRequest(Authentication auth, User user, Object targetDomainObject, PermissionCode permissionCode) {
-        if (!(targetDomainObject instanceof Team team)) return null;
-
-        Map<String, Long> context = new HashMap<>();
-        if (team.getOrganization() != null) context.put("organizationId", team.getOrganization().getId());
-        context.put("teamId", team.getId());
-
-        Set<OwnershipRole> ownership = EnumSet.noneOf(OwnershipRole.class);
-        // Add team lead logic if applicable
-        
-        return requestBuilder.build(
-                user,
-                permissionCode,
-                "TEAM",
-                team.getId(),
-                WorkspaceType.ORGANIZATION,
-                ScopeType.ORGANIZATION,
-                context,
-                ownership
-        );
+        if (targetDomainObject instanceof Team team) {
+            Map<String, Long> context = new HashMap<>();
+            if (team.getOrganization() != null) context.put("organizationId", team.getOrganization().getId());
+            context.put("teamId", team.getId());
+    
+            Set<OwnershipRole> ownership = EnumSet.noneOf(OwnershipRole.class);
+            // Add team lead logic if applicable
+            
+            return requestBuilder.build(
+                    user,
+                    permissionCode,
+                    "TEAM",
+                    team.getId(),
+                    WorkspaceType.ORGANIZATION,
+                    ScopeType.TEAM,
+                    context,
+                    ownership
+            );
+        } else if (requestBuilder.supportsDto(targetDomainObject.getClass(), "TEAM")) {
+            return requestBuilder.buildFromDto(user, permissionCode, targetDomainObject, "TEAM");
+        }
+        return null;
     }
 
     @Override

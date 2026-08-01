@@ -136,7 +136,7 @@ public class RoleService {
 
     @Transactional
     public RoleResponseDTO createRole(RoleCreateRequestDTO request, User caller) {
-        requireOrgPermission(caller, request.organizationId(), "ROLE_MANAGE");
+        requireOrgPermission(caller, request.organizationId(), "ROLE_CREATE");
         // RB-M06 fix: block reserved builtin role names. Previously an org admin
         // could create a custom role named "ADMIN" in their org, which would then
         // be indistinguishable from the builtin ADMIN role in name-based
@@ -189,7 +189,7 @@ public class RoleService {
         Role role = roleRepository.findById(id).orElseThrow(() -> new RuntimeException("Role not found"));
         
         Long orgId = role.getOrganization() != null ? role.getOrganization().getId() : null;
-        requireOrgPermission(caller, orgId, "ROLE_MANAGE");
+        requireOrgPermission(caller, orgId, "ROLE_UPDATE");
         
         RoleResponseDTO oldValue = mapToRoleResponseDTO(role);
         
@@ -248,7 +248,7 @@ public class RoleService {
         Role role = roleRepository.findById(id).orElseThrow(() -> new RuntimeException("Role not found"));
         
         Long orgId = role.getOrganization() != null ? role.getOrganization().getId() : null;
-        requireOrgPermission(caller, orgId, "ROLE_MANAGE");
+        requireOrgPermission(caller, orgId, "ROLE_DELETE");
         
         if (CORE_ROLES.contains(role.getName())) {
             throw new IllegalArgumentException("Cannot delete built-in system role: " + role.getName());
@@ -259,7 +259,6 @@ public class RoleService {
         }
 
         RoleResponseDTO oldValue = mapToRoleResponseDTO(role);
-        List<User> holders = userRepository.findAllByRolesId(role.getId());
         roleRepository.delete(role);
         
         auditService.recordSync("ROLE_DELETED", caller, "ROLE", id,
@@ -283,7 +282,7 @@ public class RoleService {
         Role role = roleRepository.findById(id).orElseThrow(() -> new RuntimeException("Role not found"));
         
         Long orgId = role.getOrganization() != null ? role.getOrganization().getId() : null;
-        requireOrgPermission(caller, orgId, "ROLE_MANAGE");
+        requireOrgPermission(caller, orgId, "ROLE_UPDATE");
         
         boolean callerIsSuperAdmin = caller.isSuperAdmin();
             
@@ -324,6 +323,18 @@ public class RoleService {
             rps.setRole(role);
             rps.setPermission(permission);
             rps.setScope(scope);
+            
+            if (pAssign.resourceId() != null && pAssign.resourceType() != null) {
+                com.example.taskflow.organization.rbac.domain.ResourceAssignment ra = new com.example.taskflow.organization.rbac.domain.ResourceAssignment();
+                ra.setRolePermissionScope(rps);
+                ra.setResourceId(pAssign.resourceId());
+                ra.setResourceType(pAssign.resourceType());
+                if (rps.getResourceAssignments() == null) {
+                    rps.setResourceAssignments(new java.util.ArrayList<>());
+                }
+                rps.getResourceAssignments().add(ra);
+            }
+            
             role.getRolePermissionScopes().add(rps);
         }
         

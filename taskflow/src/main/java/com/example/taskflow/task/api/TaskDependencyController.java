@@ -39,7 +39,7 @@ public class TaskDependencyController {
     }
 
     @PostMapping("/{taskId}/dependencies")
-    @PreAuthorize("hasPermission(#taskId, 'Task', 'DEPENDENCY_EDIT')")
+    @PreAuthorize("hasPermission(#taskId, 'Task', 'TASK_DEPENDENCY_UPDATE')")
     public ResponseEntity<Void> addDependency(@PathVariable @Min(1) Long taskId,
             @Valid @RequestBody TaskDependencyRequestDTO request, @AuthenticationPrincipal UserDetails userDetails) {
         taskDependencyService.addDependency(taskId, request.getDependsOnId(), getCurrentUser(userDetails));
@@ -47,7 +47,7 @@ public class TaskDependencyController {
     }
 
     @DeleteMapping("/{taskId}/dependencies/{depId}")
-    @PreAuthorize("hasPermission(#taskId, 'Task', 'DEPENDENCY_EDIT')")
+    @PreAuthorize("hasPermission(#taskId, 'Task', 'TASK_DEPENDENCY_UPDATE')")
     public ResponseEntity<Void> removeDependency(@PathVariable @Min(1) Long taskId, @PathVariable @Min(1) Long depId,
             @AuthenticationPrincipal UserDetails userDetails) {
         taskDependencyService.removeDependency(taskId, depId, getCurrentUser(userDetails));

@@ -23,7 +23,7 @@ public class ProjectActivityController {
     private final ActivityLogService activityLogService;
 
     @GetMapping("/{projectId}/activities")
-    @PreAuthorize("hasPermission(#projectId, 'Project', 'VIEW')")
+    @PreAuthorize("hasPermission(#projectId, 'Project', 'PROJECT_VIEW')")
     public ResponseEntity<Page<ActivityLogDTO>> getProjectActivities(
             @PathVariable Long projectId,
             @RequestParam(defaultValue = "0") int page,

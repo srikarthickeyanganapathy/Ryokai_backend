@@ -35,53 +35,59 @@ public class TaskAuthorizationResolver implements AuthorizationResourceResolver 
     }
 
     @Override
-    public String getTargetType() {
-        return "Task";
+    public boolean supportsResourceType(String resourceType) {
+        return "Task".equalsIgnoreCase(resourceType);
+    }
+
+    @Override
+    public boolean supportsClass(Class<?> targetClass) {
+        return Task.class.isAssignableFrom(targetClass) || requestBuilder.supportsDto(targetClass, "TASK");
     }
 
     @Override
     public AuthorizationRequest buildRequest(Authentication auth, User user, Object targetDomainObject, PermissionCode permissionCode) {
-        if (!(targetDomainObject instanceof Task task)) {
-            return null;
-        }
+        if (targetDomainObject instanceof Task task) {
+            WorkspaceType type = WorkspaceTypeResolver.fromTask(task);
+            Map<String, Long> context = new HashMap<>();
+            if (task.getOrg() != null) context.put("organizationId", task.getOrg().getId());
+            if (task.getProject() != null) context.put("projectId", task.getProject().getId());
+            if (task.getProject() != null && task.getProject().getTeam() != null) context.put("teamId", task.getProject().getTeam().getId());
+            
+            if (type == WorkspaceType.CREW && task.getProject() != null && task.getProject().getCrew() != null) {
+                context.put("crewId", task.getProject().getCrew().getId());
+            }
 
-        WorkspaceType type = WorkspaceTypeResolver.fromTask(task);
-        Map<String, Long> context = new HashMap<>();
-        if (task.getOrg() != null) context.put("organizationId", task.getOrg().getId());
-        if (task.getProject() != null) context.put("projectId", task.getProject().getId());
-        if (task.getProject() != null && task.getProject().getTeam() != null) context.put("teamId", task.getProject().getTeam().getId());
-        
-        if (type == WorkspaceType.CREW && task.getProject() != null && task.getProject().getCrew() != null) {
-            context.put("crewId", task.getProject().getCrew().getId());
-        }
+            Set<OwnershipRole> ownership = EnumSet.noneOf(OwnershipRole.class);
+            if (task.getAssignee() != null && task.getAssignee().getId().equals(user.getId())) {
+                ownership.add(OwnershipRole.ASSIGNEE);
+            }
+            if (task.getCreator() != null && task.getCreator().getId().equals(user.getId())) {
+                ownership.add(OwnershipRole.CREATOR);
+            }
+            if (task.getReviewer() != null && task.getReviewer().getId().equals(user.getId())) {
+                ownership.add(OwnershipRole.REVIEWER);
+            }
 
-        Set<OwnershipRole> ownership = EnumSet.noneOf(OwnershipRole.class);
-        if (task.getAssignee() != null && task.getAssignee().getId().equals(user.getId())) {
-            ownership.add(OwnershipRole.ASSIGNEE);
-        }
-        if (task.getCreator() != null && task.getCreator().getId().equals(user.getId())) {
-            ownership.add(OwnershipRole.CREATOR);
-        }
-        if (task.getReviewer() != null && task.getReviewer().getId().equals(user.getId())) {
-            ownership.add(OwnershipRole.REVIEWER);
-        }
+            Map<String, Object> policyContext = new HashMap<>();
+            if (task.getAssignee() != null) {
+                policyContext.put("targetUserId", task.getAssignee().getId());
+            }
 
-        Map<String, Object> policyContext = new HashMap<>();
-        if (task.getAssignee() != null) {
-            policyContext.put("targetUserId", task.getAssignee().getId());
+            return requestBuilder.build(
+                    user,
+                    permissionCode,
+                    "TASK",
+                    task.getId(),
+                    type,
+                    ScopeType.valueOf(PermissionMetadataRegistry.getRecommendedScope(permissionCode.name())),
+                    context,
+                    ownership,
+                    policyContext
+            );
+        } else if (requestBuilder.supportsDto(targetDomainObject.getClass(), "TASK")) {
+            return requestBuilder.buildFromDto(user, permissionCode, targetDomainObject, "TASK");
         }
-
-        return requestBuilder.build(
-                user,
-                permissionCode,
-                "TASK",
-                task.getId(),
-                type,
-                ScopeType.valueOf(PermissionMetadataRegistry.getRecommendedScope(permissionCode.name())),
-                context,
-                ownership,
-                policyContext
-        );
+        return null;
     }
 
     @Override

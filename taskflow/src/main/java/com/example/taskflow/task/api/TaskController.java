@@ -62,14 +62,14 @@ public class TaskController {
     }
 
     @GetMapping("/{taskId}")
-    @PreAuthorize("hasPermission(#taskId, 'Task', 'VIEW')")
+    @PreAuthorize("hasPermission(#taskId, 'Task', 'TASK_VIEW')")
     public ResponseEntity<TaskResponseDTO> getTask(@PathVariable @Min(1) Long taskId,
             @AuthenticationPrincipal UserDetails userDetails) {
         return ResponseEntity.ok(taskQueryService.getTaskForUser(taskId, getCurrentUser(userDetails)));
     }
 
     @GetMapping("/{id}/history")
-    @PreAuthorize("hasPermission(#id, 'Task', 'VIEW')")
+    @PreAuthorize("hasPermission(#id, 'Task', 'TASK_VIEW')")
     public ResponseEntity<Page<com.example.taskflow.dashboard.dto.ActivityEventDTO>> getTaskHistory(
             @PathVariable @Min(1) Long id,
             @RequestParam(defaultValue = "0") int page,
@@ -80,14 +80,14 @@ public class TaskController {
     }
 
     @PutMapping("/{taskId}")
-    @PreAuthorize("hasPermission(#taskId, 'Task', 'EDIT')")
+    @PreAuthorize("hasPermission(#taskId, 'Task', 'TASK_UPDATE')")
     public ResponseEntity<TaskResponseDTO> updateTask(@PathVariable @Min(1) Long taskId,
             @Valid @RequestBody TaskUpdateRequestDTO request, @AuthenticationPrincipal UserDetails userDetails) {
         return ResponseEntity.ok(taskLifecycleService.updateTask(taskId, request, getCurrentUser(userDetails)));
     }
 
     @DeleteMapping("/{taskId}")
-    @PreAuthorize("hasPermission(#taskId, 'Task', 'DELETE')")
+    @PreAuthorize("hasPermission(#taskId, 'Task', 'TASK_DELETE')")
     public ResponseEntity<Void> deleteTask(@PathVariable @Min(1) Long taskId,
             @AuthenticationPrincipal UserDetails userDetails) {
         taskLifecycleService.deleteTask(taskId, getCurrentUser(userDetails));
@@ -95,7 +95,7 @@ public class TaskController {
     }
 
     @PutMapping("/{taskId}/archive")
-    @PreAuthorize("hasPermission(#taskId, 'Task', 'ARCHIVE')")
+    @PreAuthorize("hasPermission(#taskId, 'Task', 'TASK_ARCHIVE')")
     public ResponseEntity<TaskResponseDTO> toggleArchive(@PathVariable @Min(1) Long taskId,
             @AuthenticationPrincipal UserDetails userDetails) {
         return ResponseEntity.ok(taskLifecycleService.toggleArchive(taskId, getCurrentUser(userDetails)));

@@ -39,7 +39,7 @@ public class AnnouncementController {
     }
 
     @GetMapping
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasPermission(#orgId, 'Organization', 'ANNOUNCEMENT_VIEW')")
     public ResponseEntity<Page<AnnouncementResponseDTO>> listAnnouncements(
             @PathVariable @Min(1) Long orgId,
             @PageableDefault(size = 20) Pageable pageable,
@@ -50,7 +50,7 @@ public class AnnouncementController {
     }
 
     @PostMapping
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasPermission(#orgId, 'Organization', 'ANNOUNCEMENT_CREATE')")
     public ResponseEntity<AnnouncementResponseDTO> createAnnouncement(
             @PathVariable @Min(1) Long orgId,
             @Valid @RequestBody AnnouncementRequestDTO request,
@@ -61,7 +61,7 @@ public class AnnouncementController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasPermission(#id, 'Announcement', 'ANNOUNCEMENT_DELETE')")
     public ResponseEntity<Void> deleteAnnouncement(
             @PathVariable @Min(1) Long orgId,
             @PathVariable @Min(1) Long id,

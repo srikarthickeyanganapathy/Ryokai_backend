@@ -1,7 +1,6 @@
 package com.example.taskflow.security.authorization.engine;
 
 import com.example.taskflow.security.PermissionCode;
-import com.example.taskflow.security.ScopeType;
 import com.example.taskflow.security.authorization.AuthorizationDecision;
 import com.example.taskflow.security.authorization.AuthorizationRequest;
 import com.example.taskflow.security.authorization.engine.impl.AuthorizationEngineImpl;
@@ -9,10 +8,8 @@ import com.example.taskflow.user.domain.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
-import org.mockito.Mockito;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 /**

@@ -78,7 +78,7 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
                     if (task == null) {
                         throw new org.springframework.security.access.AccessDeniedException("Task not found");
                     }
-                    if (!permissionEvaluator.hasPermission((Authentication) accessor.getUser(), task, "VIEW")) {
+                    if (!permissionEvaluator.hasPermission((Authentication) accessor.getUser(), task, "TASK_VIEW")) {
                         throw new org.springframework.security.access.AccessDeniedException("Access denied for task " + taskId);
                     }
                 } catch (NumberFormatException e) {

@@ -2,7 +2,6 @@ package com.example.taskflow.security.authorization.engine.impl;
 
 import com.example.taskflow.organization.membership.domain.OrganizationMembership;
 import com.example.taskflow.organization.membership.infrastructure.persistence.OrganizationMembershipRepository;
-import com.example.taskflow.organization.rbac.domain.Role;
 import com.example.taskflow.organization.rbac.domain.RolePermissionScope;
 import com.example.taskflow.organization.rbac.domain.Scope;
 import com.example.taskflow.organization.rbac.domain.Permission;
@@ -10,8 +9,6 @@ import com.example.taskflow.organization.rbac.domain.UserPermissionOverride;
 import com.example.taskflow.organization.rbac.infrastructure.persistence.RolePermissionScopeRepository;
 import com.example.taskflow.organization.rbac.infrastructure.persistence.UserPermissionOverrideRepository;
 import com.example.taskflow.security.PermissionCode;
-import com.example.taskflow.security.ScopeType;
-import com.example.taskflow.security.WorkspaceType;
 import com.example.taskflow.security.authorization.AuthorizationDecision;
 import com.example.taskflow.security.authorization.AuthorizationRequest;
 import com.example.taskflow.user.domain.User;
@@ -24,7 +21,6 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import java.time.LocalDateTime;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,7 +28,6 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 

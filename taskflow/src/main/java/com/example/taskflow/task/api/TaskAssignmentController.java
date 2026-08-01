@@ -140,7 +140,7 @@ public class TaskAssignmentController {
     }
 
     @PutMapping("/{taskId}/reassign")
-    @PreAuthorize("hasPermission(#taskId, 'Task', 'REASSIGN')")
+    @PreAuthorize("hasPermission(#taskId, 'Task', 'TASK_REASSIGN')")
     public ResponseEntity<TaskResponseDTO> reassignTask(@PathVariable @Min(1) Long taskId,
             @Valid @RequestBody TaskReassignRequestDTO request, @AuthenticationPrincipal UserDetails userDetails) {
         User newAssignee = userService.getUserById(request.getAssigneeId());
