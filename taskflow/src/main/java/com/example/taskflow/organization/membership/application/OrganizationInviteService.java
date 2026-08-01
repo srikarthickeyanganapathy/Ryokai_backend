@@ -13,7 +13,7 @@ import com.example.taskflow.organization.core.domain.Organization;
 import com.example.taskflow.organization.membership.domain.OrganizationInvite;
 import com.example.taskflow.organization.membership.domain.OrganizationInvite.InviteStatus;
 import com.example.taskflow.organization.membership.domain.OrganizationMembership;
-import com.example.taskflow.organization.rbac.application.PermissionService;
+import com.example.taskflow.security.authorization.engine.AuthorizationEngine;
 import com.example.taskflow.organization.rbac.domain.Role;
 import com.example.taskflow.user.domain.User;
 import com.example.taskflow.organization.membership.dto.OrganizationInviteDTO;
@@ -27,7 +27,6 @@ import com.example.taskflow.organization.rbac.infrastructure.persistence.RoleRep
 import com.example.taskflow.audit.application.AuditService;
 import com.example.taskflow.notification.application.NotificationService;
 import com.example.taskflow.security.PermissionCode;
-import com.example.taskflow.security.authorization.LegacyPermissionMapper;
 
 @Service
 public class OrganizationInviteService {
@@ -41,7 +40,7 @@ public class OrganizationInviteService {
     private final NotificationService notificationService;
     private final AuditService auditService;
     private final RoleRepository roleRepository;
-    private final PermissionService permissionService;
+    private final AuthorizationEngine authorizationEngine;
 
     public OrganizationInviteService(OrganizationInviteRepository inviteRepository,
                                       OrganizationRepository organizationRepository,
@@ -50,7 +49,7 @@ public class OrganizationInviteService {
                                       NotificationService notificationService,
                                       AuditService auditService,
                                       RoleRepository roleRepository,
-                                      PermissionService permissionService) {
+                                      AuthorizationEngine authorizationEngine) {
         this.inviteRepository = inviteRepository;
         this.organizationRepository = organizationRepository;
         this.membershipRepository = membershipRepository;
@@ -58,7 +57,7 @@ public class OrganizationInviteService {
         this.notificationService = notificationService;
         this.auditService = auditService;
         this.roleRepository = roleRepository;
-        this.permissionService = permissionService;
+        this.authorizationEngine = authorizationEngine;
     }
 
     @Transactional
@@ -69,7 +68,7 @@ public class OrganizationInviteService {
                 .orElseThrow(() -> new IllegalArgumentException("User not found: " + inviteeUserId));
 
         // Auth: caller must have ORG_MEMBER_INVITE permission
-        requirePermission(invitedBy, org, "ORG_MEMBER_INVITE");
+        requirePermission(invitedBy, org, PermissionCode.MEMBER_INVITE);
 
         // Cannot invite if already a member
         if (membershipRepository.existsByUserAndOrganization(invitee, org)) {
@@ -124,7 +123,7 @@ public class OrganizationInviteService {
         Organization org = organizationRepository.findById(orgId)
                 .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + orgId));
 
-        requirePermission(invitedBy, org, "ORG_MEMBER_INVITE");
+        requirePermission(invitedBy, org, PermissionCode.MEMBER_INVITE);
 
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new IllegalArgumentException("Role not found"));
@@ -172,7 +171,7 @@ public class OrganizationInviteService {
     public List<OrganizationInviteDTO> getOrgInvites(Long orgId, User caller) {
         Organization org = organizationRepository.findById(orgId)
                 .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + orgId));
-        requirePermission(caller, org, "ORG_MEMBER_INVITE");
+        requirePermission(caller, org, PermissionCode.MEMBER_INVITE);
         return inviteRepository.findByOrganizationId(orgId).stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());
@@ -296,7 +295,7 @@ public class OrganizationInviteService {
                 .orElseThrow(() -> new IllegalArgumentException("Invite not found: " + inviteId));
 
         Organization org = invite.getOrganization();
-        requirePermission(adminUser, org, "ORG_MEMBER_INVITE");
+        requirePermission(adminUser, org, PermissionCode.MEMBER_INVITE);
 
         if (invite.getStatus() != InviteStatus.PENDING) {
             throw new IllegalStateException("Only pending invites can be revoked");
@@ -323,7 +322,7 @@ public class OrganizationInviteService {
     }
 
     @SuppressWarnings("deprecation")
-    private void requirePermission(User caller, Organization org, String permission) {
+    private void requirePermission(User caller, Organization org, PermissionCode code) {
         OrganizationMembership membership = membershipRepository.findByUserAndOrganization(caller, org)
                 .orElseThrow(() -> new UnauthorizedActionException("You are not a member of this organization"));
         
@@ -331,9 +330,12 @@ public class OrganizationInviteService {
             return;
         }
 
-        PermissionCode code = LegacyPermissionMapper.resolve(permission);
+        
         if (code != null) {
-            permissionService.requireAuthorization(caller, code, org.getId());
+            {
+                com.example.taskflow.security.authorization.AuthorizationDecision _decision = authorizationEngine.authorize(com.example.taskflow.security.authorization.AuthorizationRequest.builder(caller, code).context(java.util.Map.of("organizationId", org.getId())).requiredScope(com.example.taskflow.security.ScopeType.ORGANIZATION).build());
+                if (_decision.isDenied()) throw new com.example.taskflow.shared.exception.UnauthorizedActionException("Action requires permission. Denied at stage: " + _decision.stage());
+            }
         }
     }
 }

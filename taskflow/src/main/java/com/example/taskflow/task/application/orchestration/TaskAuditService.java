@@ -14,22 +14,22 @@ import com.example.taskflow.task.infrastructure.persistence.TaskStatusHistoryRep
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import com.example.taskflow.shared.util.RelativeTimeFormatter;
-import com.example.taskflow.organization.rbac.application.PermissionService;
+import com.example.taskflow.security.authorization.engine.AuthorizationEngine;
 
 @Service
 public class TaskAuditService {
 
     private final TaskStatusHistoryRepository historyRepository;
     private final com.example.taskflow.organization.membership.infrastructure.persistence.OrganizationMembershipRepository membershipRepository;
-    private final PermissionService permissionService;
+    private final AuthorizationEngine authorizationEngine;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
 
     public TaskAuditService(TaskStatusHistoryRepository historyRepository,
                             com.example.taskflow.organization.membership.infrastructure.persistence.OrganizationMembershipRepository membershipRepository,
-                            PermissionService permissionService) {
+                            AuthorizationEngine authorizationEngine) {
         this.historyRepository = historyRepository;
         this.membershipRepository = membershipRepository;
-        this.permissionService = permissionService;
+        this.authorizationEngine = authorizationEngine;
     }
 
     // Full signature
@@ -96,11 +96,11 @@ public class TaskAuditService {
         if (!memberships.isEmpty()) {
             var membership = memberships.get(0);
             Long orgId = membership.getOrganization().getId();
-            boolean isDirectorOrAdmin = permissionService.isAuthorized(user, com.example.taskflow.security.PermissionCode.TASK_OVERRIDE, orgId) ||
-                                        permissionService.isAuthorized(user, com.example.taskflow.security.PermissionCode.DASHBOARD_VIEW, orgId);
+            boolean isDirectorOrAdmin = authorizationEngine.authorize(com.example.taskflow.security.authorization.AuthorizationRequest.builder(user, com.example.taskflow.security.PermissionCode.TASK_OVERRIDE).context(java.util.Map.of("organizationId", orgId)).requiredScope(com.example.taskflow.security.ScopeType.ORGANIZATION).build()).isGranted() ||
+                                        authorizationEngine.authorize(com.example.taskflow.security.authorization.AuthorizationRequest.builder(user, com.example.taskflow.security.PermissionCode.DASHBOARD_VIEW).context(java.util.Map.of("organizationId", orgId)).requiredScope(com.example.taskflow.security.ScopeType.ORGANIZATION).build()).isGranted();
             
-            boolean isManager = permissionService.isAuthorized(user, com.example.taskflow.security.PermissionCode.TASK_ASSIGN, orgId) ||
-                                permissionService.isAuthorized(user, com.example.taskflow.security.PermissionCode.TEAM_UPDATE, orgId);
+            boolean isManager = authorizationEngine.authorize(com.example.taskflow.security.authorization.AuthorizationRequest.builder(user, com.example.taskflow.security.PermissionCode.TASK_ASSIGN).context(java.util.Map.of("organizationId", orgId)).requiredScope(com.example.taskflow.security.ScopeType.ORGANIZATION).build()).isGranted() ||
+                                authorizationEngine.authorize(com.example.taskflow.security.authorization.AuthorizationRequest.builder(user, com.example.taskflow.security.PermissionCode.TEAM_UPDATE).context(java.util.Map.of("organizationId", orgId)).requiredScope(com.example.taskflow.security.ScopeType.ORGANIZATION).build()).isGranted();
 
             if (isDirectorOrAdmin) {
                 return includeAllTypes

@@ -10,9 +10,6 @@ import java.util.Set;
 
 /**
  * Encapsulates all context needed for a single authorization evaluation.
- *
- * <p>This object is passed through every stage of the {@link AuthorizationPipeline}.
- * It gathers all inputs once to avoid repeated lookups.
  */
 public class AuthorizationRequest {
 
@@ -20,58 +17,37 @@ public class AuthorizationRequest {
     private final PermissionCode permission;
     private final String resourceType;
     private final Long resourceId;
-    private final Long organizationId;
-    private final Long teamId;
-    private final Long projectId;
-    private final Set<String> modifiedFields;
     private final Map<String, Object> policyContext;
+    private final Map<String, Long> context;
+    private final ScopeType requiredScope;
+    private final com.example.taskflow.security.WorkspaceType workspaceType;
+    private final Set<OwnershipRole> ownership;
 
     private AuthorizationRequest(Builder builder) {
         this.user = builder.user;
         this.permission = builder.permission;
         this.resourceType = builder.resourceType;
         this.resourceId = builder.resourceId;
-        this.organizationId = builder.organizationId;
-        this.teamId = builder.teamId;
-        this.projectId = builder.projectId;
-        this.modifiedFields = builder.modifiedFields != null
-                ? Collections.unmodifiableSet(builder.modifiedFields)
-                : Collections.emptySet();
-        this.policyContext = builder.policyContext != null
-                ? Collections.unmodifiableMap(builder.policyContext)
-                : Collections.emptyMap();
+        this.requiredScope = builder.requiredScope;
+        this.workspaceType = builder.workspaceType != null ? builder.workspaceType : com.example.taskflow.security.WorkspaceType.ORGANIZATION;
+        this.ownership = builder.ownership != null ? Collections.unmodifiableSet(builder.ownership) : Collections.emptySet();
+        this.context = builder.context != null ? Collections.unmodifiableMap(builder.context) : Collections.emptyMap();
+        this.policyContext = builder.policyContext != null ? Collections.unmodifiableMap(builder.policyContext) : Collections.emptyMap();
     }
-
-    // â”€â”€ Getters â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     public User getUser() { return user; }
     public PermissionCode getPermission() { return permission; }
+    public PermissionCode getAction() { return permission; }
     public String getResourceType() { return resourceType; }
     public Long getResourceId() { return resourceId; }
-    public Long getOrganizationId() { return organizationId; }
-    public Long getTeamId() { return teamId; }
-    public Long getProjectId() { return projectId; }
-    public Set<String> getModifiedFields() { return modifiedFields; }
     public Map<String, Object> getPolicyContext() { return policyContext; }
+    public Map<String, Long> getContext() { return context; }
+    public ScopeType getRequiredScope() { return requiredScope; }
+    
 
-    /**
-     * Returns the most specific scope level that applies to this request.
-     * Used by the scope resolver to determine if the user's grant is sufficient.
-     */
-    public ScopeType getRequiredScope() {
-        if (resourceId != null && resourceType != null) {
-            // Check if the resource is owned by the user (OWN scope)
-            // This is determined by the caller, not here â€” we return the
-            // minimum structural scope based on the provided context.
-        }
-        if (projectId != null) return ScopeType.PROJECT;
-        if (teamId != null) return ScopeType.TEAM;
-        if (organizationId != null) return ScopeType.ORGANIZATION;
-        return ScopeType.OWN;
-    }
-
-    // â”€â”€ Builder â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
+    public com.example.taskflow.security.WorkspaceType getWorkspaceType() { return workspaceType; }
+    public Set<OwnershipRole> getOwnership() { return ownership; }
+    
     public static Builder builder(User user, PermissionCode permission) {
         return new Builder(user, permission);
     }
@@ -81,11 +57,11 @@ public class AuthorizationRequest {
         private final PermissionCode permission;
         private String resourceType;
         private Long resourceId;
-        private Long organizationId;
-        private Long teamId;
-        private Long projectId;
-        private Set<String> modifiedFields;
         private Map<String, Object> policyContext;
+        private Map<String, Long> context;
+        private ScopeType requiredScope;
+        private com.example.taskflow.security.WorkspaceType workspaceType;
+        private Set<OwnershipRole> ownership;
 
         private Builder(User user, PermissionCode permission) {
             this.user = user;
@@ -102,31 +78,29 @@ public class AuthorizationRequest {
             return this;
         }
 
-        public Builder organizationId(Long organizationId) {
-            this.organizationId = organizationId;
+        public Builder context(Map<String, Long> context) {
+            this.context = context;
             return this;
         }
 
-        public Builder teamId(Long teamId) {
-            this.teamId = teamId;
-            return this;
-        }
-
-        public Builder projectId(Long projectId) {
-            this.projectId = projectId;
-            return this;
-        }
-
-        public Builder modifiedFields(Set<String> modifiedFields) {
-            this.modifiedFields = modifiedFields;
-            return this;
-        }
-
-        /**
-         * Additional context for policy evaluation (e.g., the target resource entity).
-         */
         public Builder policyContext(Map<String, Object> policyContext) {
             this.policyContext = policyContext;
+            return this;
+        }
+        
+        
+        public Builder workspaceType(com.example.taskflow.security.WorkspaceType workspaceType) {
+            this.workspaceType = workspaceType;
+            return this;
+        }
+
+        public Builder ownership(Set<OwnershipRole> ownership) {
+            this.ownership = ownership;
+            return this;
+        }
+
+        public Builder requiredScope(ScopeType requiredScope) {
+            this.requiredScope = requiredScope;
             return this;
         }
 

@@ -20,7 +20,7 @@
  *   <li>{@code membership.application.OrganizationMemberService} — member management</li>
  *   <li>{@code membership.application.OrganizationLeaveService} — leave request workflows</li>
  *   <li>{@code rbac.application.RoleService} — role CRUD</li>
- *   <li>{@code rbac.application.PermissionService} — permission evaluation and assignment</li>
+ *   <li>{@code rbac.application.AuthorizationEngine} — permission evaluation and assignment</li>
  * </ul>
  *
  * <h2>Dependency Rules</h2>

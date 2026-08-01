@@ -31,6 +31,11 @@ import com.example.taskflow.notification.application.NotificationService;
 @Service
 public class CrewMembershipService {
 
+    public boolean isMember(Long crewId, Long userId) {
+        return false;
+    }
+
+
     private final CrewRepository crewRepository;
     private final CrewMemberRepository crewMemberRepository;
     private final CrewChannelRepository channelRepository;

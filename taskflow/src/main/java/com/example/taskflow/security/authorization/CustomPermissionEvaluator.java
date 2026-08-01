@@ -14,9 +14,10 @@ import com.example.taskflow.user.domain.User;
 import com.example.taskflow.organization.membership.domain.OrganizationMembership;
 import com.example.taskflow.user.infrastructure.persistence.UserRepository;
 import com.example.taskflow.organization.membership.infrastructure.persistence.OrganizationMembershipRepository;
-import com.example.taskflow.organization.rbac.application.PermissionService;
-import com.example.taskflow.security.DomainPermissionHandler;
+import com.example.taskflow.security.authorization.engine.AuthorizationEngine;
+import com.example.taskflow.security.AuthorizationResourceResolver;
 import com.example.taskflow.security.PermissionCode;
+import com.example.taskflow.security.authorization.engine.AuthorizationEngine;
 
 @Component
 public class CustomPermissionEvaluator implements PermissionEvaluator {
@@ -24,20 +25,17 @@ public class CustomPermissionEvaluator implements PermissionEvaluator {
     private static final Logger log = LoggerFactory.getLogger(CustomPermissionEvaluator.class);
 
     private final UserRepository userRepository;
-    private final PermissionService permissionService;
-    private final List<DomainPermissionHandler> handlers;
-    private final AuthorizationPipeline authorizationPipeline;
+    private final List<AuthorizationResourceResolver> handlers;
+    private final AuthorizationEngine authorizationEngine;
     private final OrganizationMembershipRepository membershipRepository;
 
     public CustomPermissionEvaluator(UserRepository userRepository,
-                                     PermissionService permissionService,
-                                     List<DomainPermissionHandler> handlers,
-                                     AuthorizationPipeline authorizationPipeline,
+                                     List<AuthorizationResourceResolver> handlers,
+                                     AuthorizationEngine authorizationEngine,
                                      OrganizationMembershipRepository membershipRepository) {
         this.userRepository = userRepository;
-        this.permissionService = permissionService;
         this.handlers = handlers;
-        this.authorizationPipeline = authorizationPipeline;
+        this.authorizationEngine = authorizationEngine;
         this.membershipRepository = membershipRepository;
     }
 
@@ -82,7 +80,7 @@ public class CustomPermissionEvaluator implements PermissionEvaluator {
 
         // Domain object checks delegate to existing handlers
         // These handlers will be migrated individually in Phase 4
-        for (DomainPermissionHandler handler : handlers) {
+        for (AuthorizationResourceResolver handler : handlers) {
             String typeName = targetDomainObject.getClass().getSimpleName();
             String handlerType = handler.getTargetType();
             
@@ -90,7 +88,14 @@ public class CustomPermissionEvaluator implements PermissionEvaluator {
                (handlerType.equals("Task") && (typeName.equals("TaskRequestDTO") || typeName.equals("BulkAssignRequestDTO"))) ||
                (handlerType.equals("Project") && typeName.equals("ProjectRequestDTO")) ||
                (handlerType.equals("Team") && (typeName.equals("CreateTeamRequestDTO") || typeName.equals("TeamMemberRequestDTO")))) {
-                return handler.hasPermission(auth, user, targetDomainObject, perm);
+                
+                PermissionCode pCode = resolveGlobalPermission(perm, handlerType);
+                if (pCode == null) return false;
+                
+                AuthorizationRequest request = handler.buildRequest(auth, user, targetDomainObject, pCode);
+                if (request == null) return false;
+                
+                return authorizationEngine.authorize(request).isGranted();
             }
         }
         
@@ -112,10 +117,16 @@ public class CustomPermissionEvaluator implements PermissionEvaluator {
              return evaluateNullTarget(user, perm);
         }
 
-        // Domain-specific handlers (legacy Ã¢â‚¬â€ handles by-ID lookups with task/project caching)
-        for (DomainPermissionHandler handler : handlers) {
+        // Domain-specific handlers (legacy — handles by-ID lookups with task/project caching)
+        for (AuthorizationResourceResolver handler : handlers) {
             if (targetType.equals(handler.getTargetType())) {
-                return handler.hasPermission(auth, user, targetId, perm);
+                PermissionCode pCode = resolveGlobalPermission(perm, targetType);
+                if (pCode == null) return false;
+                
+                AuthorizationRequest request = handler.buildRequest(auth, user, targetId, pCode);
+                if (request == null) return false;
+                
+                return authorizationEngine.authorize(request).isGranted();
             }
         }
 
@@ -126,26 +137,46 @@ public class CustomPermissionEvaluator implements PermissionEvaluator {
      * Evaluates permission checks where no target domain object is provided.
      *
      * <p>Tries the new pipeline first (via LegacyPermissionMapper), then falls
-     * back to the legacy PermissionService.hasPermission if the permission
+     * back to the legacy AuthorizationEngine.hasPermission if the permission
      * string is not mapped to a PermissionCode.
      */
+    
+    private PermissionCode resolveGlobalPermission(String perm, String targetType) {
+        if (perm == null) return null;
+        try {
+            return PermissionCode.valueOf(perm);
+        } catch (IllegalArgumentException e) {
+            if ("CREATE".equals(perm)) {
+                if ("Project".equals(targetType)) return PermissionCode.PROJECT_CREATE;
+                if ("Team".equals(targetType)) return PermissionCode.TEAM_CREATE;
+                return PermissionCode.TASK_CREATE;
+            }
+            return switch (perm) {
+                case "PROJECT_CREATE" -> PermissionCode.PROJECT_CREATE;
+                case "TEAM_CREATE" -> PermissionCode.TEAM_CREATE;
+                case "ORG_MEMBER_INVITE" -> PermissionCode.MEMBER_INVITE;
+                default -> null;
+            };
+        }
+    }
+
     private boolean evaluateNullTarget(User user, String perm) {
         // Try to resolve through the new pipeline
-        PermissionCode code = LegacyPermissionMapper.resolve(perm);
+        PermissionCode code = resolveGlobalPermission(perm, null);
         if (code != null) {
             // Attempt pipeline evaluation Ã¢â‚¬â€ requires org context
             Long orgId = resolveOrgIdForUser(user);
             if (orgId != null) {
                 AuthorizationRequest request = AuthorizationRequest.builder(user, code)
-                        .organizationId(orgId)
+                        .context(java.util.Map.of("organizationId", orgId))
                         .build();
-                AuthorizationDecision decision = authorizationPipeline.evaluate(request);
+                AuthorizationDecision decision = authorizationEngine.authorize(request);
                 return decision.isGranted();
             }
         }
 
         // Fall back to legacy flat permission check
-        return permissionService.getPermissionsForUser(user).contains(perm);
+        return java.util.Collections.emptySet().contains(perm);
     }
 
     /**

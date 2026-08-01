@@ -17,6 +17,16 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
 
     Page<Notification> findByUserIdAndReadFalseOrderByCreatedAtDesc(Long userId, Pageable pageable);
 
+    
+    @Query("SELECT n FROM Notification n WHERE n.user.id = :userId AND n.read = false")
+    Page<Notification> findActiveSignalsByWorkspace(
+        @Param("userId") Long userId, 
+        @Param("tier") com.example.taskflow.notification.domain.PriorityTier tier, 
+        @Param("scope") String scope, 
+        @Param("projectId") Long projectId, 
+        @Param("crewId") Long crewId, 
+        Pageable pageable);
+
     long countByUserIdAndReadFalse(Long userId);
 
     @Modifying

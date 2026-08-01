@@ -6,6 +6,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
+import com.example.taskflow.security.authorization.engine.AuthorizationEngine;
 
 import com.example.taskflow.organization.rbac.domain.Permission;
 import com.example.taskflow.organization.rbac.domain.Role;
@@ -29,7 +30,7 @@ public class RoleService {
 
     private final RoleRepository roleRepository;
     private final PermissionRepository permissionRepository;
-    private final PermissionService permissionService;
+    private final AuthorizationEngine authorizationEngine;
     private final UserRepository userRepository;
     private final OrganizationRepository organizationRepository;
     private final com.example.taskflow.organization.membership.infrastructure.persistence.OrganizationMembershipRepository membershipRepository;
@@ -40,14 +41,14 @@ public class RoleService {
 
     public RoleService(RoleRepository roleRepository, 
                        PermissionRepository permissionRepository,
-                       PermissionService permissionService,
+                       AuthorizationEngine authorizationEngine,
                        UserRepository userRepository,
                        OrganizationRepository organizationRepository,
                        com.example.taskflow.organization.membership.infrastructure.persistence.OrganizationMembershipRepository membershipRepository,
                        AuditService auditService) {
         this.roleRepository = roleRepository;
         this.permissionRepository = permissionRepository;
-        this.permissionService = permissionService;
+        this.authorizationEngine = authorizationEngine;
         this.userRepository = userRepository;
         this.organizationRepository = organizationRepository;
         this.membershipRepository = membershipRepository;
@@ -109,9 +110,9 @@ public class RoleService {
             throw new org.springframework.security.access.AccessDeniedException("Global role management requires SUPER_ADMIN.");
         }
 
-        com.example.taskflow.security.PermissionCode pCode = com.example.taskflow.security.authorization.LegacyPermissionMapper.resolveForDomain("ROLE", permissionName);
+        com.example.taskflow.security.PermissionCode pCode = com.example.taskflow.security.PermissionCode.valueOf(permissionName);
         if (pCode != null) {
-            if (!permissionService.isAuthorized(caller, pCode, orgId)) {
+            if (!authorizationEngine.authorize(com.example.taskflow.security.authorization.AuthorizationRequest.builder(caller, pCode).context(java.util.Map.of("organizationId", orgId)).requiredScope(com.example.taskflow.security.ScopeType.ORGANIZATION).build()).isGranted()) {
                 throw new org.springframework.security.access.AccessDeniedException("You lack the '" + permissionName + "' permission in this organization.");
             }
         } else {
@@ -260,7 +261,6 @@ public class RoleService {
         RoleResponseDTO oldValue = mapToRoleResponseDTO(role);
         List<User> holders = userRepository.findAllByRolesId(role.getId());
         roleRepository.delete(role);
-        holders.forEach(u -> permissionService.invalidateCache(u.getId()));
         
         auditService.recordSync("ROLE_DELETED", caller, "ROLE", id,
                 oldValue, null, "Deleted role: " + role.getName());
@@ -291,18 +291,8 @@ public class RoleService {
             boolean isOrgScopedRole = role.getOrganization() != null;
             
             if (!isOrgScopedRole) {
-                // For global roles: enforce "you can only grant permissions you hold"
-                Set<String> callerPerms = permissionService.getPermissionsForUser(caller);
-                for (var pAssign : request.permissions()) {
-                    if (!callerPerms.contains(pAssign.permissionName())) {
-                        throw new org.springframework.security.access.AccessDeniedException(
-                            "You may only grant permissions you currently hold: " + pAssign.permissionName());
-                    }
-                }
-                if (CORE_ROLES.contains(role.getName())) {
-                    throw new org.springframework.security.access.AccessDeniedException(
-                        "Built-in role permissions may only be modified by SUPER_ADMIN");
-                }
+                // Only super admin can modify global roles
+                throw new org.springframework.security.access.AccessDeniedException("Only SUPER_ADMIN may modify global roles");
             }
         }
         
@@ -339,7 +329,6 @@ public class RoleService {
         
         roleRepository.save(role);
 
-        permissionService.invalidateAll();
         
         Set<PermissionResponseDTO> newPermsDTO = role.getRolePermissionScopes().stream()
             .map(rps -> mapToPermissionResponseDTO(rps.getPermission(), rps.getScope() != null ? rps.getScope().getCode() : "ORGANIZATION")).collect(Collectors.toSet());
@@ -397,7 +386,6 @@ public class RoleService {
         user.setRoles(newRoles);
         userRepository.save(user);
         
-        permissionService.invalidateCache(user.getId());
         
         auditService.recordSync("USER_ROLES_ASSIGNED", caller, "USER", user.getId(),
                 oldRoles, newRoles.stream().map(r -> r.getName()).collect(Collectors.toSet()),

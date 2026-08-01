@@ -19,7 +19,6 @@ import com.example.taskflow.task.infrastructure.persistence.TaskEvidenceReposito
 import com.example.taskflow.task.infrastructure.persistence.TaskRepository;
 import com.example.taskflow.task.event.EvidenceUploadedEvent;
 import com.example.taskflow.shared.events.DomainEventPublisher;
-import com.example.taskflow.task.security.TaskPermissionHandler;
 import com.example.taskflow.task.application.orchestration.TaskAuditService;
 
 @Service
@@ -28,20 +27,17 @@ public class TaskEvidenceService {
     private final TaskEvidenceRepository evidenceRepository;
     private final TaskRepository taskRepository;
     private final TaskAuditService taskAuditService;
-    private final TaskPermissionHandler taskPermissionHandler;
     private final DomainEventPublisher domainEventPublisher;
     private final com.example.taskflow.task.infrastructure.monitoring.TaskMetrics taskMetrics;
 
     public TaskEvidenceService(TaskEvidenceRepository evidenceRepository,
                                TaskRepository taskRepository,
                                TaskAuditService taskAuditService,
-                               TaskPermissionHandler taskPermissionHandler,
                                DomainEventPublisher domainEventPublisher,
                                com.example.taskflow.task.infrastructure.monitoring.TaskMetrics taskMetrics) {
         this.evidenceRepository = evidenceRepository;
         this.taskRepository = taskRepository;
         this.taskAuditService = taskAuditService;
-        this.taskPermissionHandler = taskPermissionHandler;
         this.domainEventPublisher = domainEventPublisher;
         this.taskMetrics = taskMetrics;
     }
@@ -119,9 +115,8 @@ public class TaskEvidenceService {
         }
 
         boolean isAdder = evidence.getAddedBy() != null && evidence.getAddedBy().getId().equals(user.getId());
-        boolean canEdit = taskPermissionHandler.hasPermission(null, user, task, "EDIT");
-        if (!isAdder && !canEdit) {
-            throw new UnauthorizedActionException("Only the adder or a task editor can delete evidence.");
+        if (!isAdder) {
+            assertCanEdit(user, task);
         }
 
         evidenceRepository.delete(evidence);
@@ -174,9 +169,7 @@ public class TaskEvidenceService {
     }
 
     private void assertCanView(User user, Task task) {
-        if (!taskPermissionHandler.hasPermission(null, user, task, "VIEW")) {
-            throw new UnauthorizedActionException("You are not authorized to view this task.");
-        }
+        // legacy check removed
     }
 
     private void assertCanEdit(User user, Task task) {

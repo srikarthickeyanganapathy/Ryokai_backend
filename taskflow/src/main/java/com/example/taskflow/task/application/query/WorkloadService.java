@@ -11,7 +11,7 @@ import com.example.taskflow.shared.exception.UnauthorizedActionException;
 import com.example.taskflow.organization.membership.infrastructure.persistence.OrganizationMembershipRepository;
 import com.example.taskflow.organization.core.infrastructure.persistence.OrganizationRepository;
 import com.example.taskflow.task.infrastructure.persistence.TaskRepository;
-import com.example.taskflow.organization.rbac.application.PermissionService;
+import com.example.taskflow.security.authorization.engine.AuthorizationEngine;
 import com.example.taskflow.security.PermissionCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -27,7 +27,7 @@ public class WorkloadService {
     private final OrganizationRepository organizationRepository;
     private final OrganizationMembershipRepository membershipRepository;
     private final TaskRepository taskRepository;
-    private final PermissionService permissionService;
+    private final AuthorizationEngine authorizationEngine;
 
     public List<UserWorkloadDTO> getWorkloadMatrix(User requester, Long orgId) {
         var org = organizationRepository.findById(orgId)
@@ -37,8 +37,8 @@ public class WorkloadService {
             throw new OrganizationSuspendedException("Organization is not active.");
         }
 
-        boolean isAuthorized = permissionService.isAuthorized(requester, PermissionCode.DASHBOARD_VIEW, orgId) ||
-                               permissionService.isAuthorized(requester, PermissionCode.TASK_VIEW, orgId);
+        boolean isAuthorized = authorizationEngine.authorize(com.example.taskflow.security.authorization.AuthorizationRequest.builder(requester, PermissionCode.DASHBOARD_VIEW).context(java.util.Map.of("organizationId", orgId)).requiredScope(com.example.taskflow.security.ScopeType.ORGANIZATION).build()).isGranted() ||
+                               authorizationEngine.authorize(com.example.taskflow.security.authorization.AuthorizationRequest.builder(requester, PermissionCode.TASK_VIEW).context(java.util.Map.of("organizationId", orgId)).requiredScope(com.example.taskflow.security.ScopeType.ORGANIZATION).build()).isGranted();
         
         if (!isAuthorized) {
             throw new UnauthorizedActionException(

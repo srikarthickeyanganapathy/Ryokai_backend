@@ -24,7 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.stream.Collectors;
 import com.example.taskflow.notification.application.NotificationService;
-import com.example.taskflow.organization.rbac.application.PermissionService;
+import com.example.taskflow.security.authorization.engine.AuthorizationEngine;
 
 @Service
 public class TeamService {
@@ -37,7 +37,7 @@ public class TeamService {
     private final NotificationService notificationService;
     private final TeamMemberRepository teamMemberRepository;
     private final TeamObserverRepository teamObserverRepository;
-    private final PermissionService permissionService;
+    private final AuthorizationEngine authorizationEngine;
 
     public TeamService(TeamRepository teamRepository,
                        OrganizationRepository organizationRepository,
@@ -47,7 +47,7 @@ public class TeamService {
                        NotificationService notificationService,
                        TeamMemberRepository teamMemberRepository,
                        TeamObserverRepository teamObserverRepository,
-                       PermissionService permissionService) {
+                       AuthorizationEngine authorizationEngine) {
         this.teamRepository = teamRepository;
         this.organizationRepository = organizationRepository;
         this.userRepository = userRepository;
@@ -56,7 +56,7 @@ public class TeamService {
         this.notificationService = notificationService;
         this.teamMemberRepository = teamMemberRepository;
         this.teamObserverRepository = teamObserverRepository;
-        this.permissionService = permissionService;
+        this.authorizationEngine = authorizationEngine;
     }
 
     // ========================================================================
@@ -71,7 +71,10 @@ public class TeamService {
     private void requirePermission(User caller, Organization org, com.example.taskflow.security.PermissionCode permissionCode) {
         requireOrgMembership(caller, org);
         if (caller.isSuperAdmin()) return;
-        permissionService.requireAuthorization(caller, permissionCode, org.getId());
+        {
+            com.example.taskflow.security.authorization.AuthorizationDecision _decision = authorizationEngine.authorize(com.example.taskflow.security.authorization.AuthorizationRequest.builder(caller, permissionCode).context(java.util.Map.of("organizationId", org.getId())).requiredScope(com.example.taskflow.security.ScopeType.ORGANIZATION).build());
+            if (_decision.isDenied()) throw new com.example.taskflow.shared.exception.UnauthorizedActionException("Action requires permission. Denied at stage: " + _decision.stage());
+        }
     }
 
     // ========================================================================

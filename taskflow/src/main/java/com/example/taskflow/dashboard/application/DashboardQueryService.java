@@ -11,22 +11,18 @@ import com.example.taskflow.dashboard.dto.DashboardStatsDTO;
 import com.example.taskflow.dashboard.dto.ActivityEventDTO;
 import com.example.taskflow.task.application.orchestration.TaskAuditService;
 import com.example.taskflow.task.infrastructure.persistence.TaskRepository;
-import com.example.taskflow.task.security.TaskPermissionHandler;
 
 @Service
 public class DashboardQueryService {
 
     private final TaskRepository taskRepository;
     private final TaskAuditService taskAuditService;
-    private final TaskPermissionHandler taskPermissionHandler;
     private final com.example.taskflow.dashboard.application.DashboardStrategyFactory dashboardStrategyFactory;
 
     public DashboardQueryService(TaskRepository taskRepository, TaskAuditService taskAuditService,
-                            TaskPermissionHandler taskPermissionHandler,
                             com.example.taskflow.dashboard.application.DashboardStrategyFactory dashboardStrategyFactory) {
         this.taskRepository = taskRepository;
         this.taskAuditService = taskAuditService;
-        this.taskPermissionHandler = taskPermissionHandler;
         this.dashboardStrategyFactory = dashboardStrategyFactory;
     }
 
@@ -55,10 +51,6 @@ public class DashboardQueryService {
     public Page<ActivityEventDTO> getActivityFeedForTask(Long taskId, User user, Pageable pageable) {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new com.example.taskflow.task.exception.TaskNotFoundException("Task not found"));
-
-        if (!taskPermissionHandler.hasPermission(null, user, task, "VIEW")) {
-            throw new com.example.taskflow.shared.exception.UnauthorizedActionException("You are not authorized to view this task's history.");
-        }
 
         return taskAuditService.getActivityFeedForTask(taskId, pageable);
     }

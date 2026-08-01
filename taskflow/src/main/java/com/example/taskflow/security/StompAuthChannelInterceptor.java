@@ -6,9 +6,11 @@ import com.example.taskflow.user.domain.User;
 import com.example.taskflow.task.domain.model.Task;
 import com.example.taskflow.user.infrastructure.persistence.UserRepository;
 import com.example.taskflow.task.infrastructure.persistence.TaskRepository;
-import com.example.taskflow.whiteboard.WhiteboardRepository;
+import com.example.taskflow.whiteboard.infrastructure.WhiteboardRepository;
 import com.example.taskflow.crew.infrastructure.persistence.CrewMemberRepository;
-import com.example.taskflow.whiteboard.Whiteboard;
+import com.example.taskflow.whiteboard.domain.Whiteboard;
+import com.example.taskflow.security.authorization.CustomPermissionEvaluator;
+import org.springframework.security.core.Authentication;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
@@ -20,7 +22,6 @@ import org.springframework.security.authentication.AuthenticationCredentialsNotF
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
-import com.example.taskflow.task.security.TaskPermissionHandler;
 
 @Component
 @RequiredArgsConstructor
@@ -30,9 +31,9 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
     private final CustomUserDetailsService userDetailsService;
     private final UserRepository userRepository;
     private final TaskRepository taskRepository;
-    private final TaskPermissionHandler taskPermissionHandler;
     private final WhiteboardRepository whiteboardRepository;
     private final CrewMemberRepository crewMemberRepository;
+    private final CustomPermissionEvaluator permissionEvaluator;
 
     @Override
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
@@ -74,7 +75,10 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
                     
                     Long taskId = Long.parseLong(taskIdStr);
                     Task task = taskRepository.findById(taskId).orElse(null);
-                    if (task == null || !taskPermissionHandler.hasPermission(null, user, task, "VIEW")) {
+                    if (task == null) {
+                        throw new org.springframework.security.access.AccessDeniedException("Task not found");
+                    }
+                    if (!permissionEvaluator.hasPermission((Authentication) accessor.getUser(), task, "VIEW")) {
                         throw new org.springframework.security.access.AccessDeniedException("Access denied for task " + taskId);
                     }
                 } catch (NumberFormatException e) {

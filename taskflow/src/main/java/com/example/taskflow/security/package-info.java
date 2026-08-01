@@ -19,7 +19,7 @@
  * <h2>Public API</h2>
  * <ul>
  *   <li>{@code authorization.CustomPermissionEvaluator} — Spring Security integration point</li>
- *   <li>{@code authorization.AuthorizationPipeline} — programmatic permission checks</li>
+ *   <li>{@code authorization.engine.AuthorizationEngine} — programmatic permission checks</li>
  *   <li>{@code jwt.JwtUtil} — token operations</li>
  *   <li>{@code PermissionCode} — canonical permission identifiers</li>
  * </ul>

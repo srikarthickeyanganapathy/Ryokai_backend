@@ -5,7 +5,7 @@ import com.example.taskflow.task.domain.model.TaskMode;
 import com.example.taskflow.task.domain.model.TaskStatus;
 import com.example.taskflow.user.domain.User;
 import com.example.taskflow.task.api.request.TaskRequestDTO;
-import com.example.taskflow.organization.rbac.application.PermissionService;
+import com.example.taskflow.security.authorization.engine.AuthorizationEngine;
 import com.example.taskflow.security.PermissionCode;
 import org.springframework.stereotype.Component;
 
@@ -15,12 +15,12 @@ import java.util.Set;
 @Component
 public class OrgTaskStrategy implements TaskLifecycleStrategy, TaskScopeBehavior, Approvable {
 
-    private final PermissionService permissionService;
+    private final AuthorizationEngine authorizationEngine;
     private final com.example.taskflow.organization.membership.infrastructure.persistence.OrganizationMembershipRepository membershipRepository;
 
-    public OrgTaskStrategy(PermissionService permissionService,
+    public OrgTaskStrategy(AuthorizationEngine authorizationEngine,
                            com.example.taskflow.organization.membership.infrastructure.persistence.OrganizationMembershipRepository membershipRepository) {
-        this.permissionService = permissionService;
+        this.authorizationEngine = authorizationEngine;
         this.membershipRepository = membershipRepository;
     }
 
@@ -40,12 +40,12 @@ public class OrgTaskStrategy implements TaskLifecycleStrategy, TaskScopeBehavior
             }
         }
         if (orgId == null) return false;
-        return permissionService.isAuthorized(u, PermissionCode.TASK_CREATE, orgId);
+        return authorizationEngine.authorize(com.example.taskflow.security.authorization.AuthorizationRequest.builder(u, PermissionCode.TASK_CREATE).context(java.util.Map.of("organizationId", orgId)).requiredScope(com.example.taskflow.security.ScopeType.ORGANIZATION).build()).isGranted();
     }
 
     private boolean check(User u, Task t, PermissionCode code) {
         if (t.getOrg() == null) return false;
-        return permissionService.isAuthorized(u, code, t.getOrg().getId(), "TASK", t.getId());
+        return authorizationEngine.authorize(com.example.taskflow.security.authorization.AuthorizationRequest.builder(u, code).context(java.util.Map.of("organizationId", t.getOrg().getId())).requiredScope(com.example.taskflow.security.ScopeType.ORGANIZATION).resourceType("TASK").resourceId(t.getId()).build()).isGranted();
     }
 
     @Override

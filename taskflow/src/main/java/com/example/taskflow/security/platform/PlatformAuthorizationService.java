@@ -15,8 +15,8 @@ import org.springframework.stereotype.Service;
  * <pre>
  * Platform Layer          â”‚  Workspace Layer
  * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
- * PlatformAuthService     â”‚  AuthorizationPipeline
- * PlatformRole            â”‚  PermissionCode
+ * PlatformAuthService     │  AuthorizationEngine
+ * PlatformRole            │  PermissionCode
  * PlatformPermission      â”‚  ScopeType
  * PlatformRolePermissions â”‚  PolicyEvaluator
  *                         â”‚

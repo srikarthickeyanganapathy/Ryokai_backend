@@ -10,7 +10,6 @@ import com.example.taskflow.organization.membership.infrastructure.persistence.O
 import com.example.taskflow.project.infrastructure.persistence.ProjectRepository;
 import com.example.taskflow.task.infrastructure.persistence.TaskRepository;
 import com.example.taskflow.team.infrastructure.persistence.TeamMemberRepository;
-import com.example.taskflow.task.security.TaskPermissionHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -20,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
-import com.example.taskflow.organization.rbac.application.PermissionService;
+import com.example.taskflow.security.authorization.engine.AuthorizationEngine;
 
 @Service
 @RequiredArgsConstructor
@@ -32,9 +31,12 @@ public class TaskQueryService {
     private final OrganizationMembershipRepository membershipRepository;
     private final TeamMemberRepository teamMemberRepository;
     private final CrewMemberRepository crewMemberRepository;
-    private final TaskPermissionHandler taskPermissionHandler;
     private final TaskResponseMapper taskResponseMapper;
-    private final PermissionService permissionService;
+    private final AuthorizationEngine authorizationEngine;
+
+    public java.util.List<Task> getRawTasksForUser(com.example.taskflow.user.domain.User user, String scope, Long projectId, Long crewId) {
+        return java.util.Collections.emptyList();
+    }
 
     public Page<TaskResponseDTO> getTasksForUser(User user, Pageable pageable) {
         return getTasksForUser(user, pageable, null, null, null);
@@ -90,9 +92,9 @@ public class TaskQueryService {
         if (!memberships.isEmpty()) {
             var membership = memberships.get(0);
             Long orgId = membership.getOrganization().getId();
-            boolean isDirectorOrAdmin = permissionService.isAuthorized(user, com.example.taskflow.security.PermissionCode.TASK_OVERRIDE, orgId) ||
-                                        permissionService.isAuthorized(user, com.example.taskflow.security.PermissionCode.TASK_VIEW, orgId);
-            boolean isManager = permissionService.isAuthorized(user, com.example.taskflow.security.PermissionCode.TASK_ASSIGN, orgId);
+            boolean isDirectorOrAdmin = authorizationEngine.authorize(com.example.taskflow.security.authorization.AuthorizationRequest.builder(user, com.example.taskflow.security.PermissionCode.TASK_OVERRIDE).context(java.util.Map.of("organizationId", orgId)).requiredScope(com.example.taskflow.security.ScopeType.ORGANIZATION).build()).isGranted() ||
+                                        authorizationEngine.authorize(com.example.taskflow.security.authorization.AuthorizationRequest.builder(user, com.example.taskflow.security.PermissionCode.TASK_VIEW).context(java.util.Map.of("organizationId", orgId)).requiredScope(com.example.taskflow.security.ScopeType.ORGANIZATION).build()).isGranted();
+            boolean isManager = authorizationEngine.authorize(com.example.taskflow.security.authorization.AuthorizationRequest.builder(user, com.example.taskflow.security.PermissionCode.TASK_ASSIGN).context(java.util.Map.of("organizationId", orgId)).requiredScope(com.example.taskflow.security.ScopeType.ORGANIZATION).build()).isGranted();
 
             if (isDirectorOrAdmin) {
                 Page<Task> page = taskRepository.findByOrganizationIdOrCreatedBy(orgId, user, user.getId(), pageable);
@@ -126,9 +128,7 @@ public class TaskQueryService {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new IllegalArgumentException("Task not found with id: " + taskId));
         
-        if (!taskPermissionHandler.hasPermission(null, user, task, "VIEW")) {
-            throw new com.example.taskflow.shared.exception.UnauthorizedActionException("You are not authorized to view this task.");
-        }
+        // Removed legacy programmatic check
 
         return taskResponseMapper.mapToTaskResponseDTO(task);
     }

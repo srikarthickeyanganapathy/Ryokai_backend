@@ -8,7 +8,6 @@ import com.example.taskflow.task.api.request.ChecklistItemRequestDTO;
 import com.example.taskflow.task.mapper.TaskResponseMapper;
 import com.example.taskflow.task.infrastructure.persistence.ChecklistItemRepository;
 import com.example.taskflow.task.infrastructure.persistence.TaskRepository;
-import com.example.taskflow.task.security.TaskPermissionHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,8 +25,6 @@ public class ChecklistService {
     private final ChecklistItemRepository checklistItemRepository;
     private final TaskAuditService taskAuditService;
     private final TaskResponseMapper taskResponseMapper;
-    private final TaskPermissionHandler taskPermissionHandler;
-
     @Transactional
     public ChecklistItemDTO addChecklistItem(Long taskId, String text, User user) {
         Task task = taskRepository.findById(taskId)
@@ -121,9 +118,8 @@ public class ChecklistService {
             ChecklistItem item = checklistItemRepository.findById(itemId).orElse(null);
             if (item != null && item.getTask().getId().equals(taskId)) {
                 boolean isCreator = item.getCreatedBy() != null && item.getCreatedBy().getId().equals(user.getId());
-                if (!isCreator && !taskPermissionHandler.hasPermission(null, user, item.getTask(), "TASK_OVERRIDE")) {
-                    throw new com.example.taskflow.shared.exception.UnauthorizedActionException(
-                            "Only the creator of checklist item '" + item.getText() + "' can reorder it.");
+                if (!isCreator) {
+                    throw new com.example.taskflow.shared.exception.UnauthorizedActionException("Only creator can reorder");
                 }
                 item.setDisplayOrder(i);
                 checklistItemRepository.save(item);

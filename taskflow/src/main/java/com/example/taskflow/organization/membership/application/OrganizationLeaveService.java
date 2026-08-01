@@ -15,7 +15,7 @@ import com.example.taskflow.organization.membership.domain.OrganizationMembershi
 import com.example.taskflow.organization.membership.dto.LeaveRequestDTO;
 import com.example.taskflow.organization.membership.infrastructure.persistence.LeaveRequestRepository;
 import com.example.taskflow.organization.membership.infrastructure.persistence.OrganizationMembershipRepository;
-import com.example.taskflow.organization.rbac.application.PermissionService;
+import com.example.taskflow.security.authorization.engine.AuthorizationEngine;
 import com.example.taskflow.shared.exception.UnauthorizedActionException;
 import com.example.taskflow.task.infrastructure.persistence.TaskRepository;
 import com.example.taskflow.team.application.TeamService;
@@ -30,7 +30,7 @@ public class OrganizationLeaveService {
     private final TaskRepository taskRepository;
     private final NotificationService notificationService;
     private final TeamService teamService;
-    private final PermissionService permissionService;
+    private final AuthorizationEngine authorizationEngine;
 
     public OrganizationLeaveService(OrganizationRepository organizationRepository,
                                     OrganizationMembershipRepository membershipRepository,
@@ -38,14 +38,14 @@ public class OrganizationLeaveService {
                                     TaskRepository taskRepository,
                                     NotificationService notificationService,
                                     TeamService teamService,
-                                    PermissionService permissionService) {
+                                    AuthorizationEngine authorizationEngine) {
         this.organizationRepository = organizationRepository;
         this.membershipRepository = membershipRepository;
         this.leaveRequestRepository = leaveRequestRepository;
         this.taskRepository = taskRepository;
         this.notificationService = notificationService;
         this.teamService = teamService;
-        this.permissionService = permissionService;
+        this.authorizationEngine = authorizationEngine;
     }
 
     @Transactional
@@ -88,7 +88,10 @@ public class OrganizationLeaveService {
         Organization org = organizationRepository.findById(orgId)
                 .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + orgId));
 
-        permissionService.requireAuthorization(adminUser, com.example.taskflow.security.PermissionCode.LEAVE_APPROVE, orgId);
+        {
+            com.example.taskflow.security.authorization.AuthorizationDecision _decision = authorizationEngine.authorize(com.example.taskflow.security.authorization.AuthorizationRequest.builder(adminUser, com.example.taskflow.security.PermissionCode.LEAVE_APPROVE).context(java.util.Map.of("organizationId", orgId)).requiredScope(com.example.taskflow.security.ScopeType.ORGANIZATION).build());
+            if (_decision.isDenied()) throw new com.example.taskflow.shared.exception.UnauthorizedActionException("Action requires permission. Denied at stage: " + _decision.stage());
+        }
 
         LeaveRequest request = leaveRequestRepository.findById(requestId)
                 .orElseThrow(() -> new IllegalArgumentException("Leave request not found: " + requestId));
@@ -140,7 +143,10 @@ public class OrganizationLeaveService {
         Organization org = organizationRepository.findById(orgId)
                 .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + orgId));
 
-        permissionService.requireAuthorization(adminUser, com.example.taskflow.security.PermissionCode.LEAVE_APPROVE, orgId);
+        {
+            com.example.taskflow.security.authorization.AuthorizationDecision _decision = authorizationEngine.authorize(com.example.taskflow.security.authorization.AuthorizationRequest.builder(adminUser, com.example.taskflow.security.PermissionCode.LEAVE_APPROVE).context(java.util.Map.of("organizationId", orgId)).requiredScope(com.example.taskflow.security.ScopeType.ORGANIZATION).build());
+            if (_decision.isDenied()) throw new com.example.taskflow.shared.exception.UnauthorizedActionException("Action requires permission. Denied at stage: " + _decision.stage());
+        }
 
         LeaveRequest request = leaveRequestRepository.findById(requestId)
                 .orElseThrow(() -> new IllegalArgumentException("Leave request not found: " + requestId));
@@ -177,7 +183,7 @@ public class OrganizationLeaveService {
             throw new UnauthorizedActionException("You are not a member of this organization");
         }
 
-        if (permissionService.isAuthorized(user, com.example.taskflow.security.PermissionCode.LEAVE_APPROVE, orgId)) {
+        if (authorizationEngine.authorize(com.example.taskflow.security.authorization.AuthorizationRequest.builder(user, com.example.taskflow.security.PermissionCode.LEAVE_APPROVE).context(java.util.Map.of("organizationId", orgId)).requiredScope(com.example.taskflow.security.ScopeType.ORGANIZATION).build()).isGranted()) {
             return leaveRequestRepository.findByOrganizationId(orgId).stream()
                     .map(this::mapToLeaveRequestDTO)
                     .collect(Collectors.toList());

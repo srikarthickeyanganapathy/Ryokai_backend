@@ -21,7 +21,7 @@ import com.example.taskflow.team.infrastructure.persistence.TeamRepository;
 import com.example.taskflow.team.infrastructure.persistence.TeamMemberRepository;
 import com.example.taskflow.organization.membership.infrastructure.persistence.OrganizationMembershipRepository;
 import com.example.taskflow.security.PermissionCode;
-import com.example.taskflow.organization.rbac.application.PermissionService;
+import com.example.taskflow.security.authorization.engine.AuthorizationEngine;
 
 @Service
 public class ProjectService {
@@ -33,7 +33,7 @@ public class ProjectService {
     private final OrganizationMembershipRepository membershipRepository;
     private final TeamMemberRepository teamMemberRepository;
     private final CrewMemberRepository crewMemberRepository;
-    private final PermissionService permissionService;
+    private final AuthorizationEngine authorizationEngine;
     private final com.example.taskflow.team.infrastructure.persistence.TeamObserverRepository teamObserverRepository;
     private final com.example.taskflow.crew.infrastructure.persistence.CrewRepository crewRepository;
     private final com.example.taskflow.user.infrastructure.persistence.UserRepository userRepository;
@@ -45,7 +45,7 @@ public class ProjectService {
                           OrganizationMembershipRepository membershipRepository,
                           TeamMemberRepository teamMemberRepository,
                           CrewMemberRepository crewMemberRepository,
-                          PermissionService permissionService,
+                          AuthorizationEngine authorizationEngine,
                           com.example.taskflow.team.infrastructure.persistence.TeamObserverRepository teamObserverRepository,
                           com.example.taskflow.crew.infrastructure.persistence.CrewRepository crewRepository,
                           com.example.taskflow.user.infrastructure.persistence.UserRepository userRepository) {
@@ -56,7 +56,7 @@ public class ProjectService {
         this.membershipRepository = membershipRepository;
         this.teamMemberRepository = teamMemberRepository;
         this.crewMemberRepository = crewMemberRepository;
-        this.permissionService = permissionService;
+        this.authorizationEngine = authorizationEngine;
         this.teamObserverRepository = teamObserverRepository;
         this.crewRepository = crewRepository;
         this.userRepository = userRepository;
@@ -65,7 +65,7 @@ public class ProjectService {
     private boolean hasOrgPermission(User user, Organization org, PermissionCode permissionCode) {
         if (user == null || org == null || org.getId() == null) return false;
         if (user.isSuperAdmin()) return true;
-        return permissionService.isAuthorized(user, permissionCode, org.getId());
+        return authorizationEngine.authorize(com.example.taskflow.security.authorization.AuthorizationRequest.builder(user, permissionCode).context(java.util.Map.of("organizationId", org.getId())).requiredScope(com.example.taskflow.security.ScopeType.ORGANIZATION).build()).isGranted();
     }
 
     @Transactional(readOnly = true)
@@ -85,7 +85,7 @@ public class ProjectService {
         if (!memberships.isEmpty()) {
             Organization org = memberships.get(0).getOrganization();
             boolean hasProjectManage = hasOrgPermission(currentUser, org, PermissionCode.PROJECT_UPDATE);
-            boolean hasSuperAdminOverride = permissionService.hasPermission(currentUser, "SUPER_ADMIN_OVERRIDE_CHECK");
+            boolean hasSuperAdminOverride = currentUser.isSuperAdmin();
 
             List<Project> orgProjects = projectRepository.findByOrganizationId(org.getId());
             
@@ -151,7 +151,7 @@ public class ProjectService {
     }
 
     private boolean canViewProject(User currentUser, Project p) {
-        if (currentUser.isSuperAdmin() || permissionService.hasPermission(currentUser, "SUPER_ADMIN_OVERRIDE_CHECK")) return true;
+        if (currentUser.isSuperAdmin()) return true;
         if (p.getCreatedBy() != null && p.getCreatedBy().getId().equals(currentUser.getId())) return true;
         if (p.getCollaborators() != null && p.getCollaborators().stream().anyMatch(c -> c.getId().equals(currentUser.getId()))) return true;
         if (p.getOrganization() != null) {

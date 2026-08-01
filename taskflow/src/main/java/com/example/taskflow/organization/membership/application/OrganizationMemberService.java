@@ -18,7 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.stream.Collectors;
 import com.example.taskflow.audit.application.AuditService;
-import com.example.taskflow.organization.rbac.application.PermissionService;
+import com.example.taskflow.security.authorization.engine.AuthorizationEngine;
 import com.example.taskflow.team.application.TeamService;
 
 @Service
@@ -30,7 +30,7 @@ public class OrganizationMemberService {
     private final RoleRepository roleRepository;
     private final TaskRepository taskRepository;
     private final AuditService auditService;
-    private final PermissionService permissionService;
+    private final AuthorizationEngine authorizationEngine;
     private final TeamService teamService;
 
     public OrganizationMemberService(OrganizationRepository organizationRepository,
@@ -39,7 +39,7 @@ public class OrganizationMemberService {
                                      RoleRepository roleRepository,
                                      TaskRepository taskRepository,
                                      AuditService auditService,
-                                     PermissionService permissionService,
+                                     AuthorizationEngine authorizationEngine,
                                      TeamService teamService) {
         this.organizationRepository = organizationRepository;
         this.membershipRepository = membershipRepository;
@@ -47,7 +47,7 @@ public class OrganizationMemberService {
         this.roleRepository = roleRepository;
         this.taskRepository = taskRepository;
         this.auditService = auditService;
-        this.permissionService = permissionService;
+        this.authorizationEngine = authorizationEngine;
         this.teamService = teamService;
     }
 
@@ -145,7 +145,6 @@ public class OrganizationMemberService {
         String oldRoleName = membership.getOrgRole().getName();
         membership.setOrgRole(newRole);
         OrganizationMembership saved = membershipRepository.save(membership);
-        permissionService.invalidateCache(user.getId());
 
         MembershipResponseDTO responseDTO = mapToMembershipDTO(saved);
         auditService.record("ORG_MEMBER_ROLE_UPDATED", callerUser, "ORGANIZATION", org.getId(),

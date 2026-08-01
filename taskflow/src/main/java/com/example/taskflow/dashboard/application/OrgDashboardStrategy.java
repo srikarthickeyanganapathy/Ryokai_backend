@@ -4,7 +4,7 @@ import com.example.taskflow.task.domain.model.TaskStatus;
 import com.example.taskflow.user.domain.User;
 import com.example.taskflow.dashboard.dto.DashboardStatsDTO;
 import com.example.taskflow.task.infrastructure.persistence.TaskRepository;
-import com.example.taskflow.organization.rbac.application.PermissionService;
+import com.example.taskflow.security.authorization.engine.AuthorizationEngine;
 import com.example.taskflow.security.PermissionCode;
 import com.example.taskflow.team.infrastructure.persistence.TeamMemberRepository;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +18,7 @@ import java.util.List;
 public class OrgDashboardStrategy implements DashboardStatsStrategy {
 
     private final TaskRepository taskRepository;
-    private final PermissionService permissionService;
+    private final AuthorizationEngine authorizationEngine;
     private final TeamMemberRepository teamMemberRepository;
 
     @Override
@@ -32,7 +32,7 @@ public class OrgDashboardStrategy implements DashboardStatsStrategy {
             throw new IllegalArgumentException("Organization ID is required for organization dashboard view");
         }
 
-        boolean isOrgWide = permissionService.isAuthorized(user, PermissionCode.DASHBOARD_VIEW, orgId);
+        boolean isOrgWide = authorizationEngine.authorize(com.example.taskflow.security.authorization.AuthorizationRequest.builder(user, PermissionCode.DASHBOARD_VIEW).context(java.util.Map.of("organizationId", orgId)).requiredScope(com.example.taskflow.security.ScopeType.ORGANIZATION).build()).isGranted();
         List<Long> teamScopes = null;
         if (!isOrgWide) {
             teamScopes = teamMemberRepository.findByIdUserId(user.getId()).stream()

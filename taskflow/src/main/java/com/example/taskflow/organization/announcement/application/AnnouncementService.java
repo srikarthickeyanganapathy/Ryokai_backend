@@ -19,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import com.example.taskflow.notification.application.NotificationService;
 import com.example.taskflow.organization.membership.application.OrganizationMemberService;
-import com.example.taskflow.organization.rbac.application.PermissionService;
+import com.example.taskflow.security.authorization.engine.AuthorizationEngine;
 
 @Service
 public class AnnouncementService {
@@ -27,18 +27,18 @@ public class AnnouncementService {
     private final AnnouncementRepository announcementRepository;
     private final OrganizationRepository organizationRepository;
     private final OrganizationMemberService memberService;
-    private final PermissionService permissionService;
+    private final AuthorizationEngine authorizationEngine;
     private final NotificationService notificationService;
 
     public AnnouncementService(AnnouncementRepository announcementRepository,
                                OrganizationRepository organizationRepository,
                                OrganizationMemberService memberService,
-                               PermissionService permissionService,
+                               AuthorizationEngine authorizationEngine,
                                NotificationService notificationService) {
         this.announcementRepository = announcementRepository;
         this.organizationRepository = organizationRepository;
         this.memberService = memberService;
-        this.permissionService = permissionService;
+        this.authorizationEngine = authorizationEngine;
         this.notificationService = notificationService;
     }
 
@@ -63,7 +63,10 @@ public class AnnouncementService {
         Organization org = getActiveOrganization(orgId);
 
         // Check permission
-        permissionService.requireAuthorization(user, com.example.taskflow.security.PermissionCode.ANNOUNCEMENT_CREATE, orgId);
+        {
+            com.example.taskflow.security.authorization.AuthorizationDecision _decision = authorizationEngine.authorize(com.example.taskflow.security.authorization.AuthorizationRequest.builder(user, com.example.taskflow.security.PermissionCode.ANNOUNCEMENT_CREATE).context(java.util.Map.of("organizationId", orgId)).requiredScope(com.example.taskflow.security.ScopeType.ORGANIZATION).build());
+            if (_decision.isDenied()) throw new com.example.taskflow.shared.exception.UnauthorizedActionException("Action requires permission. Denied at stage: " + _decision.stage());
+        }
 
         Announcement announcement = new Announcement(request.getTitle(), request.getContent(), user, org);
         Announcement saved = announcementRepository.save(announcement);
@@ -102,7 +105,7 @@ public class AnnouncementService {
         }
 
         boolean isAuthor = announcement.getAuthor().getId().equals(user.getId());
-        boolean hasPermission = permissionService.isAuthorized(user, com.example.taskflow.security.PermissionCode.ANNOUNCEMENT_CREATE, orgId);
+        boolean hasPermission = authorizationEngine.authorize(com.example.taskflow.security.authorization.AuthorizationRequest.builder(user, com.example.taskflow.security.PermissionCode.ANNOUNCEMENT_CREATE).context(java.util.Map.of("organizationId", orgId)).requiredScope(com.example.taskflow.security.ScopeType.ORGANIZATION).build()).isGranted();
 
         if (!isAuthor && !hasPermission) {
             throw new UnauthorizedActionException("You do not have permission to delete this announcement.");
