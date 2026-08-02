@@ -103,7 +103,7 @@ public class RBACAuthorizerImpl implements RBACAuthorizer {
         return evaluateScopeAndAssignment(request, grants);
     }
 
-        private AuthorizationDecision evaluateScopeAndAssignment(AuthorizationRequest request, List<RolePermissionScope> grants) {
+    private AuthorizationDecision evaluateScopeAndAssignment(AuthorizationRequest request, List<RolePermissionScope> grants) {
         ScopeType requiredScope = request.getRequiredScope(); // from request
         boolean requiresAssignment = com.example.taskflow.security.PermissionMetadataRegistry.requiresResourceAssignment(request.getAction().code());
 
@@ -111,18 +111,18 @@ public class RBACAuthorizerImpl implements RBACAuthorizer {
             ScopeType grantedScope = ScopeType.valueOf(grant.getScope().getCode());
             if (grantedScope.includes(requiredScope)) {
                 
-                if (!requiresAssignment) {
+                if (!requiresAssignment || grantedScope == ScopeType.ORGANIZATION) {
                     return AuthorizationDecision.allow("RBAC", "RBAC Role grants required global permission and scope");
                 }
                 
                 List<com.example.taskflow.organization.rbac.domain.ResourceAssignment> assignments = resourceAssignmentRepository.findByRolePermissionScopeId(grant.getId());
                 
                 if (assignments.isEmpty()) {
-                    return AuthorizationDecision.allow("RBAC", "RBAC Role grants permission to all resources in scope"); // This grant requires assignment but has none, meaning all resources in scope are allowed.
+                    continue; // This grant requires resource assignment but none exist; check next grant.
                 }
 
                 Long targetId = null;
-                String expectedResourceType = requiredScope.name();
+                String expectedResourceType = requiredScope != null ? requiredScope.name() : "";
                 if (requiredScope == ScopeType.ORGANIZATION) {
                     targetId = extractOrganizationId(request);
                 } else if (requiredScope == ScopeType.TEAM) {
@@ -133,16 +133,16 @@ public class RBACAuthorizerImpl implements RBACAuthorizer {
                     targetId = extractIdFromContext(request, "userId"); 
                 }
 
-                if (targetId == null) {
-                    // Fallback to direct resource if it matches the scope
-                    if (requiredScope.name().equals(request.getResourceType())) {
-                        targetId = request.getResourceId();
-                    }
+                if (targetId == null && request.getResourceId() != null) {
+                    targetId = request.getResourceId();
+                }
+                if (expectedResourceType == null || expectedResourceType.isEmpty() || "NONE".equals(expectedResourceType)) {
+                    expectedResourceType = request.getResourceType();
                 }
                 
                 if (targetId != null) {
                     for (com.example.taskflow.organization.rbac.domain.ResourceAssignment ra : assignments) {
-                        if (ra.getResourceType().equals(expectedResourceType) && ra.getResourceId().equals(targetId)) {
+                        if (ra.getResourceId().equals(targetId) && (ra.getResourceType() == null || ra.getResourceType().equalsIgnoreCase(expectedResourceType) || (request.getResourceType() != null && ra.getResourceType().equalsIgnoreCase(request.getResourceType())))) {
                             return AuthorizationDecision.allow("RBAC", "RBAC Role grants permission and matching resource assignment");
                         }
                     }

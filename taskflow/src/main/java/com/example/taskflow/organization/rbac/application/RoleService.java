@@ -35,6 +35,8 @@ public class RoleService {
     private final OrganizationRepository organizationRepository;
     private final com.example.taskflow.organization.membership.infrastructure.persistence.OrganizationMembershipRepository membershipRepository;
     private final AuditService auditService;
+    private final com.example.taskflow.organization.rbac.infrastructure.persistence.RolePermissionScopeRepository rolePermissionScopeRepository;
+    private final com.example.taskflow.organization.rbac.infrastructure.persistence.ScopeRepository scopeRepository;
 
     // Define core roles that cannot be renamed
     private static final Set<String> CORE_ROLES = Set.of("SUPER_ADMIN", "ADMIN");
@@ -45,7 +47,9 @@ public class RoleService {
                        UserRepository userRepository,
                        OrganizationRepository organizationRepository,
                        com.example.taskflow.organization.membership.infrastructure.persistence.OrganizationMembershipRepository membershipRepository,
-                       AuditService auditService) {
+                       AuditService auditService,
+                       com.example.taskflow.organization.rbac.infrastructure.persistence.RolePermissionScopeRepository rolePermissionScopeRepository,
+                       com.example.taskflow.organization.rbac.infrastructure.persistence.ScopeRepository scopeRepository) {
         this.roleRepository = roleRepository;
         this.permissionRepository = permissionRepository;
         this.authorizationEngine = authorizationEngine;
@@ -53,6 +57,8 @@ public class RoleService {
         this.organizationRepository = organizationRepository;
         this.membershipRepository = membershipRepository;
         this.auditService = auditService;
+        this.rolePermissionScopeRepository = rolePermissionScopeRepository;
+        this.scopeRepository = scopeRepository;
     }
 
     private PermissionResponseDTO mapToPermissionResponseDTO(Permission p) {
@@ -72,10 +78,26 @@ public class RoleService {
         );
     }
 
+    private com.example.taskflow.organization.rbac.dto.RolePermissionAssignmentDTO mapToRolePermissionAssignmentDTO(com.example.taskflow.organization.rbac.domain.RolePermissionScope rps) {
+        List<com.example.taskflow.organization.rbac.dto.RolePermissionAssignmentDTO.ResourceAssignmentDTO> raDTOs = new java.util.ArrayList<>();
+        if (rps.getResourceAssignments() != null) {
+            for (com.example.taskflow.organization.rbac.domain.ResourceAssignment ra : rps.getResourceAssignments()) {
+                raDTOs.add(new com.example.taskflow.organization.rbac.dto.RolePermissionAssignmentDTO.ResourceAssignmentDTO(
+                    ra.getResourceType(), ra.getResourceId(), ra.getResourceType() + " " + ra.getResourceId() // fallback displayName until we fetch it
+                ));
+            }
+        }
+        return new com.example.taskflow.organization.rbac.dto.RolePermissionAssignmentDTO(
+            rps.getPermission().getCode(),
+            rps.getScope() != null ? rps.getScope().getCode() : "ORGANIZATION",
+            raDTOs
+        );
+    }
+
     public RoleResponseDTO mapToRoleResponseDTO(Role r) {
-        Set<PermissionResponseDTO> perms = r.getRolePermissionScopes() != null 
+        Set<com.example.taskflow.organization.rbac.dto.RolePermissionAssignmentDTO> perms = r.getRolePermissionScopes() != null 
             ? r.getRolePermissionScopes().stream()
-                .map(rps -> mapToPermissionResponseDTO(rps.getPermission(), rps.getScope() != null ? rps.getScope().getCode() : "ORGANIZATION"))
+                .map(this::mapToRolePermissionAssignmentDTO)
                 .collect(Collectors.toSet())
             : new HashSet<>();
         return new RoleResponseDTO(r.getId(), r.getName(), r.getDescription(), perms,
@@ -271,14 +293,14 @@ public class RoleService {
             .collect(Collectors.toList());
     }
 
-    public Set<PermissionResponseDTO> getRolePermissions(Long id) {
+    public Set<com.example.taskflow.organization.rbac.dto.RolePermissionAssignmentDTO> getRolePermissions(Long id) {
         Role role = roleRepository.findById(id).orElseThrow(() -> new RuntimeException("Role not found"));
         return role.getRolePermissionScopes().stream()
-            .map(rps -> mapToPermissionResponseDTO(rps.getPermission())).collect(Collectors.toSet());
+            .map(this::mapToRolePermissionAssignmentDTO).collect(Collectors.toSet());
     }
 
     @Transactional
-    public Set<PermissionResponseDTO> assignRolePermissions(Long id, AssignPermissionsRequestDTO request, User caller) {
+    public Set<com.example.taskflow.organization.rbac.dto.RolePermissionAssignmentDTO> assignRolePermissions(Long id, AssignPermissionsRequestDTO request, User caller) {
         Role role = roleRepository.findById(id).orElseThrow(() -> new RuntimeException("Role not found"));
         
         Long orgId = role.getOrganization() != null ? role.getOrganization().getId() : null;
@@ -300,11 +322,9 @@ public class RoleService {
                 .collect(Collectors.toSet());
                 
         role.getRolePermissionScopes().clear();
-        
-        com.example.taskflow.organization.rbac.infrastructure.persistence.ScopeRepository scopeRepository = org.springframework.web.context.support.WebApplicationContextUtils
-                .getRequiredWebApplicationContext(org.springframework.web.context.request.RequestContextHolder.getRequestAttributes() != null ? 
-                    ((org.springframework.web.context.request.ServletRequestAttributes) org.springframework.web.context.request.RequestContextHolder.getRequestAttributes()).getRequest().getServletContext() : null)
-                .getBean(com.example.taskflow.organization.rbac.infrastructure.persistence.ScopeRepository.class);
+        rolePermissionScopeRepository.deleteByRoleId(id);
+        rolePermissionScopeRepository.flush();
+        roleRepository.saveAndFlush(role);
 
         for (var pAssign : request.permissions()) {
             Permission permission = permissionRepository.findByName(pAssign.permissionName())
@@ -324,15 +344,17 @@ public class RoleService {
             rps.setPermission(permission);
             rps.setScope(scope);
             
-            if (pAssign.resourceId() != null && pAssign.resourceType() != null) {
-                com.example.taskflow.organization.rbac.domain.ResourceAssignment ra = new com.example.taskflow.organization.rbac.domain.ResourceAssignment();
-                ra.setRolePermissionScope(rps);
-                ra.setResourceId(pAssign.resourceId());
-                ra.setResourceType(pAssign.resourceType());
+            if (pAssign.resourceAssignments() != null && !pAssign.resourceAssignments().isEmpty()) {
                 if (rps.getResourceAssignments() == null) {
                     rps.setResourceAssignments(new java.util.ArrayList<>());
                 }
-                rps.getResourceAssignments().add(ra);
+                for (var raDTO : pAssign.resourceAssignments()) {
+                    com.example.taskflow.organization.rbac.domain.ResourceAssignment ra = new com.example.taskflow.organization.rbac.domain.ResourceAssignment();
+                    ra.setRolePermissionScope(rps);
+                    ra.setResourceId(raDTO.resourceId());
+                    ra.setResourceType(raDTO.resourceType());
+                    rps.getResourceAssignments().add(ra);
+                }
             }
             
             role.getRolePermissionScopes().add(rps);
@@ -341,12 +363,12 @@ public class RoleService {
         roleRepository.save(role);
 
         
-        Set<PermissionResponseDTO> newPermsDTO = role.getRolePermissionScopes().stream()
-            .map(rps -> mapToPermissionResponseDTO(rps.getPermission(), rps.getScope() != null ? rps.getScope().getCode() : "ORGANIZATION")).collect(Collectors.toSet());
+        Set<com.example.taskflow.organization.rbac.dto.RolePermissionAssignmentDTO> newPermsDTO = role.getRolePermissionScopes().stream()
+            .map(this::mapToRolePermissionAssignmentDTO).collect(Collectors.toSet());
             
         auditService.recordSync("ROLE_PERMISSIONS_CHANGED", caller, "ROLE", id,
                 oldPerms.stream().map(p -> p.getName()).collect(Collectors.toList()),
-                newPermsDTO.stream().map(p -> p.getName()).collect(Collectors.toList()),
+                newPermsDTO.stream().map(p -> p.permissionCode()).collect(Collectors.toList()),
                 "Updated permissions for role: " + role.getName());
         
         return newPermsDTO;

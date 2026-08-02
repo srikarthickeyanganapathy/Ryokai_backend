@@ -96,13 +96,13 @@ public class OrganizationRoleController {
 
     @PutMapping("/{id}/roles/{roleId}/permissions")
     @PreAuthorize("hasPermission(#id, 'Organization', 'ROLE_UPDATE') or hasRole('SUPER_ADMIN')")
-    public ResponseEntity<Set<PermissionResponseDTO>> updateRolePermissions(
+    public ResponseEntity<Set<com.example.taskflow.organization.rbac.dto.RolePermissionAssignmentDTO>> updateRolePermissions(
             @PathVariable @Min(1) Long id,
             @PathVariable @Min(1) Long roleId,
             @Valid @RequestBody AssignPermissionsRequestDTO request,
             @AuthenticationPrincipal UserDetails userDetails) {
         User user = getCurrentUser(userDetails);
-        Set<PermissionResponseDTO> response = organizationRoleService.assignRolePermissions(roleId, request, user);
+        Set<com.example.taskflow.organization.rbac.dto.RolePermissionAssignmentDTO> response = organizationRoleService.assignRolePermissions(roleId, request, user);
         return ResponseEntity.ok(response);
     }
 }

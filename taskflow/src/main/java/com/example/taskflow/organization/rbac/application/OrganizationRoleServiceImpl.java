@@ -41,7 +41,7 @@ public class OrganizationRoleServiceImpl implements OrganizationRoleService {
     }
 
     @Override
-    public Set<PermissionResponseDTO> assignRolePermissions(Long roleId, AssignPermissionsRequestDTO request, User caller) {
+    public Set<com.example.taskflow.organization.rbac.dto.RolePermissionAssignmentDTO> assignRolePermissions(Long roleId, AssignPermissionsRequestDTO request, User caller) {
         return roleService.assignRolePermissions(roleId, request, caller);
     }
 }

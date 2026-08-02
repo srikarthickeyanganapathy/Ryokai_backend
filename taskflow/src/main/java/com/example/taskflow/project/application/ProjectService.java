@@ -84,23 +84,10 @@ public class ProjectService {
         var memberships = membershipRepository.findByUserId(currentUser.getId());
         if (!memberships.isEmpty()) {
             Organization org = memberships.get(0).getOrganization();
-            boolean hasProjectManage = hasOrgPermission(currentUser, org, PermissionCode.PROJECT_UPDATE);
-            boolean hasSuperAdminOverride = currentUser.isSuperAdmin();
-
             List<Project> orgProjects = projectRepository.findByOrganizationId(org.getId());
-            
             for (Project p : orgProjects) {
-                if (p.getTeam() == null) {
-                    // Organization-scoped projects (no team) are visible to all org members
+                if (canViewProject(currentUser, p)) {
                     result.add(p);
-                } else {
-                    // Team-scoped projects: check visibility
-                    boolean isTeamMember = teamMemberRepository.existsByIdTeamIdAndIdUserId(p.getTeam().getId(), currentUser.getId());
-                    boolean isTeamObserver = teamObserverRepository.existsByIdTeamIdAndIdUserId(p.getTeam().getId(), currentUser.getId());
-                    
-                    if (isTeamMember || isTeamObserver || hasProjectManage || hasSuperAdminOverride) {
-                        result.add(p);
-                    }
                 }
             }
         }
@@ -157,12 +144,14 @@ public class ProjectService {
         if (p.getOrganization() != null) {
             boolean hasProjectManage = hasOrgPermission(currentUser, p.getOrganization(), PermissionCode.PROJECT_UPDATE);
             if (hasProjectManage) return true;
-            if (p.getTeam() == null) {
-                return membershipRepository.existsByUserIdAndOrganizationId(currentUser.getId(), p.getOrganization().getId());
-            } else {
-                return teamMemberRepository.existsByIdTeamIdAndIdUserId(p.getTeam().getId(), currentUser.getId()) ||
-                       teamObserverRepository.existsByIdTeamIdAndIdUserId(p.getTeam().getId(), currentUser.getId());
-            }
+            
+            com.example.taskflow.security.authorization.AuthorizationRequest viewReq = com.example.taskflow.security.authorization.AuthorizationRequest.builder(currentUser, PermissionCode.PROJECT_VIEW)
+                    .resourceType("PROJECT")
+                    .resourceId(p.getId())
+                    .requiredScope(com.example.taskflow.security.ScopeType.PROJECT)
+                    .context(java.util.Map.of("organizationId", p.getOrganization().getId(), "projectId", p.getId()))
+                    .build();
+            return authorizationEngine.authorize(viewReq).isGranted();
         }
         if (p.getSharedCrews() != null && !p.getSharedCrews().isEmpty()) {
             return p.getSharedCrews().stream().anyMatch(crew -> crewMemberRepository.existsByIdCrewIdAndIdUserId(crew.getId(), currentUser.getId()));

@@ -82,13 +82,13 @@ public class PlatformRoleController {
 
     @GetMapping("/roles/{id}/permissions")
     @PlatformAuthorize(PlatformPermission.PLATFORM_SETTINGS_VIEW)
-    public ResponseEntity<Set<PermissionResponseDTO>> getRolePermissions(@PathVariable Long id) {
+    public ResponseEntity<Set<com.example.taskflow.organization.rbac.dto.RolePermissionAssignmentDTO>> getRolePermissions(@PathVariable Long id) {
         return ResponseEntity.ok(roleService.getRolePermissions(id));
     }
 
     @PutMapping("/roles/{id}/permissions")
     @PlatformAuthorize(PlatformPermission.PLATFORM_SETTINGS_UPDATE)
-    public ResponseEntity<Set<PermissionResponseDTO>> assignRolePermissions(
+    public ResponseEntity<Set<com.example.taskflow.organization.rbac.dto.RolePermissionAssignmentDTO>> assignRolePermissions(
             @PathVariable Long id,
             @Valid @RequestBody AssignPermissionsRequestDTO request,
             @AuthenticationPrincipal UserDetails principal) {

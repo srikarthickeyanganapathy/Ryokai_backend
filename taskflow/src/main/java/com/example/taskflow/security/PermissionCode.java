@@ -37,7 +37,7 @@ public enum PermissionCode {
     // =====================================================================
     // TEAMS (8)
     // =====================================================================
-    TEAM_VIEW("View team details and roster", PermissionModule.TEAM, PermissionCategory.CRUD, true),
+    TEAM_VIEW("View team details and roster", PermissionModule.TEAM, PermissionCategory.CRUD, false),
     TEAM_CREATE("Create new teams", PermissionModule.TEAM, PermissionCategory.CRUD, false),
     TEAM_UPDATE("Update team metadata", PermissionModule.TEAM, PermissionCategory.CRUD, false),
     TEAM_DELETE("Delete a team", PermissionModule.TEAM, PermissionCategory.CRUD, false),
@@ -49,7 +49,7 @@ public enum PermissionCode {
     // =====================================================================
     // PROJECTS (11)
     // =====================================================================
-    PROJECT_VIEW("View project details and metadata", PermissionModule.PROJECT, PermissionCategory.CRUD, true),
+    PROJECT_VIEW("View project details and metadata", PermissionModule.PROJECT, PermissionCategory.CRUD, false),
     PROJECT_CREATE("Create new projects", PermissionModule.PROJECT, PermissionCategory.CRUD, false),
     PROJECT_UPDATE("Update project metadata", PermissionModule.PROJECT, PermissionCategory.CRUD, false),
     PROJECT_DELETE("Permanently delete a project", PermissionModule.PROJECT, PermissionCategory.CRUD, false),

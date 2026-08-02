@@ -14,7 +14,14 @@ public record AssignPermissionsRequestDTO(
         @NotNull(message = "Scope code cannot be null")
         String scopeCode,
 
-        Long resourceId,
-        String resourceType
+        List<ResourceAssignmentDTO> resourceAssignments
+    ) {}
+
+    public record ResourceAssignmentDTO(
+        @NotNull(message = "Resource Type cannot be null")
+        String resourceType,
+        
+        @NotNull(message = "Resource ID cannot be null")
+        Long resourceId
     ) {}
 }

@@ -17,5 +17,5 @@ public interface OrganizationRoleService {
     RoleResponseDTO createRole(RoleCreateRequestDTO request, User caller);
     RoleResponseDTO updateRole(Long roleId, RoleUpdateRequestDTO request, User caller);
     void deleteRole(Long roleId, User caller);
-    Set<PermissionResponseDTO> assignRolePermissions(Long roleId, AssignPermissionsRequestDTO request, User caller);
+    Set<com.example.taskflow.organization.rbac.dto.RolePermissionAssignmentDTO> assignRolePermissions(Long roleId, AssignPermissionsRequestDTO request, User caller);
 }

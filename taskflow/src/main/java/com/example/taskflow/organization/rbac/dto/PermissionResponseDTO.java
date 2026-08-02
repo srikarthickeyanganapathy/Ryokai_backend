@@ -76,4 +76,8 @@ public class PermissionResponseDTO {
     public String getActionRules() {
         return com.example.taskflow.security.PermissionMetadataRegistry.getActionRules(this.code);
     }
+
+    public boolean isRequiresResourceAssignment() {
+        return com.example.taskflow.security.PermissionMetadataRegistry.requiresResourceAssignment(this.code);
+    }
 }
