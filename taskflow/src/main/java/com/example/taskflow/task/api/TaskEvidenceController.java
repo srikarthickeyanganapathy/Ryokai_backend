@@ -14,6 +14,7 @@ import java.util.List;
 import com.example.taskflow.user.domain.User;
 import com.example.taskflow.task.api.response.TaskEvidenceDTO;
 import com.example.taskflow.task.api.request.TaskEvidenceRequestDTO;
+import com.example.taskflow.task.api.response.ImageUploadResponseDTO;
 import com.example.taskflow.task.application.command.TaskEvidenceService;
 import com.example.taskflow.user.application.UserService;
 
@@ -67,13 +68,14 @@ public class TaskEvidenceController {
 
     @PostMapping("/{taskId}/evidence/upload")
     @PreAuthorize("hasPermission(#taskId, 'Task', 'TASK_UPDATE')")
-    public ResponseEntity<java.util.Map<String, String>> uploadEvidenceImage(
+    public ResponseEntity<ImageUploadResponseDTO> uploadEvidenceImage(
             @PathVariable @Min(1) Long taskId,
             @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
             @AuthenticationPrincipal UserDetails userDetails) {
         // Just return a dummy URL for now or store it locally.
         // We will mock this to return an image key for now.
         String imageKey = "mock_uploaded_image_key_" + System.currentTimeMillis() + "_" + file.getOriginalFilename();
-        return ResponseEntity.ok(java.util.Map.of("imageKey", imageKey));
+        ImageUploadResponseDTO response = new ImageUploadResponseDTO(imageKey, file.getOriginalFilename(), "SUCCESS");
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 }

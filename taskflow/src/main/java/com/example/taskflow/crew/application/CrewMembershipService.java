@@ -251,6 +251,10 @@ public class CrewMembershipService {
         CrewMember target = crewMemberRepository.findById(new CrewMemberId(crewId, targetUserId))
                 .orElseThrow(() -> new ResourceNotFoundException("Member not found in crew"));
 
+        if (target.getRole() == CrewRole.CREATOR || targetUserId.equals(crew.getCreator().getId())) {
+            throw new IllegalStateException("Cannot remove the crew creator from the crew.");
+        }
+
         crewMemberRepository.delete(target);
     }
 

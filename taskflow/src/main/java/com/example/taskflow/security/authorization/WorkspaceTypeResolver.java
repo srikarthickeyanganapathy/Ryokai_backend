@@ -44,7 +44,11 @@ public final class WorkspaceTypeResolver {
         if (target instanceof Task task) {
             return fromTask(task);
         }
-        // Projects, organizations, teams, goals, etc. are always org-scoped
+        if (target instanceof com.example.taskflow.project.domain.Project project) {
+            if (project.getOrganization() != null) return WorkspaceType.ORGANIZATION;
+            if (project.getCrew() != null) return WorkspaceType.CREW;
+            return WorkspaceType.PERSONAL;
+        }
         return WorkspaceType.ORGANIZATION;
     }
 

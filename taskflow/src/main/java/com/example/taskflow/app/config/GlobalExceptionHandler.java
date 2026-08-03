@@ -50,7 +50,16 @@ public class GlobalExceptionHandler {
         String message = ex.getBindingResult().getFieldErrors().stream()
                 .map(error -> error.getField() + ": " + error.getDefaultMessage())
                 .collect(Collectors.joining(", "));
-        return new ResponseEntity<>(createErrorResponse(HttpStatus.BAD_REQUEST, "Bad Request", message, "VALIDATION_FAILED", request), HttpStatus.BAD_REQUEST);
+        
+        Map<String, String> errors = new HashMap<>();
+        ex.getBindingResult().getFieldErrors().forEach(error -> 
+            errors.put(error.getField(), error.getDefaultMessage())
+        );
+        
+        Map<String, Object> response = createErrorResponse(HttpStatus.BAD_REQUEST, "Bad Request", message, "VALIDATION_FAILED", request);
+        response.put("errors", errors);
+        
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }
     
     @ExceptionHandler(ConstraintViolationException.class)

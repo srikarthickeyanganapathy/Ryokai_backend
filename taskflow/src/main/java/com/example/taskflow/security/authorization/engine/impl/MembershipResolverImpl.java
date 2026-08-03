@@ -35,15 +35,12 @@ public class MembershipResolverImpl implements MembershipResolver {
 
         switch (request.getWorkspaceType()) {
             case PERSONAL:
-                return AuthorizationDecision.abstain("Personal workspace requires explicit ownership check");
+                return AuthorizationDecision.allow("MEMBERSHIP", "User granted access in Personal workspace");
 
             case CREW:
                 Long crewId = extractId(request, "crewId");
                 if (crewId != null && crewRepo.existsByIdCrewIdAndIdUserId(crewId, request.getUser().getId())) {
-                    if (request.getAction() != null && request.getAction().isMembershipIntrinsic()) {
-                        return AuthorizationDecision.allow("MEMBERSHIP", "User is a Crew member (Intrinsic)");
-                    }
-                    return AuthorizationDecision.abstain("User is a Crew member evaluating non-intrinsic action");
+                    return AuthorizationDecision.allow("MEMBERSHIP", "User is a member of the Crew");
                 }
                 return AuthorizationDecision.deny("MEMBERSHIP", "User is not a Crew member");
 

@@ -22,6 +22,9 @@ import org.springframework.security.authentication.AuthenticationCredentialsNotF
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @Component
 @RequiredArgsConstructor
@@ -34,6 +37,10 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
     private final WhiteboardRepository whiteboardRepository;
     private final CrewMemberRepository crewMemberRepository;
     private final CustomPermissionEvaluator permissionEvaluator;
+
+    @Autowired
+    @Lazy
+    private SimpMessagingTemplate messagingTemplate;
 
     @Override
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
@@ -81,8 +88,15 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
                     if (!permissionEvaluator.hasPermission((Authentication) accessor.getUser(), task, "TASK_VIEW")) {
                         throw new org.springframework.security.access.AccessDeniedException("Access denied for task " + taskId);
                     }
-                } catch (NumberFormatException e) {
-                    throw new org.springframework.security.access.AccessDeniedException("Invalid task ID format in destination");
+                } catch (Exception e) {
+                    if (accessor.getUser() != null) {
+                        messagingTemplate.convertAndSendToUser(
+                            accessor.getUser().getName(), 
+                            "/queue/errors", 
+                            "Subscription denied: " + destination
+                        );
+                    }
+                    return null;
                 }
             } else if (destination != null && destination.startsWith("/topic/whiteboards/")) {
                 try {
@@ -103,8 +117,15 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
                     if (!isMember) {
                         throw new org.springframework.security.access.AccessDeniedException("Not a member of this crew");
                     }
-                } catch (NumberFormatException e) {
-                    throw new org.springframework.security.access.AccessDeniedException("Invalid board ID format");
+                } catch (Exception e) {
+                    if (accessor.getUser() != null) {
+                        messagingTemplate.convertAndSendToUser(
+                            accessor.getUser().getName(), 
+                            "/queue/errors", 
+                            "Subscription denied: " + destination
+                        );
+                    }
+                    return null;
                 }
             }
         } else if (accessor != null && StompCommand.SEND.equals(accessor.getCommand())) {

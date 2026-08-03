@@ -65,7 +65,7 @@ public class CrewChannelService {
     @Transactional
     public CrewChannelDTO createChannel(Long crewId, User user, CrewChannelRequestDTO dto) {
         Crew crew = getCrewEntity(crewId);
-        validateCreator(crew, user);
+        validateMembership(crewId, user);
 
         CrewChannel channel = new CrewChannel();
         channel.setCrew(crew);

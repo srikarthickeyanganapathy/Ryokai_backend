@@ -24,6 +24,7 @@ import org.springframework.beans.factory.annotation.Value;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import com.example.taskflow.task.application.orchestration.TaskAuditService;
+import com.example.taskflow.integration.websocket.RealtimeBroadcaster;
 
 @Service
 @RequiredArgsConstructor
@@ -39,6 +40,7 @@ public class TaskLifecycleService {
     private final TaskStrategyFactory taskStrategyFactory;
     private final TaskAuditService taskAuditService;
     private final TaskResponseMapper taskResponseMapper;
+    private final RealtimeBroadcaster realtimeBroadcaster;
 
     @Value("${app.timezone:UTC}")
     private ZoneId zoneId = ZoneId.of("UTC");
@@ -71,7 +73,9 @@ public class TaskLifecycleService {
         
         Task updated = taskRepository.save(task);
         taskAuditService.recordStatus(updated, updated.getCurrentStatus().name(), updated.getCurrentStatus().name(), "UPDATED", user, "Task details updated", java.util.Map.of("priority", request.getPriority() != null ? request.getPriority().name() : "none"));
-        return taskResponseMapper.mapToTaskResponseDTO(updated);
+        TaskResponseDTO taskDTO = taskResponseMapper.mapToTaskResponseDTO(updated);
+        realtimeBroadcaster.broadcastTaskUpdate(taskDTO, taskId);
+        return taskDTO;
     }
 
     @Transactional
@@ -106,7 +110,9 @@ public class TaskLifecycleService {
         Task updated = taskRepository.save(task);
         taskAuditService.recordStatus(updated, updated.getCurrentStatus().name(), updated.getCurrentStatus().name(),
             updated.isArchived() ? "ARCHIVED" : "UNARCHIVED", user, null, java.util.Map.of("archived", updated.isArchived()));
-        return taskResponseMapper.mapToTaskResponseDTO(updated);
+        TaskResponseDTO taskDTO = taskResponseMapper.mapToTaskResponseDTO(updated);
+        realtimeBroadcaster.broadcastTaskUpdate(taskDTO, taskId);
+        return taskDTO;
     }
 
     @Transactional
@@ -151,7 +157,9 @@ public class TaskLifecycleService {
         }
         Task updated = taskRepository.save(task);
         taskAuditService.recordStatus(updated, updated.getCurrentStatus().name(), updated.getCurrentStatus().name(), "REASSIGNED", user, "Reassigned to " + newAssignee.getUsername());
-        return taskResponseMapper.mapToTaskResponseDTO(updated);
+        TaskResponseDTO taskDTO = taskResponseMapper.mapToTaskResponseDTO(updated);
+        realtimeBroadcaster.broadcastTaskUpdate(taskDTO, taskId);
+        return taskDTO;
     }
 
     private Task getTask(Long taskId) {

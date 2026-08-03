@@ -17,8 +17,10 @@ public class ProjectRequestDTO {
     private Long organizationId;
     private Long teamId;
     private Long crewId;
+    private Boolean isPersonal;
     private List<Long> collaboratorIds;
     private LocalDate dueDate;
+    private com.example.taskflow.project.domain.Project.ProjectStatus status;
 
     public ProjectRequestDTO() {}
 
@@ -40,9 +42,15 @@ public class ProjectRequestDTO {
     public Long getCrewId() { return crewId; }
     public void setCrewId(Long crewId) { this.crewId = crewId; }
 
+    public Boolean getIsPersonal() { return isPersonal; }
+    public void setIsPersonal(Boolean isPersonal) { this.isPersonal = isPersonal; }
+
     public List<Long> getCollaboratorIds() { return collaboratorIds; }
     public void setCollaboratorIds(List<Long> collaboratorIds) { this.collaboratorIds = collaboratorIds; }
 
     public LocalDate getDueDate() { return dueDate; }
     public void setDueDate(LocalDate dueDate) { this.dueDate = dueDate; }
+
+    public com.example.taskflow.project.domain.Project.ProjectStatus getStatus() { return status; }
+    public void setStatus(com.example.taskflow.project.domain.Project.ProjectStatus status) { this.status = status; }
 }

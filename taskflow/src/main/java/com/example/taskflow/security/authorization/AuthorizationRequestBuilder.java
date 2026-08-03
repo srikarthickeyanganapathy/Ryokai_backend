@@ -12,28 +12,29 @@ import java.util.Set;
 @Component
 public class AuthorizationRequestBuilder {
 
-    public AuthorizationRequest build(User user, 
-                                      PermissionCode permission, 
-                                      String resourceType, 
-                                      Long resourceId,
-                                      WorkspaceType workspaceType, 
-                                      ScopeType requiredScope, 
-                                      Map<String, Long> context, 
-                                      Set<OwnershipRole> ownership) {
-        
-        return build(user, permission, resourceType, resourceId, workspaceType, requiredScope, context, ownership, java.util.Collections.emptyMap());
+    public AuthorizationRequest build(User user,
+            PermissionCode permission,
+            String resourceType,
+            Long resourceId,
+            WorkspaceType workspaceType,
+            ScopeType requiredScope,
+            Map<String, Long> context,
+            Set<OwnershipRole> ownership) {
+
+        return build(user, permission, resourceType, resourceId, workspaceType, requiredScope, context, ownership,
+                java.util.Collections.emptyMap());
     }
 
-    public AuthorizationRequest build(User user, 
-                                      PermissionCode permission, 
-                                      String resourceType, 
-                                      Long resourceId,
-                                      WorkspaceType workspaceType, 
-                                      ScopeType requiredScope, 
-                                      Map<String, Long> context, 
-                                      Set<OwnershipRole> ownership,
-                                      Map<String, Object> policyContext) {
-        
+    public AuthorizationRequest build(User user,
+            PermissionCode permission,
+            String resourceType,
+            Long resourceId,
+            WorkspaceType workspaceType,
+            ScopeType requiredScope,
+            Map<String, Long> context,
+            Set<OwnershipRole> ownership,
+            Map<String, Object> policyContext) {
+
         return AuthorizationRequest.builder(user, permission)
                 .resourceType(resourceType)
                 .resourceId(resourceId)
@@ -61,37 +62,56 @@ public class AuthorizationRequestBuilder {
 
     public AuthorizationRequest buildFromDto(User user, PermissionCode permission, Object dto, String resourceType) {
         Map<String, Long> context = new java.util.HashMap<>();
-        
+        Boolean isPersonal = null;
+
         try {
-            // Best-effort context extraction without DB queries (keeps builder focused on request construction)
+            // Best-effort context extraction without DB queries (keeps builder focused on
+            // request construction)
             java.lang.reflect.Method getProjectId = getMethodSafe(dto.getClass(), "getProjectId");
-            if (getProjectId != null) context.put("projectId", (Long) getProjectId.invoke(dto));
-            
+            if (getProjectId != null)
+                context.put("projectId", (Long) getProjectId.invoke(dto));
+
             java.lang.reflect.Method getTeamId = getMethodSafe(dto.getClass(), "getTeamId");
-            if (getTeamId != null) context.put("teamId", (Long) getTeamId.invoke(dto));
-            
+            if (getTeamId != null)
+                context.put("teamId", (Long) getTeamId.invoke(dto));
+
             java.lang.reflect.Method getOrgId = getMethodSafe(dto.getClass(), "getOrganizationId");
             if (getOrgId != null) {
                 context.put("organizationId", (Long) getOrgId.invoke(dto));
             } else {
                 java.lang.reflect.Method getOrgIdAlt = getMethodSafe(dto.getClass(), "getOrgId");
-                if (getOrgIdAlt != null) context.put("organizationId", (Long) getOrgIdAlt.invoke(dto));
+                if (getOrgIdAlt != null)
+                    context.put("organizationId", (Long) getOrgIdAlt.invoke(dto));
             }
-            
+
             java.lang.reflect.Method getCrewId = getMethodSafe(dto.getClass(), "getCrewId");
-            if (getCrewId != null) context.put("crewId", (Long) getCrewId.invoke(dto));
+            if (getCrewId != null)
+                context.put("crewId", (Long) getCrewId.invoke(dto));
+
+            java.lang.reflect.Method getIsPersonal = getMethodSafe(dto.getClass(), "getIsPersonal");
+            if (getIsPersonal != null) {
+                Object res = getIsPersonal.invoke(dto);
+                if (res instanceof Boolean b)
+                    isPersonal = b;
+            }
 
         } catch (Exception e) {
             // Ignore reflection errors, proceed with what we extracted
         }
-        
-        // Scope type defaults to the recommended scope for the permission, workspace type to ORGANIZATION 
-        // (since we can't query DB here, this provides a fallback safe evaluation context)
-        ScopeType scope = ScopeType.valueOf(com.example.taskflow.security.PermissionMetadataRegistry.getRecommendedScope(permission.name()));
-        
-        return build(user, permission, resourceType, null, WorkspaceType.ORGANIZATION, scope, context, java.util.Collections.emptySet());
+
+        ScopeType scope = ScopeType.valueOf(
+                com.example.taskflow.security.PermissionMetadataRegistry.getRecommendedScope(permission.name()));
+
+        boolean isPersonalBool = Boolean.TRUE.equals(isPersonal);
+        WorkspaceType workspaceType = WorkspaceTypeResolver.fromContext(
+                context.get("organizationId"),
+                context.get("crewId"),
+                isPersonalBool);
+
+        return build(user, permission, resourceType, null, workspaceType, scope, context,
+                java.util.Collections.emptySet());
     }
-    
+
     private java.lang.reflect.Method getMethodSafe(Class<?> clazz, String methodName) {
         try {
             return clazz.getMethod(methodName);

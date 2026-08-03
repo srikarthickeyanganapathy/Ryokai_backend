@@ -218,6 +218,7 @@ public class ProjectService {
         if (dto.getName() != null) project.setName(dto.getName());
         if (dto.getDescription() != null) project.setDescription(dto.getDescription());
         if (dto.getDueDate() != null) project.setDueDate(dto.getDueDate());
+        if (dto.getStatus() != null) project.setStatus(dto.getStatus());
         
         boolean changingOrgOrTeam = dto.getTeamId() != null || dto.getOrganizationId() != null;
         if (changingOrgOrTeam && project.getOrganization() != null) {

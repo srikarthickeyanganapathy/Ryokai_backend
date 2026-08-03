@@ -60,11 +60,6 @@ public class TaskAssignmentController {
         User assignee = userService.getCurrentUser(request.getAssigneeUsername());
 
         com.example.taskflow.task.domain.model.TaskScope scope = com.example.taskflow.task.domain.model.TaskScope.org(request.getTeamId());
-        if (request.getTeamId() != null) {
-            scope = com.example.taskflow.task.domain.model.TaskScope.org(request.getTeamId());
-        } else {
-            scope = com.example.taskflow.task.domain.model.TaskScope.org(null);
-        }
         
         com.example.taskflow.task.api.request.TaskAssignmentCommand cmd = com.example.taskflow.task.api.request.TaskAssignmentCommand.builder()
                 .request(request)
