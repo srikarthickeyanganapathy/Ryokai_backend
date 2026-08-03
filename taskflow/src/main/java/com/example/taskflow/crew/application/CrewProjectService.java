@@ -96,7 +96,10 @@ public class CrewProjectService {
 
         if (project.getSharedCrews().contains(crew)) {
             project.getSharedCrews().remove(crew);
-            projectRepository.save(project);
         }
+        if (project.getCrew() != null && project.getCrew().getId().equals(crewId)) {
+            project.setCrew(null);
+        }
+        projectRepository.save(project);
     }
 }

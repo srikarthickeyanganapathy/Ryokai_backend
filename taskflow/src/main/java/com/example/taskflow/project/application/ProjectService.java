@@ -322,7 +322,7 @@ public class ProjectService {
                     "Only the project creator can unshare it from a crew.");
         }
 
-        if (project.getCrew() == null) {
+        if (project.getCrew() == null && (project.getSharedCrews() == null || project.getSharedCrews().isEmpty())) {
             throw new IllegalStateException("Project is not currently shared with a crew.");
         }
 
@@ -330,6 +330,9 @@ public class ProjectService {
         taskRepository.detachProjectFromTasks(projectId);
 
         project.setCrew(null);
+        if (project.getSharedCrews() != null) {
+            project.getSharedCrews().clear();
+        }
         project.setCollaborators(new java.util.HashSet<>());
 
         return toResponseDTO(projectRepository.save(project));
