@@ -9,10 +9,10 @@ import com.example.taskflow.organization.core.domain.Organization;
 import com.example.taskflow.user.domain.User;
 
 @Entity
-@Table(name = "employee_leave_requests")
+@Table(name = "exit_requests")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor
 @EqualsAndHashCode(of = "id")
-public class LeaveRequest {
+public class ExitRequest {
 
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -25,54 +25,47 @@ public class LeaveRequest {
     @JoinColumn(name = "organization_id", nullable = false)
     private Organization organization;
 
-    @Column(name = "leave_type", nullable = false, length = 30)
-    private String leaveType = "VACATION";
-
     @Column(columnDefinition = "TEXT")
     private String reason;
 
-    @Column(name = "start_date", nullable = false)
-    private LocalDate startDate;
-
-    @Column(name = "end_date", nullable = false)
-    private LocalDate endDate;
-
-    @Column(name = "working_days", nullable = false)
-    private Integer workingDays = 0;
-
-    @Column(name = "calendar_days", nullable = false)
-    private Integer calendarDays = 0;
-
-    @Column(name = "is_half_day", nullable = false)
-    private Boolean isHalfDay = false;
-
-    @Column(name = "is_emergency", nullable = false)
-    private Boolean isEmergency = false;
-
-    @Column(name = "attachment_url")
-    private String attachmentUrl;
-
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
-    private LeaveRequestStatus status = LeaveRequestStatus.PENDING;
+    private ExitRequestStatus status = ExitRequestStatus.PENDING;
 
-    @Column(name = "admin_comment", columnDefinition = "TEXT")
-    private String adminComment;
+    @Column(name = "decision_comment", columnDefinition = "TEXT")
+    private String decisionComment;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reviewed_by_id")
     private User reviewedBy;
 
     @CreationTimestamp
-    @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt;
+    @Column(name = "requested_at", updatable = false)
+    private LocalDateTime requestedAt;
 
     @Column(name = "reviewed_at")
     private LocalDateTime reviewedAt;
 
-    public enum LeaveRequestStatus {
+    @Column(name = "effective_exit_date")
+    private LocalDate effectiveExitDate;
+
+    public User getRequestedBy() {
+        return user;
+    }
+
+    public void setRequestedBy(User user) {
+        this.user = user;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return requestedAt;
+    }
+
+    public enum ExitRequestStatus {
         PENDING,
         APPROVED,
+        OFFBOARDING,
+        COMPLETED,
         REJECTED,
         CANCELLED
     }

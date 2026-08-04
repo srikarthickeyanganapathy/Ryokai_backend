@@ -24,7 +24,7 @@ public enum PermissionCode {
     ORG_TRANSFER_OWNERSHIP("Transfer organization ownership to another member", PermissionModule.ORGANIZATION, PermissionCategory.WORKFLOW, false),
 
     // =====================================================================
-    // MEMBERS (7)
+    // MEMBERS (8)
     // =====================================================================
     MEMBER_VIEW("View member profiles and directory", PermissionModule.MEMBER, PermissionCategory.CRUD, true),
     MEMBER_INVITE("Send membership invitations", PermissionModule.MEMBER, PermissionCategory.MEMBERSHIP, false),
@@ -33,6 +33,11 @@ public enum PermissionCode {
     MEMBER_SUSPEND("Temporarily suspend a member's access", PermissionModule.MEMBER, PermissionCategory.WORKFLOW, false),
     MEMBER_REACTIVATE("Reactivate a suspended member", PermissionModule.MEMBER, PermissionCategory.WORKFLOW, false),
     MEMBER_EXPORT("Export member directory data", PermissionModule.MEMBER, PermissionCategory.EXPORT, false),
+    MEMBER_EXIT_APPROVE("Approve or reject organization exit requests", PermissionModule.MEMBER, PermissionCategory.WORKFLOW, false),
+    EXIT_REQUEST_CREATE("Submit an organization exit request", PermissionModule.MEMBER, PermissionCategory.WORKFLOW, false),
+    EXIT_REQUEST_VIEW("View organization exit requests", PermissionModule.MEMBER, PermissionCategory.WORKFLOW, false),
+    EXIT_REQUEST_APPROVE("Approve organization exit requests", PermissionModule.MEMBER, PermissionCategory.WORKFLOW, false),
+    EXIT_REQUEST_REJECT("Reject organization exit requests", PermissionModule.MEMBER, PermissionCategory.WORKFLOW, false),
 
     // =====================================================================
     // TEAMS (8)

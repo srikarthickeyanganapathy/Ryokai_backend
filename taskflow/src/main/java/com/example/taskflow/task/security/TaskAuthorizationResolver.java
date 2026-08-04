@@ -53,7 +53,9 @@ public class TaskAuthorizationResolver implements AuthorizationResourceResolver 
             if (task.getProject() != null) context.put("projectId", task.getProject().getId());
             if (task.getProject() != null && task.getProject().getTeam() != null) context.put("teamId", task.getProject().getTeam().getId());
             
-            if (type == WorkspaceType.CREW && task.getProject() != null && task.getProject().getCrew() != null) {
+            if (task.getCrew() != null) {
+                context.put("crewId", task.getCrew().getId());
+            } else if (type == WorkspaceType.CREW && task.getProject() != null && task.getProject().getCrew() != null) {
                 context.put("crewId", task.getProject().getCrew().getId());
             }
 

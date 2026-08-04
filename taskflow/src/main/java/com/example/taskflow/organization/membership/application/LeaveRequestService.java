@@ -1,55 +1,73 @@
 package com.example.taskflow.organization.membership.application;
 
+import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.example.taskflow.notification.application.NotificationService;
+import com.example.taskflow.notification.event.NotificationEvent;
 import com.example.taskflow.organization.core.domain.Organization;
 import com.example.taskflow.organization.core.infrastructure.persistence.OrganizationRepository;
 import com.example.taskflow.organization.membership.domain.LeaveRequest;
 import com.example.taskflow.organization.membership.domain.OrganizationMembership;
+import com.example.taskflow.organization.membership.dto.CreateLeaveRequestDTO;
 import com.example.taskflow.organization.membership.dto.LeaveRequestDTO;
 import com.example.taskflow.organization.membership.infrastructure.persistence.LeaveRequestRepository;
 import com.example.taskflow.organization.membership.infrastructure.persistence.OrganizationMembershipRepository;
+import com.example.taskflow.security.PermissionCode;
+import com.example.taskflow.security.ScopeType;
+import com.example.taskflow.security.authorization.AuthorizationRequest;
 import com.example.taskflow.security.authorization.engine.AuthorizationEngine;
 import com.example.taskflow.shared.exception.UnauthorizedActionException;
-import com.example.taskflow.task.infrastructure.persistence.TaskRepository;
-import com.example.taskflow.team.application.TeamService;
 import com.example.taskflow.user.domain.User;
 
 @Service
-public class OrganizationLeaveService {
+public class LeaveRequestService {
 
     private final OrganizationRepository organizationRepository;
     private final OrganizationMembershipRepository membershipRepository;
     private final LeaveRequestRepository leaveRequestRepository;
-    private final TaskRepository taskRepository;
     private final NotificationService notificationService;
-    private final TeamService teamService;
     private final AuthorizationEngine authorizationEngine;
 
-    public OrganizationLeaveService(OrganizationRepository organizationRepository,
-                                    OrganizationMembershipRepository membershipRepository,
-                                    LeaveRequestRepository leaveRequestRepository,
-                                    TaskRepository taskRepository,
-                                    NotificationService notificationService,
-                                    TeamService teamService,
-                                    AuthorizationEngine authorizationEngine) {
+    public LeaveRequestService(OrganizationRepository organizationRepository,
+                               OrganizationMembershipRepository membershipRepository,
+                               LeaveRequestRepository leaveRequestRepository,
+                               NotificationService notificationService,
+                               AuthorizationEngine authorizationEngine) {
         this.organizationRepository = organizationRepository;
         this.membershipRepository = membershipRepository;
         this.leaveRequestRepository = leaveRequestRepository;
-        this.taskRepository = taskRepository;
         this.notificationService = notificationService;
-        this.teamService = teamService;
         this.authorizationEngine = authorizationEngine;
     }
 
+    private int countWorkingDays(LocalDate start, LocalDate end) {
+        int workingDays = 0;
+        LocalDate current = start;
+        while (!current.isAfter(end)) {
+            DayOfWeek dow = current.getDayOfWeek();
+            if (dow != DayOfWeek.SATURDAY && dow != DayOfWeek.SUNDAY) {
+                workingDays++;
+            }
+            current = current.plusDays(1);
+        }
+        return workingDays;
+    }
+
+    private int countCalendarDays(LocalDate start, LocalDate end) {
+        return (int) ChronoUnit.DAYS.between(start, end) + 1;
+    }
+
     @Transactional
-    public LeaveRequestDTO requestLeave(Long orgId, User user, String reason) {
+    public LeaveRequestDTO requestLeave(Long orgId, User user, CreateLeaveRequestDTO dto) {
         Organization org = organizationRepository.findById(orgId)
                 .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + orgId));
 
@@ -57,26 +75,47 @@ public class OrganizationLeaveService {
             throw new IllegalArgumentException("You are not a member of this organization");
         }
 
-        if (leaveRequestRepository.existsByUserAndOrganizationAndStatus(user, org,
-                LeaveRequest.LeaveRequestStatus.PENDING)) {
-            throw new IllegalStateException("You already have a pending leave request for this organization.");
+        if (leaveRequestRepository.existsByUserAndOrganizationAndStatus(user, org, LeaveRequest.LeaveRequestStatus.PENDING)) {
+            throw new IllegalStateException("You already have a pending workforce leave request for this organization.");
+        }
+
+        LocalDate startDate = (dto != null && dto.getStartDate() != null) ? dto.getStartDate() : LocalDate.now();
+        LocalDate endDate = (dto != null && dto.getEndDate() != null) ? dto.getEndDate() : startDate;
+
+        if (endDate.isBefore(startDate)) {
+            throw new IllegalArgumentException("End date cannot be earlier than start date");
+        }
+
+        int calendarDays = countCalendarDays(startDate, endDate);
+        int workingDays = countWorkingDays(startDate, endDate);
+        if (dto != null && Boolean.TRUE.equals(dto.getIsHalfDay())) {
+            workingDays = Math.max(1, workingDays); // Half-day counted as 1 entry or fraction if float, keeping int accurate
         }
 
         LeaveRequest request = new LeaveRequest();
         request.setUser(user);
         request.setOrganization(org);
-        request.setReason(reason);
+        request.setLeaveType(dto != null && dto.getLeaveType() != null ? dto.getLeaveType() : "VACATION");
+        request.setReason(dto != null ? dto.getReason() : null);
+        request.setStartDate(startDate);
+        request.setEndDate(endDate);
+        request.setWorkingDays(workingDays);
+        request.setCalendarDays(calendarDays);
+        request.setIsHalfDay(dto != null && Boolean.TRUE.equals(dto.getIsHalfDay()));
+        request.setIsEmergency(dto != null && Boolean.TRUE.equals(dto.getIsEmergency()));
+        request.setAttachmentUrl(dto != null ? dto.getAttachmentUrl() : null);
         request.setStatus(LeaveRequest.LeaveRequestStatus.PENDING);
+
         LeaveRequest saved = leaveRequestRepository.save(request);
 
-        // Notify all org admins about the leave request
         List<OrganizationMembership> members = membershipRepository.findByOrganizationId(orgId);
         for (OrganizationMembership m : members) {
             if (m.getOrgRole() != null && "ADMIN".equals(m.getOrgRole().getName())) {
                 notificationService.createAndSend(m.getUser(), user,
-                        com.example.taskflow.notification.event.NotificationEvent.LEAVE_REQUESTED,
-                        "Leave Request: " , user.getUsername() + " has requested to leave " + org.getName(), null ,
-                        "leave-request:" + saved.getId(), user);
+                        NotificationEvent.LEAVE_REQUESTED,
+                        "Leave Request: " + user.getUsername(),
+                        user.getUsername() + " has requested " + saved.getLeaveType() + " time off (" + workingDays + " working days) in " + org.getName(),
+                        null, "leave-request:" + saved.getId(), user);
             }
         }
 
@@ -87,8 +126,6 @@ public class OrganizationLeaveService {
     public LeaveRequestDTO approveLeave(Long orgId, Long requestId, User adminUser) {
         Organization org = organizationRepository.findById(orgId)
                 .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + orgId));
-
-        // Authorization is handled by @PreAuthorize
 
         LeaveRequest request = leaveRequestRepository.findById(requestId)
                 .orElseThrow(() -> new IllegalArgumentException("Leave request not found: " + requestId));
@@ -101,35 +138,20 @@ public class OrganizationLeaveService {
             throw new IllegalStateException("This leave request has already been " + request.getStatus());
         }
 
-        User leavingUser = request.getUser();
-        if (adminUser.getId().equals(leavingUser.getId())) {
-            throw new UnauthorizedActionException(
-                    "You cannot approve your own leave request. Another Admin must approve it.");
+        User employee = request.getUser();
+        if (adminUser.getId().equals(employee.getId()) && !adminUser.isSuperAdmin()) {
+            throw new UnauthorizedActionException("You cannot approve your own leave request. Another Admin must approve it.");
         }
-
-        org.ensureNotLastAdmin(leavingUser);
-
-        boolean hasPendingTasks = taskRepository.findByAssignee(leavingUser).stream()
-                .anyMatch(t -> t.getOrg() != null && t.getOrg().getId().equals(orgId) &&
-                               !t.getCurrentStatus().isTerminal());
-        
-        if (hasPendingTasks) {
-            throw new IllegalStateException("Cannot approve leave request because the user has pending tasks. Please reassign their tasks first.");
-        }
-
-        teamService.removeUserFromAllTeams(leavingUser, orgId);
-
-        membershipRepository.findByUserAndOrganization(leavingUser, org)
-                .ifPresent(membershipRepository::delete);
 
         request.setStatus(LeaveRequest.LeaveRequestStatus.APPROVED);
         request.setReviewedBy(adminUser);
         request.setReviewedAt(LocalDateTime.now());
         LeaveRequest saved = leaveRequestRepository.save(request);
 
-        notificationService.createAndSend(leavingUser, adminUser,
-                com.example.taskflow.notification.event.NotificationEvent.LEAVE_APPROVED,
-                "Leave Approved", "Your leave request for " + org.getName() + " has been approved.",
+        notificationService.createAndSend(employee, adminUser,
+                NotificationEvent.LEAVE_APPROVED,
+                "Leave Approved",
+                "Your " + request.getLeaveType() + " request for " + org.getName() + " has been approved (" + request.getStartDate() + " to " + request.getEndDate() + ").",
                 null, "leave-approved:" + saved.getId(), adminUser);
 
         return mapToLeaveRequestDTO(saved);
@@ -139,8 +161,6 @@ public class OrganizationLeaveService {
     public LeaveRequestDTO rejectLeave(Long orgId, Long requestId, User adminUser, String adminComment) {
         Organization org = organizationRepository.findById(orgId)
                 .orElseThrow(() -> new IllegalArgumentException("Organization not found: " + orgId));
-
-        // Authorization is handled by @PreAuthorize
 
         LeaveRequest request = leaveRequestRepository.findById(requestId)
                 .orElseThrow(() -> new IllegalArgumentException("Leave request not found: " + requestId));
@@ -160,10 +180,44 @@ public class OrganizationLeaveService {
         LeaveRequest saved = leaveRequestRepository.save(request);
 
         notificationService.createAndSend(request.getUser(), adminUser,
-                com.example.taskflow.notification.event.NotificationEvent.LEAVE_REJECTED,
-                "Leave Rejected", "Your leave request for " + org.getName() + " has been rejected."
-                        + (adminComment != null ? " Reason: " + adminComment : ""),
+                NotificationEvent.LEAVE_REJECTED,
+                "Leave Rejected",
+                "Your leave request for " + org.getName() + " has been rejected." + (adminComment != null ? " Reason: " + adminComment : ""),
                 null, "leave-rejected:" + saved.getId(), adminUser);
+
+        return mapToLeaveRequestDTO(saved);
+    }
+
+    @Transactional
+    public LeaveRequestDTO cancelLeave(Long orgId, Long requestId, User user) {
+        LeaveRequest request = leaveRequestRepository.findById(requestId)
+                .orElseThrow(() -> new IllegalArgumentException("Leave request not found: " + requestId));
+
+        if (!request.getOrganization().getId().equals(orgId)) {
+            throw new IllegalArgumentException("Leave request does not belong to this organization");
+        }
+
+        if (!request.getUser().getId().equals(user.getId()) && !user.isSuperAdmin()) {
+            throw new UnauthorizedActionException("You are not authorized to cancel this leave request");
+        }
+
+        if (request.getStatus() != LeaveRequest.LeaveRequestStatus.PENDING) {
+            throw new IllegalStateException("Cannot cancel leave request because it is already in status: " + request.getStatus());
+        }
+
+        request.setStatus(LeaveRequest.LeaveRequestStatus.CANCELLED);
+        LeaveRequest saved = leaveRequestRepository.save(request);
+
+        List<OrganizationMembership> members = membershipRepository.findByOrganizationId(orgId);
+        for (OrganizationMembership m : members) {
+            if (m.getOrgRole() != null && "ADMIN".equals(m.getOrgRole().getName())) {
+                notificationService.createAndSend(m.getUser(), user,
+                        NotificationEvent.LEAVE_CANCELLED,
+                        "Leave Request Cancelled",
+                        user.getUsername() + " has cancelled their leave request.",
+                        null, "leave-cancelled:" + saved.getId(), user);
+            }
+        }
 
         return mapToLeaveRequestDTO(saved);
     }
@@ -177,7 +231,13 @@ public class OrganizationLeaveService {
             throw new UnauthorizedActionException("You are not a member of this organization");
         }
 
-        if (authorizationEngine.authorize(com.example.taskflow.security.authorization.AuthorizationRequest.builder(user, com.example.taskflow.security.PermissionCode.LEAVE_APPROVE).context(java.util.Map.of("organizationId", orgId)).requiredScope(com.example.taskflow.security.ScopeType.ORGANIZATION).build()).isGranted()) {
+        boolean canManage = authorizationEngine.authorize(
+                AuthorizationRequest.builder(user, PermissionCode.LEAVE_APPROVE)
+                        .context(Map.of("organizationId", orgId))
+                        .requiredScope(ScopeType.ORGANIZATION)
+                        .build()).isGranted();
+
+        if (canManage) {
             return leaveRequestRepository.findByOrganizationId(orgId).stream()
                     .map(this::mapToLeaveRequestDTO)
                     .collect(Collectors.toList());
@@ -200,14 +260,22 @@ public class OrganizationLeaveService {
                 .orElse(null);
     }
 
-    private LeaveRequestDTO mapToLeaveRequestDTO(LeaveRequest request) {
+    public LeaveRequestDTO mapToLeaveRequestDTO(LeaveRequest request) {
         return new LeaveRequestDTO(
                 request.getId(),
                 request.getUser().getId(),
                 request.getUser().getUsername(),
                 request.getOrganization().getId(),
                 request.getOrganization().getName(),
+                request.getLeaveType(),
                 request.getReason(),
+                request.getStartDate(),
+                request.getEndDate(),
+                request.getWorkingDays(),
+                request.getCalendarDays(),
+                request.getIsHalfDay(),
+                request.getIsEmergency(),
+                request.getAttachmentUrl(),
                 request.getStatus().name(),
                 request.getAdminComment(),
                 request.getReviewedBy() != null ? request.getReviewedBy().getUsername() : null,

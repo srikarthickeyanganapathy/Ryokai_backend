@@ -19,13 +19,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.example.taskflow.user.domain.User;
 import com.example.taskflow.organization.membership.dto.InviteMemberRequestDTO;
-import com.example.taskflow.organization.membership.dto.LeaveReasonDTO;
-import com.example.taskflow.organization.membership.dto.LeaveRejectDTO;
-import com.example.taskflow.organization.membership.dto.LeaveRequestDTO;
 import com.example.taskflow.organization.membership.dto.MembershipResponseDTO;
 import com.example.taskflow.organization.membership.dto.OrganizationInviteDTO;
 import com.example.taskflow.organization.membership.application.OrganizationInviteService;
-import com.example.taskflow.organization.membership.application.OrganizationLeaveService;
 import com.example.taskflow.organization.core.application.OrganizationLifecycleService;
 import com.example.taskflow.organization.membership.application.OrganizationMemberService;
 import com.example.taskflow.user.application.UserService;
@@ -39,18 +35,15 @@ import jakarta.validation.constraints.Min;
 public class OrganizationMembershipController {
 
     private final OrganizationMemberService memberService;
-    private final OrganizationLeaveService leaveService;
     private final OrganizationLifecycleService lifecycleService;
     private final OrganizationInviteService inviteService;
     private final UserService userService;
 
     public OrganizationMembershipController(OrganizationMemberService memberService,
-                                            OrganizationLeaveService leaveService,
                                             OrganizationLifecycleService lifecycleService,
                                             OrganizationInviteService inviteService,
                                             UserService userService) {
         this.memberService = memberService;
-        this.leaveService = leaveService;
         this.lifecycleService = lifecycleService;
         this.inviteService = inviteService;
         this.userService = userService;
@@ -109,18 +102,6 @@ public class OrganizationMembershipController {
         return ResponseEntity.ok(memberService.listOrganizationMembers(id, user));
     }
 
-    @PostMapping("/{id}/leave")
-    @PreAuthorize("hasPermission(#id, 'Organization', 'LEAVE_CREATE') or hasRole('SUPER_ADMIN')")
-    public ResponseEntity<LeaveRequestDTO> requestLeave(
-            @PathVariable @Min(1) Long id,
-            @RequestBody(required = false) LeaveReasonDTO body,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        User user = getCurrentUser(userDetails);
-        String reason = body != null ? body.getReason() : null;
-        LeaveRequestDTO response = leaveService.requestLeave(id, user, reason);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
-    }
-
     @PostMapping("/{id}/admin-leave")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Void> leaveOrDissolveOrganization(
@@ -130,48 +111,5 @@ public class OrganizationMembershipController {
         User user = getCurrentUser(userDetails);
         lifecycleService.leaveOrDissolve(id, user, request.getSuccessorUserId(), request.isDissolve());
         return ResponseEntity.noContent().build();
-    }
-
-    @PostMapping("/{id}/leave/{requestId}/approve")
-    @PreAuthorize("hasPermission(#id, 'Organization', 'LEAVE_APPROVE') or hasRole('SUPER_ADMIN')")
-    public ResponseEntity<LeaveRequestDTO> approveLeave(
-            @PathVariable @Min(1) Long id,
-            @PathVariable @Min(1) Long requestId,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        User user = getCurrentUser(userDetails);
-        LeaveRequestDTO response = leaveService.approveLeave(id, requestId, user);
-        return ResponseEntity.ok(response);
-    }
-
-    @PostMapping("/{id}/leave/{requestId}/reject")
-    @PreAuthorize("hasPermission(#id, 'Organization', 'LEAVE_REJECT') or hasRole('SUPER_ADMIN')")
-    public ResponseEntity<LeaveRequestDTO> rejectLeave(
-            @PathVariable @Min(1) Long id,
-            @PathVariable @Min(1) Long requestId,
-            @RequestBody(required = false) LeaveRejectDTO body,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        User user = getCurrentUser(userDetails);
-        String comment = body != null ? body.getComment() : null;
-        LeaveRequestDTO response = leaveService.rejectLeave(id, requestId, user, comment);
-        return ResponseEntity.ok(response);
-    }
-
-    @GetMapping("/{id}/leave")
-    @PreAuthorize("hasPermission(#id, 'Organization', 'LEAVE_VIEW') or hasRole('SUPER_ADMIN')")
-    public ResponseEntity<List<LeaveRequestDTO>> listLeaveRequests(
-            @PathVariable @Min(1) Long id,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        User user = getCurrentUser(userDetails);
-        return ResponseEntity.ok(leaveService.listLeaveRequests(id, user));
-    }
-
-    @GetMapping("/{id}/leave/status")
-    @PreAuthorize("hasPermission(#id, 'Organization', 'LEAVE_VIEW') or hasRole('SUPER_ADMIN')")
-    public ResponseEntity<LeaveRequestDTO> getLeaveRequestStatus(
-            @PathVariable @Min(1) Long id,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        User user = getCurrentUser(userDetails);
-        LeaveRequestDTO response = leaveService.getLeaveRequestStatus(id, user);
-        return ResponseEntity.ok(response);
     }
 }

@@ -24,6 +24,7 @@ import org.springframework.beans.factory.annotation.Value;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import com.example.taskflow.task.application.orchestration.TaskAuditService;
+import com.example.taskflow.task.domain.validation.TaskHierarchyValidator;
 import com.example.taskflow.integration.websocket.RealtimeBroadcaster;
 
 @Service
@@ -41,6 +42,7 @@ public class TaskLifecycleService {
     private final TaskAuditService taskAuditService;
     private final TaskResponseMapper taskResponseMapper;
     private final RealtimeBroadcaster realtimeBroadcaster;
+    private final TaskHierarchyValidator taskHierarchyValidator;
 
     @Value("${app.timezone:UTC}")
     private ZoneId zoneId = ZoneId.of("UTC");
@@ -128,6 +130,8 @@ public class TaskLifecycleService {
         }
         
         if (task.getOrg() != null) {
+            taskHierarchyValidator.validateAssigneeEligibility(newAssignee, task.getOrg().getId(), task.getDueDate());
+
             OrganizationMembership reassignerMembership = membershipRepository.findByUserAndOrganization(user, task.getOrg())
                     .orElseThrow(() -> new UnauthorizedActionException("You are not a member of the task's organization."));
                     

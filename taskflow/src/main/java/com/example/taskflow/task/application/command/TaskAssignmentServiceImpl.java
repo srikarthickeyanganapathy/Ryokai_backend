@@ -80,7 +80,7 @@ public class TaskAssignmentServiceImpl implements TaskAssignmentService {
             taskHierarchyValidator.validateCrewTask(crewId, creator, assignee);
         } else if (!isPersonal) {
             boolean isSuperAdmin = creator.isSuperAdmin();
-            taskHierarchyValidator.validateOrgOrTeamTask(creator, assignee, teamId, isSuperAdmin);
+            taskHierarchyValidator.validateOrgOrTeamTask(creator, assignee, teamId, isSuperAdmin, dueDate);
         } else {
             taskHierarchyValidator.validatePersonalTask(creator, assignee);
         }
