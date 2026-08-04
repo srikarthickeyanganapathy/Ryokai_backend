@@ -92,7 +92,7 @@ public class ExitRequestService {
         dto.setOwnedProjectsCount(ownedProjects.size());
         dto.setTeamLeadCount(ledTeams.size());
         dto.setDetails(details);
-        dto.setCanSubmit(openTasks.isEmpty());
+        dto.setCanSubmit(true);
         return dto;
     }
 
@@ -111,9 +111,6 @@ public class ExitRequestService {
         }
 
         ExitBlockersDTO blockers = getExitBlockers(orgId, user);
-        if (!blockers.isCanSubmit()) {
-            throw new IllegalStateException("Cannot submit exit request while having open tasks assigned to you. Please complete or reassign your tasks first.");
-        }
 
         ExitRequest request = new ExitRequest();
         request.setUser(user);
