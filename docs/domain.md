@@ -1,4 +1,4 @@
-# Domain Model & Entity Catalogue
+﻿# Domain Model & Entity Catalogue
 
 Back to **[Master Index](README.md)**
 
@@ -50,6 +50,7 @@ erDiagram
     organizations ||--o{ teams : "structures"
     organizations ||--o{ roles : "defines RBAC (org-scoped)"
     organizations ||--o{ goals : "tracks OKRs"
+    organizations ||--o{ exit_requests : "membership exit"
     organizations ||--o{ leave_requests : "governs HR"
     organizations ||--o{ announcements : "broadcasts"
     organizations ||--o{ organization_invites : "invitations"
@@ -152,11 +153,17 @@ erDiagram
 - **Fields**: `id`, `status` (`PENDING`/`ACCEPTED`/`DECLINED`/`EXPIRED`), `token` (UUID for link-based invites).
 - **Relationships**: ManyToOne â†’ `Organization`, `User` (inviter, invitee), `Role`.
 
-#### `LeaveRequest` (`organization/membership/domain/LeaveRequest.java`)
-- **Purpose**: HR leave request with approval workflow.
-- **Fields**: `id`, `reason`, `status` (`PENDING`/`APPROVED`/`REJECTED`), `reviewerComment`.
-- **Relationships**: ManyToOne â†’ `Organization`, `User` (requester, reviewer).
+#### LeaveRequest (organization/membership/domain/LeaveRequest.java)
+- **Purpose**: Workforce absence management with approval workflow.
+- **Fields**: `id`, `leaveType` (VARCHAR(30)), `reason`, `startDate`, `endDate`, `workingDays`, `calendarDays`, `isHalfDay`, `isEmergency`, `attachmentUrl`, `status` (`PENDING`/`APPROVED`/`REJECTED`), `adminComment`.
+- **Relationships**: ManyToOne → `Organization`, `User` (requester), `User` (reviewer).
+- **Note**: As of V55, the legacy `leave_requests` table is deprecated in favor of the dedicated `employee_leave_requests` table.
 
+#### ExitRequest (organization/membership/domain/ExitRequest.java)
+- **Purpose**: Organization membership termination request (member exits organization).
+- **Fields**: `id`, `reason`, `status` (`PENDING`/`APPROVED`/`REJECTED`), `decisionComment`, `requestedAt`, `reviewedAt`, `effectiveExitDate`.
+- **Relationships**: ManyToOne → `Organization`, `User` (requester), `User` (reviewer).
+- **Introduced**: V55 migration â€” separates membership lifecycle (exit) from workforce absence (leave).
 #### `Announcement` (`organization/announcement/domain/Announcement.java`)
 - **Purpose**: Organization-wide broadcast messages.
 - **Fields**: `id`, `title`, `content`, `pinned` (boolean).

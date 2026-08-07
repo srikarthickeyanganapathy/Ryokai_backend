@@ -1,4 +1,4 @@
-# Security Architecture & Authorization Matrix
+﻿# Security Architecture & Authorization Matrix
 
 Back to **[Master Index](README.md)**
 
@@ -79,6 +79,10 @@ Method security annotations (e.g., `@PreAuthorize("hasPermission(#request, 'TASK
 | `ORG_MEMBER_INVITE` | No | **Yes** | Perm Check | No | No | No | No |
 | `ORG_MEMBER_REMOVE` | No | **Yes** | Perm Check | No | No | No | No |
 | `LEAVE_REQUEST_MANAGE` | No | **Yes** | **Yes** | No | No | No | No |
+| `EXIT_REQUEST_CREATE` | No | **Yes** | Perm Check | **Yes** | No | No | No |
+| `EXIT_REQUEST_VIEW` | No | **Yes** | **Yes** | **Yes** | No | No | No |
+| `EXIT_REQUEST_APPROVE` | No | **Yes** | Perm Check | No | No | No | No |
+| `EXIT_REQUEST_REJECT` | No | **Yes** | Perm Check | No | No | No | No |
 | `ANNOUNCEMENT_MANAGE` | No | **Yes** | Perm Check | No | No | No | No |
 | `GOAL_MANAGE` | No | **Yes** | Perm Check | No | No | No | No |
 | `PROJECT_CREATE` | **Yes** | **Yes** | Perm Check | No | **Yes** | No | **Yes** |

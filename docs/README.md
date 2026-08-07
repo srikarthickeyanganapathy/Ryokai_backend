@@ -5,11 +5,11 @@
  SYSTEM SPECIFICATION & DOCUMENT METADATA
 ===================================================================================
  Document Version   : 2.0.0-MODULAR-MONOLITH
- Target Framework   : Spring Boot 3.2.x / Spring Security 6.x
- JDK Version        : Java 17 LTS
- Persistence Layer  : Spring Data JPA / Hibernate 6 (PostgreSQL 15+)
+ Target Framework   : Spring Boot 4.0.1 / Spring Security 6.x
+ JDK Version        : Java 21 LTS
+ Persistence Layer  : Spring Data JPA / Hibernate 6 (PostgreSQL 15+, Supabase)
  Transport Protocols: Synchronous REST (HTTP/1.1) + WebSocket (STOMP, native)
- Migration Engine   : Flyway (48 versioned migrations)
+ Migration Engine   : Flyway (55 versioned migrations)
  Notice             : Code is the source of truth. Documentation reflects 
                       and explains actual implementation behavior.
 ===================================================================================
@@ -31,20 +31,20 @@ From `v1.5.0-PROD-SPEC` onwards:
 
 | Component | Technology | Version | Scope / Notes |
 | :--- | :--- | :--- | :--- |
-| **Language** | Java | 17 LTS | Core Runtime |
-| **Framework** | Spring Boot | 3.2.x | Application Framework |
+| **Language** | Java | 21 LTS | Core Runtime |
+| **Framework** | Spring Boot | 4.0.1 | Application Framework |
 | **Security** | Spring Security | 6.x | Authentication & Authorization |
 | **ORM / JPA** | Hibernate / Spring Data JPA | 6.x | Relational Persistence |
 | **Database** | PostgreSQL | 15+ | Production Data Store (JSONB for audit metadata) |
-| **Migration** | Flyway | 10.x | 48 versioned migration scripts |
+| **Migration** | Flyway | 10.x | 55 versioned migration scripts (V1–V55) |
 | **WebSocket** | Spring STOMP (native) | 3.2.x | Real-time task updates, whiteboard, notifications |
-| **Rate Limiting** | Bucket4j + Caffeine | 8.x | In-Memory Token Bucket (IP-based + per-user) |
+| **Rate Limiting** | Bucket4j 8.10.1 + Caffeine | 8.x | Multi-layer token bucket (filter-layer + controller-layer, IP-based + per-user) |
 | **Async** | Spring @Async | 3.2.x | Email, realtime, audit thread pools with MDC propagation |
 | **JWT** | JJWT | 0.12.6 | HS256 dual-key (access + refresh), token versioning |
 | **Email** | Spring Mail | 3.2.x | Gmail SMTP (async via `emailExecutor`) |
 | **Monitoring** | Spring Boot Actuator | 3.2.x | Health + Prometheus endpoints (`TaskMetrics`) |
 | **Documentation** | OpenAPI / Swagger | 3.0 (Springdoc) | Interactive API Spec |
-| **Build** | Maven | 3.9.x | Single-module build |
+| **Build** | Maven | 3.9+ | Single-module build + Spotless (Google Java Format) + ArchUnit |
 
 ---
 
@@ -76,7 +76,8 @@ Welcome to the Ryokai Backend Engineering Manual. The technical specification is
 | **v1.3.0** | 2026-07-22 | `7d21a0f` | Catalogued all system workflows across Auth, Org, Crew, Task, and Bridge |
 | **v1.4.0** | 2026-07-23 | `b1c4e9f` | Full architecture audit across controllers, async pipeline, domain events, and security filters |
 | **v1.5.0** | 2026-07-23 | `b4f2a1c` | **Locked Baseline**: Synced all entity models (`TaskEvidence`, `User`, `Project`, `Crew`, `Organization`, `SavedItem`), added `ImpersonationSession` and `TaskMetrics`, added missing exception handlers (`CrewNotFoundException`, etc.), completed API simplification review |
-| **v2.0.0** | 2026-07-28 | `HEAD` | **Modular Monolith**: Refactored from flat technical-layer architecture to 21 bounded-context modules. Variable tier system (Tier 1/2/3). Identity separated from Security. Organization split into 4 sub-domains. Domain events in shared kernel. 377 files migrated, zero business logic changes. Added [ADR-010](adr/010-modular-monolith-refactoring.md). |
+| **v2.0.0** | 2026-07-28 | — | **Modular Monolith**: Refactored from flat technical-layer architecture to 22+ bounded-context modules. Variable tier system (Tier 1/2/3). Identity separated from Security. Organization split into 4 sub-domains. Domain events in shared kernel. Outbox pattern. 377 files migrated, zero business logic changes. Added [ADR-010](adr/010-modular-monolith-refactoring.md). |
+| **v2.1.0** | 2026-08-06 | `V55` | **Exit/Leave Domain Separation**: Split organization membership lifecycle (Exit Requests) from workforce management (Leave Requests). Added `exit_requests` + `employee_leave_requests` tables. Introduced 4 new permissions (EXIT_REQUEST_CREATE/VIEW/APPROVE/REJECT). 55 Flyway migrations total. |
 
 
 ---

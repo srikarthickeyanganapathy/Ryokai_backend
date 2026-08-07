@@ -1,4 +1,4 @@
-# Complete System Workflows & Sequence Diagrams
+﻿# Complete System Workflows & Sequence Diagrams
 
 Back to **[Master Index](README.md)**
 
@@ -114,6 +114,14 @@ sequenceDiagram
 - **Execution**: Owner chooses successor user ID and specifies whether to transfer ownership or dissolve org -> `OrganizationLifecycleService.leaveOrDissolve` validates no active non-terminal tasks remain -> Updates owner or soft-deletes organization.
 
 ---
+
+### Workflow 2.6: Organization Exit Request (Membership Termination)
+
+- **APIs**: POST /api/v1/organizations/{orgId}/exit (submit exit request), POST .../exit/{requestId}/approve, POST .../exit/{requestId}/reject, GET .../exit, GET .../exit/status ([ExitRequestController.java](../taskflow/src/main/java/com/example/taskflow/organization/membership/api/ExitRequestController.java))
+- **Domain**: Separated from workforce leave requests in V55 migration. Exit Requests handle organization membership termination, distinct from employee absence (leave).
+- **Execution**: Member submits exit request with reason â†’ Admin reviews â†’ Approve or reject with comment â†’ On approval, member's organization membership is terminated and active tasks are reassigned.
+- **Entities**: exit_requests table (V55) â€” id, user_id, organization_id, eason, status (PENDING/APPROVED/REJECTED), decision_comment, eviewed_by_id, equested_at, eviewed_at, effective_exit_date.
+- **Permissions**: EXIT_REQUEST_CREATE (all members), EXIT_REQUEST_VIEW (all members), EXIT_REQUEST_APPROVE (admin/mgr), EXIT_REQUEST_REJECT (admin/mgr).
 
 ## 3. Crew & Collaboration Workflows
 

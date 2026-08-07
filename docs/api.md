@@ -1,4 +1,4 @@
-# API Reference Catalogue
+﻿# API Reference Catalogue
 
 Back to **[Master Index](README.md)**
 
@@ -10,7 +10,7 @@ Back to **[Master Index](README.md)**
 
 ---
 
-## Endpoint Inventory by Module (35 Controllers)
+## Endpoint Inventory by Module (36 Controllers)
 
 ### 1. Authentication (`identity/api/AuthController.java`)
 | Method | Path | Permission | DTO In â†’ DTO Out |
@@ -153,7 +153,16 @@ Back to **[Master Index](README.md)**
 | `POST` | `/api/v1/organizations/{orgId}/leave/{requestId}/reject` | `LEAVE_REQUEST_MANAGE` | `LeaveRejectDTO` â†’ `LeaveRequestDTO` (200 OK) |
 | `POST` | `/api/v1/organizations/{orgId}/admin-leave` | Authenticated | `AdminLeaveRequestDTO` â†’ `204 No Content` |
 
-### 18. Organization Invites (`organization/membership/api/OrganizationInviteController.java`)
+
+### 18. Exit Requests (organization/membership/api/ExitRequestController.java)
+| Method | Path | Permission | DTO In â†’ DTO Out |
+| :--- | :--- | :--- | :--- |
+| POST | /api/v1/organizations/{orgId}/exit | EXIT_REQUEST_CREATE | â€” â†’ ExitRequestDTO (201) |
+| GET | /api/v1/organizations/{orgId}/exit | EXIT_REQUEST_VIEW | â€” â†’ List<ExitRequestDTO> (200 OK) |
+| GET | /api/v1/organizations/{orgId}/exit/status | EXIT_REQUEST_VIEW | â€” â†’ ExitRequestDTO (200 OK) |
+| POST | /api/v1/organizations/{orgId}/exit/{requestId}/approve | EXIT_REQUEST_APPROVE | â€” â†’ ExitRequestDTO (200 OK) |
+| POST | /api/v1/organizations/{orgId}/exit/{requestId}/reject | EXIT_REQUEST_REJECT | RejectReasonDTO â†’ ExitRequestDTO (200 OK) |
+### 19. Organization Invites (`organization/membership/api/OrganizationInviteController.java`)
 | Method | Path | Permission | DTO In â†’ DTO Out |
 | :--- | :--- | :--- | :--- |
 | `POST` | `/api/v1/organizations/{orgId}/invites` | Authenticated | `InviteMemberRequestDTO` â†’ `OrganizationInviteDTO` (201) |
@@ -163,7 +172,7 @@ Back to **[Master Index](README.md)**
 | `POST` | `/api/v1/invites/{inviteId}/decline` | Authenticated | â€” â†’ `OrganizationInviteDTO` |
 | `POST` | `/api/v1/invites/token/{token}/accept` | Authenticated | â€” â†’ `OrganizationInviteDTO` |
 
-### 19. Organization Teams (`team/api/OrganizationTeamController.java`)
+### 20. Organization Teams (`team/api/OrganizationTeamController.java`)
 | Method | Path | Permission | DTO In â†’ DTO Out |
 | :--- | :--- | :--- | :--- |
 | `POST` | `/api/v1/organizations/{orgId}/teams` | Authenticated | `CreateTeamRequestDTO` â†’ `TeamResponseDTO` (201) |
@@ -177,21 +186,21 @@ Back to **[Master Index](README.md)**
 | `POST` | `/api/v1/organizations/teams/{teamId}/observers` | Authenticated | `TeamMemberRequestDTO` â†’ `200 OK` |
 | `DELETE` | `/api/v1/organizations/teams/{teamId}/observers/{userId}` | Authenticated | â€” â†’ `204 No Content` |
 
-### 20. Team Messages (`team/api/TeamMessageController.java`)
+### 21. Team Messages (`team/api/TeamMessageController.java`)
 | Method | Path | Permission | DTO In â†’ DTO Out |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/v1/teams/{teamId}/messages` | Authenticated (team member) | â€” â†’ `List<TeamMessageResponseDTO>` |
 | `POST` | `/api/v1/teams/{teamId}/messages` | Authenticated (team member) | `TeamMessageCreateRequestDTO` â†’ `TeamMessageResponseDTO` (201) |
 | `DELETE` | `/api/v1/teams/{teamId}/messages/{messageId}` | Authenticated (author/admin) | â€” â†’ `204 No Content` |
 
-### 21. Announcements (`controller/AnnouncementController.java`)
+### 22. Announcements (`controller/AnnouncementController.java`)
 | Method | Path | Permission | DTO In â†’ DTO Out |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/v1/organizations/{orgId}/announcements` | Authenticated (org member) | â€” â†’ `Page<AnnouncementResponseDTO>` (20/page) |
 | `POST` | `/api/v1/organizations/{orgId}/announcements` | Authenticated (admin/mgr) | `AnnouncementRequestDTO` â†’ `AnnouncementResponseDTO` (201) |
 | `DELETE` | `/api/v1/organizations/{orgId}/announcements/{id}` | Authenticated (admin/author) | â€” â†’ `204 No Content` |
 
-### 22. Goals & OKRs (`goal/api/GoalController.java`)
+### 23. Goals & OKRs (`goal/api/GoalController.java`)
 | Method | Path | Permission | DTO In â†’ DTO Out |
 | :--- | :--- | :--- | :--- |
 | `POST` | `/api/v1/organizations/{orgId}/goals` | `GOAL_MANAGE` | `GoalRequestDTO` â†’ `GoalResponseDTO` (201) |
@@ -199,12 +208,12 @@ Back to **[Master Index](README.md)**
 | `PUT` | `/api/v1/organizations/{orgId}/goals/{goalId}` | `GOAL_MANAGE` | `GoalRequestDTO` â†’ `GoalResponseDTO` |
 | `DELETE` | `/api/v1/organizations/{orgId}/goals/{goalId}` | `GOAL_MANAGE` | â€” â†’ `204 No Content` |
 
-### 23. Workload Analytics (`task/api/WorkloadController.java`)
+### 24. Workload Analytics (`task/api/WorkloadController.java`)
 | Method | Path | Permission | DTO In â†’ DTO Out |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/v1/organizations/{orgId}/workload` | Authenticated | â€” â†’ `List<UserWorkloadDTO>` |
 
-### 24. Crew Management (`crew/api/CrewController.java`)
+### 25. Crew Management (`crew/api/CrewController.java`)
 | Method | Path | Permission | DTO In â†’ DTO Out |
 | :--- | :--- | :--- | :--- |
 | `POST` | `/api/v1/crews` | Authenticated | `CrewRequestDTO` â†’ `CrewResponseDTO` (201) |
@@ -223,7 +232,7 @@ Back to **[Master Index](README.md)**
 | `POST` | `/api/v1/crews/{crewId}/projects/{projectId}` | Crew Member | â€” â†’ `ProjectResponseDTO` |
 | `DELETE` | `/api/v1/crews/{crewId}/projects/{projectId}` | Crew Owner | â€” â†’ `204 No Content` |
 
-### 25. Whiteboards (`whiteboard/WhiteboardController.java`)
+### 26. Whiteboards (`whiteboard/WhiteboardController.java`)
 | Method | Path | Permission | DTO In â†’ DTO Out |
 | :--- | :--- | :--- | :--- |
 | `POST` | `/api/v1/crews/{crewId}/whiteboards` | Crew Member | `WhiteboardRequestDTO` â†’ `WhiteboardResponseDTO` (201) |
@@ -231,13 +240,13 @@ Back to **[Master Index](README.md)**
 | `PUT` | `/api/v1/crews/{crewId}/whiteboards/{boardId}/snapshot` | Crew Member | `SnapshotRequestDTO` â†’ `200 OK` |
 | `DELETE` | `/api/v1/crews/{crewId}/whiteboards/{boardId}` | Crew Member | â€” â†’ `204 No Content` |
 
-### 26. Whiteboard WebSocket (`whiteboard/WhiteboardSocketController.java`)
+### 27. Whiteboard WebSocket (`whiteboard/WhiteboardSocketController.java`)
 | Transport | Destination | Direction |
 | :--- | :--- | :--- |
 | `@MessageMapping` | `/whiteboards/{boardId}/draw` | Client â†’ Server (stroke payload) |
 | Broadcast | `/topic/whiteboards/{boardId}` | Server â†’ Clients (live stroke data) |
 
-### 27. Notifications (`notification/api/NotificationController.java`)
+### 28. Notifications (`notification/api/NotificationController.java`)
 | Method | Path | Permission | DTO In â†’ DTO Out |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/v1/notifications` | Authenticated | â€” â†’ `Page<NotificationDTO>` (max 100/page) |
@@ -246,7 +255,7 @@ Back to **[Master Index](README.md)**
 | `PUT` | `/api/v1/notifications/read-all` | Authenticated | â€” â†’ `204 No Content` |
 | `DELETE` | `/api/v1/notifications/{id}` | Authenticated | â€” â†’ `204 No Content` |
 
-### 28. Notes (`note/NoteController.java`)
+### 29. Notes (`note/NoteController.java`)
 | Method | Path | Permission | DTO In â†’ DTO Out |
 | :--- | :--- | :--- | :--- |
 | `POST` | `/api/v1/notes` | Authenticated | `NoteRequestDTO` â†’ `NoteResponseDTO` |
@@ -254,14 +263,14 @@ Back to **[Master Index](README.md)**
 | `PUT` | `/api/v1/notes/{noteId}` | Authenticated | `NoteRequestDTO` â†’ `NoteResponseDTO` |
 | `DELETE` | `/api/v1/notes/{noteId}` | Authenticated | â€” â†’ `204 No Content` |
 
-### 29. Focus Sessions (`focus/FocusSessionController.java`)
+### 30. Focus Sessions (`focus/FocusSessionController.java`)
 | Method | Path | Permission | DTO In â†’ DTO Out |
 | :--- | :--- | :--- | :--- |
 | `POST` | `/api/v1/focus/start` | Authenticated | `FocusSessionRequestDTO` â†’ `FocusSessionDTO` |
 | `POST` | `/api/v1/focus/{id}/stop` | Authenticated | â€” â†’ `FocusSessionDTO` |
 | `GET` | `/api/v1/focus` | Authenticated | â€” â†’ `List<FocusSessionDTO>` |
 
-### 30. Calendar Events (`calendar/CalendarEventController.java`)
+### 31. Calendar Events (`calendar/CalendarEventController.java`)
 | Method | Path | Permission | DTO In â†’ DTO Out |
 | :--- | :--- | :--- | :--- |
 | `POST` | `/api/v1/calendar-events` | Authenticated | `CalendarEventRequestDTO` â†’ `CalendarEventResponseDTO` |
@@ -269,26 +278,26 @@ Back to **[Master Index](README.md)**
 | `PUT` | `/api/v1/calendar-events/{id}` | Authenticated | `CalendarEventRequestDTO` â†’ `CalendarEventResponseDTO` |
 | `DELETE` | `/api/v1/calendar-events/{id}` | Authenticated | â€” â†’ `204 No Content` |
 
-### 31. Saved Items / Bookmarks (`saveditem/SavedItemController.java`)
+### 32. Saved Items / Bookmarks (`saveditem/SavedItemController.java`)
 | Method | Path | Permission | DTO In â†’ DTO Out |
 | :--- | :--- | :--- | :--- |
 | `POST` | `/api/v1/saved-items` | Authenticated | `SavedItemRequestDTO` â†’ `SavedItemResponseDTO` |
 | `GET` | `/api/v1/saved-items` | Authenticated | â€” â†’ `List<SavedItemResponseDTO>` |
 | `DELETE` | `/api/v1/saved-items/{id}` | Authenticated | â€” â†’ `204 No Content` |
 
-### 32. Dashboard (`dashboard/api/DashboardController.java`)
+### 33. Dashboard (`dashboard/api/DashboardController.java`)
 | Method | Path | Permission | DTO In â†’ DTO Out |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/v1/dashboard/stats` | Authenticated | â€” â†’ `DashboardStatsDTO` (multi-scoped aggregates) |
 | `GET` | `/api/v1/dashboard/export/csv` | Authenticated | â€” â†’ `text/csv` (CSV injection protected) |
 
-### 33. Platform User Governance (`platform/api/PlatformUserController.java`)
+### 34. Platform User Governance (`platform/api/PlatformUserController.java`)
 | Method | Path | Permission | DTO In â†’ DTO Out |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/v1/platform/users/{userId}/roles` | SuperAdmin | â€” â†’ `Set<RoleResponseDTO>` |
 | `PUT` | `/api/v1/platform/users/{userId}/roles` | SuperAdmin | `List<String>` (role names) â†’ `Set<RoleResponseDTO>` |
 
-### 34. Platform Role & Permission Governance (`platform/api/PlatformRoleController.java`)
+### 35. Platform Role & Permission Governance (`platform/api/PlatformRoleController.java`)
 | Method | Path | Permission | DTO In â†’ DTO Out |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/v1/platform/roles` | SuperAdmin | â€” â†’ `List<RoleResponseDTO>` |
@@ -299,7 +308,7 @@ Back to **[Master Index](README.md)**
 | `GET` | `/api/v1/platform/roles/{id}/permissions` | SuperAdmin | â€” â†’ `Set<PermissionResponseDTO>` |
 | `PUT` | `/api/v1/platform/roles/{id}/permissions` | SuperAdmin | `AssignPermissionsRequestDTO` â†’ `Set<PermissionResponseDTO>` |
 
-### 35. Platform Organization Governance (`platform/api/PlatformOrganizationController.java`)
+### 36. Platform Organization Governance (`platform/api/PlatformOrganizationController.java`)
 | Method | Path | Permission | DTO In â†’ DTO Out |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/v1/platform/organizations` | SuperAdmin | â€” â†’ `List<OrganizationResponseDTO>` |

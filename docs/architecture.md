@@ -45,7 +45,7 @@ graph TD
     Services --> AsyncPools
     
     subgraph DataStorage["Persistence & External Services"]
-        RDBMS[("PostgreSQL 15+<br/>Flyway: 48 migrations<br/>JSONB audit columns")]
+        RDBMS[("PostgreSQL 15+<br/>Flyway: 55 migrations<br/>JSONB audit columns")]
         SMTP["Gmail SMTP<br/>(Async via emailExecutor)"]
     end
     

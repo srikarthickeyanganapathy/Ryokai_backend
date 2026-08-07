@@ -138,13 +138,15 @@ All executors:
 ### Runbook 2: Database Schema Migration & DDL Management
 1. Ensure Spring JPA DDL auto is set to `validate` in production (`spring.jpa.hibernate.ddl-auto: validate`).
 2. Flyway will automatically apply pending migrations from `db/migration/` on application startup.
-3. **48 migrations** (V1 – V48) are currently defined. Key migrations:
+3. **55 migrations** (V1 – V55) are currently defined. Key migrations:
    - V1: Core schema (users, organizations, roles, tasks, projects)
    - V15-V20: Crew system (channels, messages, whiteboards)
    - V30-V35: Security audit tables, notification system
    - V40-V46: Evidence soft-delete, task status history, team messages
    - V47: Transactional outbox domain events table (`outbox_events`)
    - V48: Performance indexes on frequently queried foreign keys and status columns
+   - V51: Ryokai OS platform runtime tables
+   - V55: Separated exit request and employee leave request domains
 4. Validate column constraints, index additions, and foreign key definitions against entity annotations.
 
 ### Runbook 3: Disaster Recovery & Backup Restoration
