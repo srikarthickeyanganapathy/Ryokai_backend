@@ -27,13 +27,21 @@ public final class WorkspaceTypeResolver {
     public static WorkspaceType fromTask(Task task) {
         if (task == null) return WorkspaceType.ORGANIZATION;
 
-        if (task.getMode() == TaskMode.PERSONAL) {
+        TaskMode mode = task.getMode();
+        if (mode == TaskMode.PERSONAL) {
             return WorkspaceType.PERSONAL;
         }
-        if (task.getMode() == TaskMode.CREW) {
+        if (mode == TaskMode.CREW) {
             return WorkspaceType.CREW;
         }
-        return WorkspaceType.ORGANIZATION;
+        if (mode == TaskMode.ORG) {
+            return WorkspaceType.ORGANIZATION;
+        }
+        // mode is null — task has no org, no crew, and isPersonal=false.
+        // This indicates a data integrity issue. Fall back to PERSONAL as the
+        // safe default (least privilege) rather than ORGANIZATION which would
+        // trigger a membership deny when organizationId is absent from context.
+        return WorkspaceType.PERSONAL;
     }
 
     /**

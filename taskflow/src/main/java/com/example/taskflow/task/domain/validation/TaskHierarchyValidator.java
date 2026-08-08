@@ -170,6 +170,24 @@ public class TaskHierarchyValidator {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new IllegalArgumentException("Project not found: " + projectId));
 
+        // Write-side isolation: the creator must have access to the project they
+        // are attaching the task to (creator / collaborator / org member /
+        // team member / member of a crew the project is shared with).
+        User creator = task.getCreator();
+        if (creator != null && !creator.isSuperAdmin()) {
+            boolean canAccess = (project.getCreatedBy() != null && project.getCreatedBy().getId().equals(creator.getId()))
+                    || (project.getCollaborators() != null && project.getCollaborators().stream().anyMatch(c -> c.getId().equals(creator.getId())))
+                    || (project.getOrganization() != null
+                        && membershipRepository.existsByUserIdAndOrganizationId(creator.getId(), project.getOrganization().getId()))
+                    || (project.getTeam() != null
+                        && teamMemberRepository.existsByIdTeamIdAndIdUserId(project.getTeam().getId(), creator.getId()))
+                    || (project.getSharedCrews() != null && !project.getSharedCrews().isEmpty()
+                        && project.getSharedCrews().stream().anyMatch(c -> crewMemberRepository.existsByIdCrewIdAndIdUserId(c.getId(), creator.getId())));
+            if (!canAccess) {
+                throw new IllegalArgumentException("You do not have access to this project");
+            }
+        }
+
         if (isPersonal && (project.getOrganization() != null || project.getTeam() != null)) {
             throw new IllegalArgumentException("Personal tasks cannot belong to team or organization scoped projects");
         }

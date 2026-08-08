@@ -45,24 +45,34 @@ public class CalendarEventController {
         return userService.getCurrentUser(userDetails.getUsername());
     }
 
+    /**
+     * Events for the current workspace scope.
+     * No scope params = personal events; ?orgId=1 = org events; ?crewId=1 = crew events.
+     */
     @GetMapping
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<CalendarEventResponseDTO>> getEvents(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end,
+            @RequestParam(required = false) Long orgId,
+            @RequestParam(required = false) Long crewId,
             @AuthenticationPrincipal UserDetails userDetails) {
         User user = getCurrentUser(userDetails);
-        return ResponseEntity.ok(calendarEventService.getEventsInRange(user, start, end));
+        return ResponseEntity.ok(calendarEventService.getEventsInScope(user, start, end, orgId, crewId));
     }
 
     @PostMapping
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<CalendarEventResponseDTO> createEvent(
             @Valid @RequestBody CalendarEventRequestDTO request,
+            @RequestParam(required = false) Long orgId,
+            @RequestParam(required = false) Long crewId,
             @AuthenticationPrincipal UserDetails userDetails) {
         User user = getCurrentUser(userDetails);
+        Long effectiveOrg = orgId != null ? orgId : request.getOrgId();
+        Long effectiveCrew = crewId != null ? crewId : request.getCrewId();
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(calendarEventService.create(user, request));
+                .body(calendarEventService.create(user, request, effectiveOrg, effectiveCrew));
     }
 
     @PutMapping("/{id}")

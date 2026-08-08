@@ -141,6 +141,7 @@ public class ProjectService {
         if (currentUser.isSuperAdmin()) return true;
         if (p.getCreatedBy() != null && p.getCreatedBy().getId().equals(currentUser.getId())) return true;
         if (p.getCollaborators() != null && p.getCollaborators().stream().anyMatch(c -> c.getId().equals(currentUser.getId()))) return true;
+        if (p.getTeam() != null && teamMemberRepository.existsByIdTeamIdAndIdUserId(p.getTeam().getId(), currentUser.getId())) return true;
         if (p.getOrganization() != null) {
             boolean hasProjectManage = hasOrgPermission(currentUser, p.getOrganization(), PermissionCode.PROJECT_UPDATE);
             if (hasProjectManage) return true;

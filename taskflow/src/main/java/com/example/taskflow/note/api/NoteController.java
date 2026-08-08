@@ -23,19 +23,33 @@ public class NoteController {
     private final NoteService noteService;
     private final UserService userService;
 
+    /**
+     * List notes for the current workspace scope.
+     * No scope params = personal notes; ?orgId=1 = org notes; ?crewId=1 = crew notes.
+     */
     @GetMapping
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<List<NoteResponseDTO>> list(@AuthenticationPrincipal UserDetails userDetails) {
+    public ResponseEntity<List<NoteResponseDTO>> list(
+            @RequestParam(required = false) Long orgId,
+            @RequestParam(required = false) Long crewId,
+            @AuthenticationPrincipal UserDetails userDetails) {
         User user = userService.getCurrentUser(userDetails.getUsername());
-        return ResponseEntity.ok(noteService.getNotes(user));
+        return ResponseEntity.ok(noteService.getNotesInScope(user, orgId, crewId));
     }
 
+    /**
+     * Create a note in the current workspace scope (query param wins over body scope).
+     */
     @PostMapping
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<NoteResponseDTO> create(@RequestBody NoteRequestDTO req,
+            @RequestParam(required = false) Long orgId,
+            @RequestParam(required = false) Long crewId,
             @AuthenticationPrincipal UserDetails userDetails) {
         User user = userService.getCurrentUser(userDetails.getUsername());
-        return ResponseEntity.ok(noteService.create(user, req));
+        Long effectiveOrg = orgId != null ? orgId : req.getOrgId();
+        Long effectiveCrew = crewId != null ? crewId : req.getCrewId();
+        return ResponseEntity.ok(noteService.create(user, req, effectiveOrg, effectiveCrew));
     }
 
     @PutMapping("/{id}")

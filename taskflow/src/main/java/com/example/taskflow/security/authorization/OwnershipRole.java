@@ -5,5 +5,6 @@ public enum OwnershipRole {
     CREATOR,
     REVIEWER,
     PROJECT_OWNER,
-    TEAM_LEAD
+    TEAM_LEAD,
+    TEAM_MEMBER
 }

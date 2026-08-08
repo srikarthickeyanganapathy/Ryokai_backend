@@ -12,6 +12,7 @@ import com.example.taskflow.security.authorization.AuthorizationRequestBuilder;
 import com.example.taskflow.security.authorization.OwnershipRole;
 import com.example.taskflow.team.domain.Team;
 import com.example.taskflow.team.infrastructure.persistence.TeamRepository;
+import com.example.taskflow.team.infrastructure.persistence.TeamMemberRepository;
 import com.example.taskflow.user.domain.User;
 
 import java.io.Serializable;
@@ -24,11 +25,14 @@ import java.util.Set;
 public class TeamAuthorizationResolver implements AuthorizationResourceResolver {
 
     private final TeamRepository teamRepository;
+    private final TeamMemberRepository teamMemberRepository;
     private final AuthorizationRequestBuilder requestBuilder;
 
     public TeamAuthorizationResolver(TeamRepository teamRepository,
+                                     TeamMemberRepository teamMemberRepository,
                                      AuthorizationRequestBuilder requestBuilder) {
         this.teamRepository = teamRepository;
+        this.teamMemberRepository = teamMemberRepository;
         this.requestBuilder = requestBuilder;
     }
 
@@ -50,7 +54,12 @@ public class TeamAuthorizationResolver implements AuthorizationResourceResolver 
             context.put("teamId", team.getId());
     
             Set<OwnershipRole> ownership = EnumSet.noneOf(OwnershipRole.class);
-            // Add team lead logic if applicable
+            if (team.getCreatedBy() != null && team.getCreatedBy().getId().equals(user.getId())) {
+                ownership.add(OwnershipRole.CREATOR);
+            }
+            if (teamMemberRepository.existsByIdTeamIdAndIdUserId(team.getId(), user.getId())) {
+                ownership.add(OwnershipRole.TEAM_MEMBER);
+            }
             
             return requestBuilder.build(
                     user,

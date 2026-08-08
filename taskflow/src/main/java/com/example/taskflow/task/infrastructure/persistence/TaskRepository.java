@@ -15,6 +15,10 @@ import com.example.taskflow.user.domain.User;
 
 public interface TaskRepository extends JpaRepository<Task, Long> {
 
+    @EntityGraph(attributePaths = {"assignee","creator","reviewer","org","team","project","project.team","crew"})
+    @Override
+    java.util.Optional<Task> findById(Long id);
+
     @EntityGraph(attributePaths = {"assignee","creator","reviewer","org","team","project"})
     @Override
     Page<Task> findAll(Pageable pageable);
@@ -59,7 +63,7 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     @EntityGraph(attributePaths = {"assignee","creator","reviewer","org","team","project","crew"})
     @Query("SELECT t FROM Task t WHERE t.crew.id = :crewId")
     Page<Task> findByCrewId(@Param("crewId") Long crewId, Pageable pageable);
-    
+
     boolean existsByCrewId(Long crewId);
     
     // Bug #6/#8 Fix: Check if a user has non-terminal tasks in a team.
@@ -114,6 +118,23 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     Page<Task> findByOrganizationIdOrCreatedBy(@Param("orgId") Long orgId, @Param("user") User user,
                                                @Param("userId") Long userId, Pageable pageable);
 
+    /**
+     * STRICT org isolation: returns ONLY tasks owned by this organization.
+     * No personal tasks, no crew tasks, no created-by fallback — the org
+     * workspace sees exactly its own tasks (matches Project isolation).
+     */
+    @EntityGraph(attributePaths = {"assignee","creator","reviewer","org","team","project","crew"})
+    @Query("SELECT t FROM Task t WHERE t.org.id = :orgId AND t.archived = false")
+    Page<Task> findByOrgIdStrict(@Param("orgId") Long orgId, Pageable pageable);
+
+    /**
+     * STRICT personal isolation: only the user's own personal tasks.
+     * No org or crew mixing — the personal workspace sees exactly its own tasks.
+     */
+    @EntityGraph(attributePaths = {"assignee","creator","reviewer","org","team","project","crew"})
+    @Query("SELECT t FROM Task t WHERE t.isPersonal = true AND t.creator = :user AND t.archived = false")
+    Page<Task> findPersonalTasksStrict(@Param("user") User user, Pageable pageable);
+
     // Org-scoped count methods for DashboardQueryService (Fix #4)
     long countByOrgIdAndArchivedFalse(Long orgId);
 
@@ -146,10 +167,24 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     @Query("SELECT t.assignee.id, t.currentStatus, COUNT(t) FROM Task t WHERE t.org.id = :orgId AND t.archived = false GROUP BY t.assignee.id, t.currentStatus")
     List<Object[]> countTasksByOrgGroupedByAssigneeAndStatus(@Param("orgId") Long orgId);
 
-    // Crew tasks with bridge traversal
+    // Crew tasks with bridge traversal: tasks directly in the crew OR tasks of
+    // projects shared with the crew OR tasks of crew-owned projects. This makes
+    // project tasks automatically visible on the crew detail page.
     @EntityGraph(attributePaths = {"assignee","creator","reviewer","org","team","project","crew"})
-    @Query("SELECT DISTINCT t FROM Task t WHERE t.archived = false AND (t.crew.id = :crewId OR t.project IN (SELECT p FROM Project p JOIN p.sharedCrews sc WHERE sc.id = :crewId AND p.deleted = false AND p.organization IS NULL))")
+    @Query("SELECT DISTINCT t FROM Task t WHERE t.archived = false AND (t.crew.id = :crewId " +
+           "OR t.project IN (SELECT p FROM Project p JOIN p.sharedCrews sc WHERE sc.id = :crewId AND p.deleted = false AND p.organization IS NULL) " +
+           "OR (t.project IS NOT NULL AND t.project.crew.id = :crewId))")
     Page<Task> findByCrewIdWithBridge(@Param("crewId") Long crewId, Pageable pageable);
+
+    /**
+     * Team-scoped listing with project bridge: tasks directly in the team OR
+     * tasks of projects that belong to the team. Project tasks therefore show
+     * up automatically on the team detail page (caller must be a member).
+     */
+    @EntityGraph(attributePaths = {"assignee","creator","reviewer","org","team","project","crew"})
+    @Query("SELECT DISTINCT t FROM Task t WHERE t.archived = false AND (t.team.id = :teamId " +
+           "OR (t.project IS NOT NULL AND t.project.team.id = :teamId))")
+    Page<Task> findByTeamIdWithProjectBridge(@Param("teamId") Long teamId, Pageable pageable);
 
     // Personal counts for Dashboard
     @Query("SELECT COUNT(t) FROM Task t WHERE (t.assignee.id = :userId OR t.creator.id = :userId) AND t.org IS NULL AND t.crew IS NULL AND t.archived = false")

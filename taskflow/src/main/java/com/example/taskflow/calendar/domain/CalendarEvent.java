@@ -1,6 +1,8 @@
 package com.example.taskflow.calendar.domain;
 
 
+import com.example.taskflow.crew.domain.Crew;
+import com.example.taskflow.organization.core.domain.Organization;
 import com.example.taskflow.user.domain.User;
 import java.time.LocalDateTime;
 
@@ -48,7 +50,19 @@ public class CalendarEvent {
     @Column(name = "is_all_day", nullable = false)
     private Boolean isAllDay = false;
 
+    /**
+     * Workspace scope: exactly one of {user (personal), organization, crew}
+     * is the owning workspace for an event. The other two stay null.
+     */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "organization_id")
+    private Organization organization;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "crew_id")
+    private Crew crew;
 }

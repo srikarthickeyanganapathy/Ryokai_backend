@@ -1,6 +1,7 @@
 package com.example.taskflow.note.api;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public class NoteDTOs {
 
@@ -9,6 +10,9 @@ public class NoteDTOs {
         private String content;
         private Boolean isPinned;
         private String color;
+        private List<String> tags;
+        private Long orgId;
+        private Long crewId;
 
         public String getTitle() { return title; }
         public void setTitle(String title) { this.title = title; }
@@ -18,6 +22,12 @@ public class NoteDTOs {
         public void setIsPinned(Boolean isPinned) { this.isPinned = isPinned; }
         public String getColor() { return color; }
         public void setColor(String color) { this.color = color; }
+        public List<String> getTags() { return tags; }
+        public void setTags(List<String> tags) { this.tags = tags; }
+        public Long getOrgId() { return orgId; }
+        public void setOrgId(Long orgId) { this.orgId = orgId; }
+        public Long getCrewId() { return crewId; }
+        public void setCrewId(Long crewId) { this.crewId = crewId; }
     }
 
     public static class NoteResponseDTO {
@@ -26,15 +36,20 @@ public class NoteDTOs {
         private String content;
         private Boolean isPinned;
         private String color;
+        private List<String> tags;
+        private Long orgId;
+        private Long crewId;
         private LocalDateTime createdAt;
         private LocalDateTime updatedAt;
 
         public NoteResponseDTO() {}
 
         public NoteResponseDTO(Long id, String title, String content, Boolean isPinned,
-                                String color, LocalDateTime createdAt, LocalDateTime updatedAt) {
+                                String color, List<String> tags, Long orgId, Long crewId,
+                                LocalDateTime createdAt, LocalDateTime updatedAt) {
             this.id = id; this.title = title; this.content = content;
             this.isPinned = isPinned; this.color = color;
+            this.tags = tags; this.orgId = orgId; this.crewId = crewId;
             this.createdAt = createdAt; this.updatedAt = updatedAt;
         }
 
@@ -43,6 +58,9 @@ public class NoteDTOs {
         public String getContent() { return content; }
         public Boolean getIsPinned() { return isPinned; }
         public String getColor() { return color; }
+        public List<String> getTags() { return tags; }
+        public Long getOrgId() { return orgId; }
+        public Long getCrewId() { return crewId; }
         public LocalDateTime getCreatedAt() { return createdAt; }
         public LocalDateTime getUpdatedAt() { return updatedAt; }
     }

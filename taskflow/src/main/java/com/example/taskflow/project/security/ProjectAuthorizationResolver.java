@@ -13,6 +13,7 @@ import com.example.taskflow.security.authorization.OwnershipRole;
 import com.example.taskflow.security.authorization.WorkspaceTypeResolver;
 import com.example.taskflow.project.domain.Project;
 import com.example.taskflow.project.infrastructure.persistence.ProjectRepository;
+import com.example.taskflow.team.infrastructure.persistence.TeamMemberRepository;
 import com.example.taskflow.user.domain.User;
 
 import java.io.Serializable;
@@ -25,11 +26,14 @@ import java.util.Set;
 public class ProjectAuthorizationResolver implements AuthorizationResourceResolver {
 
     private final ProjectRepository projectRepository;
+    private final TeamMemberRepository teamMemberRepository;
     private final AuthorizationRequestBuilder requestBuilder;
 
     public ProjectAuthorizationResolver(ProjectRepository projectRepository,
+                                        TeamMemberRepository teamMemberRepository,
                                         AuthorizationRequestBuilder requestBuilder) {
         this.projectRepository = projectRepository;
+        this.teamMemberRepository = teamMemberRepository;
         this.requestBuilder = requestBuilder;
     }
 
@@ -56,6 +60,9 @@ public class ProjectAuthorizationResolver implements AuthorizationResourceResolv
             if (project.getCreatedBy() != null && project.getCreatedBy().getId().equals(user.getId())) {
                 ownership.add(OwnershipRole.CREATOR);
                 ownership.add(OwnershipRole.PROJECT_OWNER);
+            }
+            if (project.getTeam() != null && teamMemberRepository.existsByIdTeamIdAndIdUserId(project.getTeam().getId(), user.getId())) {
+                ownership.add(OwnershipRole.TEAM_MEMBER);
             }
     
             return requestBuilder.build(

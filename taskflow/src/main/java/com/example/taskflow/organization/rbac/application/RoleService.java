@@ -34,6 +34,7 @@ public class RoleService {
     private final UserRepository userRepository;
     private final OrganizationRepository organizationRepository;
     private final com.example.taskflow.organization.membership.infrastructure.persistence.OrganizationMembershipRepository membershipRepository;
+    private final com.example.taskflow.organization.membership.infrastructure.persistence.OrganizationInviteRepository organizationInviteRepository;
     private final AuditService auditService;
     private final com.example.taskflow.organization.rbac.infrastructure.persistence.RolePermissionScopeRepository rolePermissionScopeRepository;
     private final com.example.taskflow.organization.rbac.infrastructure.persistence.ScopeRepository scopeRepository;
@@ -47,6 +48,7 @@ public class RoleService {
                        UserRepository userRepository,
                        OrganizationRepository organizationRepository,
                        com.example.taskflow.organization.membership.infrastructure.persistence.OrganizationMembershipRepository membershipRepository,
+                       com.example.taskflow.organization.membership.infrastructure.persistence.OrganizationInviteRepository organizationInviteRepository,
                        AuditService auditService,
                        com.example.taskflow.organization.rbac.infrastructure.persistence.RolePermissionScopeRepository rolePermissionScopeRepository,
                        com.example.taskflow.organization.rbac.infrastructure.persistence.ScopeRepository scopeRepository) {
@@ -56,6 +58,7 @@ public class RoleService {
         this.userRepository = userRepository;
         this.organizationRepository = organizationRepository;
         this.membershipRepository = membershipRepository;
+        this.organizationInviteRepository = organizationInviteRepository;
         this.auditService = auditService;
         this.rolePermissionScopeRepository = rolePermissionScopeRepository;
         this.scopeRepository = scopeRepository;
@@ -278,6 +281,18 @@ public class RoleService {
         
         if (userRepository.existsByRolesId(role.getId())) {
             throw new IllegalStateException("Cannot delete a role that is still assigned to users");
+        }
+
+        long memberCount = membershipRepository.countByOrgRoleId(role.getId());
+        if (memberCount > 0) {
+            throw new IllegalStateException(
+                "Cannot delete a role assigned to " + memberCount + " organization member(s). Reassign them first.");
+        }
+
+        long pendingInviteCount = organizationInviteRepository.countByOrgRoleId(role.getId());
+        if (pendingInviteCount > 0) {
+            throw new IllegalStateException(
+                "Cannot delete a role referenced by " + pendingInviteCount + " pending invite(s). Cancel or expire them first.");
         }
 
         RoleResponseDTO oldValue = mapToRoleResponseDTO(role);

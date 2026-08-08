@@ -23,6 +23,9 @@ public class TaskUpdateRequestDTO {
     @Size(max = 200, message = "Tags cannot exceed 200 characters")
     private String tags;
 
+    /** Project to attach the task to (null = keep unchanged). */
+    private Long projectId;
+
     public TaskUpdateRequestDTO() {}
 
     // Standard Getters and Setters
@@ -40,4 +43,7 @@ public class TaskUpdateRequestDTO {
 
     public String getTags() { return tags; }
     public void setTags(String tags) { this.tags = tags; }
+
+    public Long getProjectId() { return projectId; }
+    public void setProjectId(Long projectId) { this.projectId = projectId; }
 }

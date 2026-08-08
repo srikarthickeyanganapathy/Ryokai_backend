@@ -39,89 +39,91 @@ public class TaskQueryService {
     }
 
     public Page<TaskResponseDTO> getTasksForUser(User user, Pageable pageable) {
-        return getTasksForUser(user, pageable, null, null, null);
+        return getTasksForUser(user, pageable, null, null, null, null, null);
     }
 
     public Page<TaskResponseDTO> getTasksForUser(User user, Pageable pageable, String scope) {
-        return getTasksForUser(user, pageable, scope, null, null);
+        return getTasksForUser(user, pageable, scope, null, null, null, null);
     }
 
     public Page<TaskResponseDTO> getTasksForUser(User user, Pageable pageable, String scope, Long projectId) {
-        return getTasksForUser(user, pageable, scope, projectId, null);
+        return getTasksForUser(user, pageable, scope, projectId, null, null, null);
     }
 
     public Page<TaskResponseDTO> getTasksForUser(User user, Pageable pageable, String scope, Long projectId, Long crewId) {
+        return getTasksForUser(user, pageable, scope, projectId, crewId, null, null);
+    }
+
+    public Page<TaskResponseDTO> getTasksForUser(User user, Pageable pageable, String scope, Long projectId, Long crewId, Long orgId) {
+        return getTasksForUser(user, pageable, scope, projectId, crewId, orgId, null);
+    }
+
+    /**
+     * STRICT workspace isolation — one dimension per call, exactly like Projects:
+     *   crewId   -> only tasks of that crew + tasks of its shared/owned projects (membership required)
+     *   projectId -> only tasks of that project (access required)
+     *   teamId   -> only tasks of that team + tasks of its projects (membership required)
+     *   orgId    -> ONLY tasks of that organization (membership required) — no
+     *              personal/crew/created-by mixing ever
+     *   none     -> ONLY the user's own personal tasks
+     * A user can never see tasks from a workspace they are not in, and org views
+     * never leak personal or other-org data.
+     */
+    public Page<TaskResponseDTO> getTasksForUser(User user, Pageable pageable, String scope, Long projectId, Long crewId, Long orgId, Long teamId) {
+        // Crew workspace: strict (direct crew tasks + tasks of shared/owned projects)
         if (crewId != null) {
             boolean isMember = crewMemberRepository.existsByIdCrewIdAndIdUserId(crewId, user.getId());
-            if (!isMember) {
+            if (!isMember && !user.isSuperAdmin()) {
                 throw new com.example.taskflow.shared.exception.UnauthorizedActionException("You are not authorized to view tasks for this crew.");
             }
-            Page<Task> page = taskRepository.findByCrewIdWithBridge(crewId, pageable);
-            return batchMapTasks(page);
+            return batchMapTasks(taskRepository.findByCrewIdWithBridge(crewId, pageable));
         }
 
+        // Project workspace: strict (existing access rule)
         if (projectId != null) {
             Project project = projectRepository.findById(projectId)
                     .orElseThrow(() -> new IllegalArgumentException("Project not found with id: " + projectId));
-            
+
             boolean isCreator = project.getCreatedBy() != null && project.getCreatedBy().getId().equals(user.getId());
-            boolean inOrg = project.getOrganization() != null && 
+            boolean inOrg = project.getOrganization() != null &&
                     membershipRepository.existsByUserAndOrganization(user, project.getOrganization());
             boolean inTeam = project.getTeam() != null &&
                     teamMemberRepository.existsByIdTeamIdAndIdUserId(project.getTeam().getId(), user.getId());
-            
-            if (!isCreator && !inOrg && !inTeam) {
+
+            if (!isCreator && !inOrg && !inTeam && !user.isSuperAdmin()) {
                 throw new com.example.taskflow.shared.exception.UnauthorizedActionException("You are not authorized to view tasks for this project.");
             }
-            
-            Page<Task> page = taskRepository.findByProjectId(projectId, pageable);
-            return batchMapTasks(page);
+
+            return batchMapTasks(taskRepository.findByProjectId(projectId, pageable));
         }
 
-        if (user.isSuperAdmin()) {
-            Page<Task> page = taskRepository.findVisibleForEmployee(user, user.getId(), pageable);
-            List<Task> personalOnly = page.stream()
-                    .filter(task -> (task.isPersonal() && task.getCreator() != null
-                            && task.getCreator().getId().equals(user.getId()))
-                            || (task.getCrew() != null))
+        // Team workspace: strict (direct team tasks + tasks of the team's projects)
+        if (teamId != null) {
+            boolean isMember = teamMemberRepository.existsByIdTeamIdAndIdUserId(teamId, user.getId());
+            if (!isMember && !user.isSuperAdmin()) {
+                throw new com.example.taskflow.shared.exception.UnauthorizedActionException("You are not authorized to view tasks for this team.");
+            }
+            return batchMapTasks(taskRepository.findByTeamIdWithProjectBridge(teamId, pageable));
+        }
+
+        // Org workspace: STRICT — only this org's tasks, nothing else
+        if (orgId != null) {
+            boolean isMember = membershipRepository.existsByUserIdAndOrganizationId(user.getId(), orgId);
+            if (!isMember && !user.isSuperAdmin()) {
+                throw new com.example.taskflow.shared.exception.UnauthorizedActionException("You are not authorized to view tasks for this organization.");
+            }
+            return batchMapTasks(taskRepository.findByOrgIdStrict(orgId, pageable));
+        }
+
+        // Personal workspace (default): STRICT — only own personal tasks
+        Page<Task> page = taskRepository.findPersonalTasksStrict(user, pageable);
+        if (scope != null) {
+            List<Task> filtered = page.getContent().stream()
+                    .filter(task -> entityScopeFilter(task, user, scope))
                     .collect(Collectors.toList());
-            return batchMapList(personalOnly, pageable, personalOnly.size());
+            return batchMapList(filtered, pageable, filtered.size());
         }
-
-        var memberships = membershipRepository.findByUserId(user.getId());
-        if (!memberships.isEmpty()) {
-            var membership = memberships.get(0);
-            Long orgId = membership.getOrganization().getId();
-            boolean isDirectorOrAdmin = authorizationEngine.authorize(com.example.taskflow.security.authorization.AuthorizationRequest.builder(user, com.example.taskflow.security.PermissionCode.TASK_OVERRIDE).context(java.util.Map.of("organizationId", orgId)).requiredScope(com.example.taskflow.security.ScopeType.ORGANIZATION).build()).isGranted() ||
-                                        authorizationEngine.authorize(com.example.taskflow.security.authorization.AuthorizationRequest.builder(user, com.example.taskflow.security.PermissionCode.TASK_VIEW).context(java.util.Map.of("organizationId", orgId)).requiredScope(com.example.taskflow.security.ScopeType.ORGANIZATION).build()).isGranted();
-            boolean isManager = authorizationEngine.authorize(com.example.taskflow.security.authorization.AuthorizationRequest.builder(user, com.example.taskflow.security.PermissionCode.TASK_ASSIGN).context(java.util.Map.of("organizationId", orgId)).requiredScope(com.example.taskflow.security.ScopeType.ORGANIZATION).build()).isGranted();
-
-            if (isDirectorOrAdmin) {
-                Page<Task> page = taskRepository.findByOrganizationIdOrCreatedBy(orgId, user, user.getId(), pageable);
-                Page<TaskResponseDTO> result = batchMapTasks(page);
-                if (scope != null) {
-                    List<TaskResponseDTO> filtered = result.getContent().stream()
-                            .filter(dto -> scopeFilter(dto, user, scope))
-                            .collect(Collectors.toList());
-                    return new PageImpl<>(filtered, pageable, filtered.size());
-                }
-                return result;
-            }
-
-            if (isManager) {
-                Page<Task> page = taskRepository.findVisibleForManager(user, user.getId(), pageable);
-                List<Task> filteredTasks = page.stream()
-                        .filter(task -> entityScopeFilter(task, user, scope))
-                        .collect(Collectors.toList());
-                return batchMapList(filteredTasks, pageable, scope != null ? filteredTasks.size() : page.getTotalElements());
-            }
-        }
-
-        Page<Task> page = taskRepository.findVisibleForEmployee(user, user.getId(), pageable);
-        List<Task> filteredTasks = page.stream()
-                .filter(task -> entityScopeFilter(task, user, scope))
-                .collect(Collectors.toList());
-        return batchMapList(filteredTasks, pageable, scope != null ? filteredTasks.size() : page.getTotalElements());
+        return batchMapTasks(page);
     }
 
     public TaskResponseDTO getTaskForUser(Long taskId, User user) {
@@ -149,21 +151,6 @@ public class TaskQueryService {
         return new PageImpl<>(dtos, pageable, total);
     }
 
-    private boolean scopeFilter(TaskResponseDTO dto, User user, String scope) {
-        if ("me".equalsIgnoreCase(scope)) {
-            return dto.getAssignee() != null && dto.getAssignee().equals(user.getUsername());
-        } else if ("created_by_me".equalsIgnoreCase(scope)) {
-            return dto.getCreator() != null && dto.getCreator().equals(user.getUsername());
-        } else if ("PERSONAL".equalsIgnoreCase(scope)) {
-            return dto.getOrgId() == null && dto.getCrewId() == null && dto.getTeamId() == null;
-        } else if ("ORG".equalsIgnoreCase(scope) || "ORGANIZATION".equalsIgnoreCase(scope)) {
-            return dto.getOrgId() != null;
-        } else if ("CREWS".equalsIgnoreCase(scope) || "CREW".equalsIgnoreCase(scope)) {
-            return dto.getCrewId() != null || (dto.getProjectId() != null && dto.getOrgId() == null);
-        }
-        return true;
-    }
-    
     private boolean entityScopeFilter(Task task, User user, String scope) {
         if ("me".equalsIgnoreCase(scope)) {
             return task.getAssignee() != null && task.getAssignee().getId().equals(user.getId());

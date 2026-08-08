@@ -10,6 +10,8 @@ public class CalendarEventDTOs {
         private LocalDateTime startTime;
         private LocalDateTime endTime;
         private Boolean isAllDay;
+        private Long orgId;
+        private Long crewId;
 
         public String getTitle() { return title; }
         public void setTitle(String title) { this.title = title; }
@@ -21,6 +23,10 @@ public class CalendarEventDTOs {
         public void setEndTime(LocalDateTime endTime) { this.endTime = endTime; }
         public Boolean getIsAllDay() { return isAllDay; }
         public void setIsAllDay(Boolean isAllDay) { this.isAllDay = isAllDay; }
+        public Long getOrgId() { return orgId; }
+        public void setOrgId(Long orgId) { this.orgId = orgId; }
+        public Long getCrewId() { return crewId; }
+        public void setCrewId(Long crewId) { this.crewId = crewId; }
     }
 
     public static class CalendarEventResponseDTO {
@@ -30,17 +36,22 @@ public class CalendarEventDTOs {
         private LocalDateTime startTime;
         private LocalDateTime endTime;
         private Boolean isAllDay;
+        private Long orgId;
+        private Long crewId;
 
         public CalendarEventResponseDTO() {}
 
         public CalendarEventResponseDTO(Long id, String title, String description,
-                                         LocalDateTime startTime, LocalDateTime endTime, Boolean isAllDay) {
+                                         LocalDateTime startTime, LocalDateTime endTime,
+                                         Boolean isAllDay, Long orgId, Long crewId) {
             this.id = id;
             this.title = title;
             this.description = description;
             this.startTime = startTime;
             this.endTime = endTime;
             this.isAllDay = isAllDay;
+            this.orgId = orgId;
+            this.crewId = crewId;
         }
 
         public Long getId() { return id; }
@@ -49,5 +60,7 @@ public class CalendarEventDTOs {
         public LocalDateTime getStartTime() { return startTime; }
         public LocalDateTime getEndTime() { return endTime; }
         public Boolean getIsAllDay() { return isAllDay; }
+        public Long getOrgId() { return orgId; }
+        public Long getCrewId() { return crewId; }
     }
 }

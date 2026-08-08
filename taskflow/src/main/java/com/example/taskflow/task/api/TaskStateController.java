@@ -46,7 +46,7 @@ public class TaskStateController {
     }
 
     @PostMapping("/{taskId}/complete")
-    @PreAuthorize("hasPermission(#taskId, 'Task', 'TASK_SUBMIT')")
+    @PreAuthorize("hasPermission(#taskId, 'Task', 'TASK_COMPLETE')")
     public ResponseEntity<TaskResponseDTO> completePersonalTask(@PathVariable @Min(1) Long taskId,
             @AuthenticationPrincipal UserDetails userDetails) {
         return ResponseEntity.ok(taskStateTransitionService.completePersonalTask(taskId, getCurrentUser(userDetails)));

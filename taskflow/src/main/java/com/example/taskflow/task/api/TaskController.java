@@ -55,10 +55,12 @@ public class TaskController {
             @RequestParam(required = false) String scope,
             @RequestParam(required = false) Long projectId,
             @RequestParam(required = false) Long crewId,
+            @RequestParam(required = false) Long orgId,
+            @RequestParam(required = false) Long teamId,
             @AuthenticationPrincipal UserDetails userDetails) {
         Pageable safePage = PageRequest.of(pageable.getPageNumber(), Math.min(pageable.getPageSize(), 100),
                 pageable.getSort());
-        return ResponseEntity.ok(taskQueryService.getTasksForUser(getCurrentUser(userDetails), safePage, scope, projectId, crewId));
+        return ResponseEntity.ok(taskQueryService.getTasksForUser(getCurrentUser(userDetails), safePage, scope, projectId, crewId, orgId, teamId));
     }
 
     @GetMapping("/{taskId}")

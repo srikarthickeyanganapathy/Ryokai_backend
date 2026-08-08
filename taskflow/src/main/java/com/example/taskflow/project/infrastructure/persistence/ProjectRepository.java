@@ -2,6 +2,7 @@ package com.example.taskflow.project.infrastructure.persistence;
 
 import java.util.List;
 
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -9,6 +10,10 @@ import org.springframework.data.repository.query.Param;
 import com.example.taskflow.project.domain.Project;
 
 public interface ProjectRepository extends JpaRepository<Project, Long> {
+
+    @EntityGraph(attributePaths = {"organization","crew","createdBy","ownerUser"})
+    @Override
+    java.util.Optional<Project> findById(Long id);
 
     List<Project> findByOrganizationId(Long organizationId);
 

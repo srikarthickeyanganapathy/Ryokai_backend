@@ -72,6 +72,12 @@ public class TaskLifecycleService {
             task.setDueDate(request.getDueDate());
         }
         if (request.getTags() != null) task.setTags(request.getTags());
+
+        // Project scoping on edit: attach the task to a project (validates access,
+        // re-derives org/team from the project when the task has none).
+        if (request.getProjectId() != null) {
+            taskHierarchyValidator.validateProjectForTask(request.getProjectId(), task, task.isPersonal(), task.getAssignee());
+        }
         
         Task updated = taskRepository.save(task);
         taskAuditService.recordStatus(updated, updated.getCurrentStatus().name(), updated.getCurrentStatus().name(), "UPDATED", user, "Task details updated", java.util.Map.of("priority", request.getPriority() != null ? request.getPriority().name() : "none"));
